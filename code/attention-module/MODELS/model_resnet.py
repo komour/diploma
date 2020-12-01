@@ -126,11 +126,11 @@ class ResNet(nn.Module):
 
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
-        init.kaiming_normal(self.fc.weight)
+        init.kaiming_normal_(self.fc.weight)
         for key in self.state_dict():
             if key.split('.')[-1] == "weight":
                 if "conv" in key:
-                    init.kaiming_normal(self.state_dict()[key], mode='fan_out')
+                    init.kaiming_normal_(self.state_dict()[key], mode='fan_out')
                 if "bn" in key:
                     if "SpatialGate" in key:
                         self.state_dict()[key][...] = 0
