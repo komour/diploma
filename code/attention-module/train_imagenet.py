@@ -16,6 +16,9 @@ import torchvision.models as models
 from MODELS.model_resnet import *
 from PIL import ImageFile
 
+from custom_dataset import DatasetISIC2018
+
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -85,10 +88,9 @@ def main():
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
     # model = torch.nn.DataParallel(model).cuda()
 
-    model = model.cuda()
+    # model = model.cuda()
     print("model")
     print(model)
-
     # get the number of model parameters
     print('Number of model parameters: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])))
@@ -110,13 +112,13 @@ def main():
     cudnn.benchmark = True
     # Data loading code
     traindir = os.path.join(args.data, 'train')
+    testdir = os.path.join(args.data, 'test')
     valdir = os.path.join(args.data, 'val')
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
     # import pdb
     # pdb.set_trace()
-    # print(os.listdir('data/ISIC2018_10/val'))
     val_loader = torch.utils.data.DataLoader(
         # another dataset
         datasets.ImageFolder(valdir, transforms.Compose([
