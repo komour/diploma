@@ -18,7 +18,6 @@ from PIL import ImageFile
 
 from custom_dataset import DatasetISIC2018
 
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -63,6 +62,7 @@ if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
 label_file = 'images-onehot.txt'
 
+
 def main():
     global args, best_prec1
     global viz, train_lot, test_lot
@@ -70,7 +70,7 @@ def main():
     print("args", args)
 
     torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+    # torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
 
     # create model
@@ -80,7 +80,8 @@ def main():
     # define loss function (criterion) and optimizer
     # cr = nn.BCELoss().cuda()
     # cr = nn.BCEWithLogitsLoss.cuda()
-    criterion = nn.CrossEntropyLoss().cuda()
+    # criterion = nn.CrossEntropyLoss().cuda()
+    criterion = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -112,21 +113,30 @@ def main():
     cudnn.benchmark = True
     # Data loading code
     traindir = os.path.join(args.data, 'train')
-    testdir = os.path.join(args.data, 'test')
+    train_labels = os.path.join(args.data, 'train', 'images_onehot_train.txt')
     valdir = os.path.join(args.data, 'val')
+    val_labels = os.path.join(args.data, 'val', 'images_onehot_val.txt')
+    testdir = os.path.join(args.data, 'test')
+    test_labels = os.path.join(args.data, 'test', 'images_onehot_test.txt')
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
-
     # import pdb
     # pdb.set_trace()
+    val_dataset = DatasetISIC2018(val_labels, valdir, transforms.Compose([
+        # transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        normalize,
+    ]))
     val_loader = torch.utils.data.DataLoader(
         # another dataset
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
+        # datasets.ImageFolder(valdir, transforms.Compose([
+        #     transforms.Resize(256),
+        #     transforms.CenterCrop(224),
+        #     transforms.ToTensor(),
+        #     normalize,
+        # ])),
+        val_dataset,
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     if args.evaluate:
@@ -134,21 +144,35 @@ def main():
         return
 
     size0 = 224
-    train_dataset = datasets.ImageFolder(
+    # train_dataset = datasets.ImageFolder(
+    #     traindir,
+    #     transforms.Compose([
+    #         transforms.RandomResizedCrop(size0),
+    #         transforms.RandomHorizontalFlip(),
+    #         # transforms.RandomVerticalFlip,
+    #         transforms.ToTensor(),
+    #         normalize,
+    #     ]))
+    train_dataset = DatasetISIC2018(
+        train_labels,
         traindir,
         transforms.Compose([
             transforms.RandomResizedCrop(size0),
             transforms.RandomHorizontalFlip(),
-            # transforms.RandomVerticalFlip,
+            transforms.RandomVerticalFlip,
             transforms.ToTensor(),
             normalize,
         ]))
-
+    test_dataset = DatasetISIC2018(
+        test_labels,
+        testdir
+    )
     train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+
     return
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch)
@@ -169,6 +193,7 @@ def main():
             'best_prec1': best_prec1,
             'optimizer': optimizer.state_dict(),
         }, is_best, args.prefix)
+        break
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -182,12 +207,12 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
 
     end = time.time()
-    for i, (input, target) in enumerate(train_loader):
+    for i, (input, target) in enumerate(train_loader): #HERE
         # measure data loading time
         data_time.update(time.time() - end)
 
         # target = target.cuda(async=True)
-        target = target.cuda()
+        # target = target.cuda()
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
 
@@ -232,7 +257,7 @@ def validate(val_loader, model, criterion, epoch):
 
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
-        target = target.cuda()
+        # target = target.cuda()
         # target = target.cuda(async=True)
         input_var = torch.autograd.Variable(input, volatile=True)
         target_var = torch.autograd.Variable(target, volatile=True)
