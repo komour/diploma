@@ -89,7 +89,7 @@ def main():
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
     # model = torch.nn.DataParallel(model).cuda()
 
-    # model = model.cuda()
+    model = model.cuda()
     print("model")
     print(model)
     # get the number of model parameters
@@ -173,7 +173,6 @@ def main():
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
-    return
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch)
 
@@ -208,6 +207,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (input, target) in enumerate(train_loader): #HERE
+        return
         # measure data loading time
         data_time.update(time.time() - end)
 
