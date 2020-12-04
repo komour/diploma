@@ -89,7 +89,7 @@ def main():
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
     # model = torch.nn.DataParallel(model).cuda()
 
-    model = model.cuda()
+    # model = model.cuda()
     print("model")
     print(model)
     # get the number of model parameters
