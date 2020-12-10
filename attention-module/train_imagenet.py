@@ -75,13 +75,15 @@ def main():
 
     # create model
     if args.arch == "resnet":
-        model = ResidualNet('ImageNet', args.depth, 1000, args.att_type)
+        model = ResidualNet('ImageNet', args.depth, 5, args.att_type)
+        # model = ResidualNet('ImageNet', args.depth, 1000, args.att_type)
 
     # define loss function (criterion) and optimizer
     # cr = nn.BCELoss().cuda()
     # cr = nn.BCEWithLogitsLoss.cuda()
     # criterion = nn.CrossEntropyLoss().cuda()
-    criterion = nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCELoss()
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -89,7 +91,7 @@ def main():
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
     # model = torch.nn.DataParallel(model).cuda()
 
-    model = model.cuda()
+    # model = model.cuda()
     print("model")
     print(model)
     # get the number of model parameters
@@ -122,12 +124,15 @@ def main():
                                      std=[0.229, 0.224, 0.225])
     # import pdb
     # pdb.set_trace()
-    val_dataset = DatasetISIC2018(val_labels, valdir, transforms.Compose([
-        # transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ]))
+    val_dataset = DatasetISIC2018(
+        val_labels,
+        valdir,
+        transforms.Compose([
+            # transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ]))
     val_loader = torch.utils.data.DataLoader(
         # another dataset
         # datasets.ImageFolder(valdir, transforms.Compose([
@@ -159,7 +164,7 @@ def main():
         transforms.Compose([
             transforms.RandomResizedCrop(size0),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip,
+            transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
             normalize,
         ]))
@@ -206,20 +211,24 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
 
     end = time.time()
-    for i, (input, target) in enumerate(train_loader): #HERE
-        return
+    for i, dictionary in enumerate(train_loader):  # HERE
+        input = dictionary["image"]
+        target = dictionary["label"]
+        # return
         # measure data loading time
         data_time.update(time.time() - end)
-
         # target = target.cuda(async=True)
         # target = target.cuda()
         input_var = torch.autograd.Variable(input)
+        # input_var = input
         target_var = torch.autograd.Variable(target)
+        # target_var = target
 
         # compute output
         output = model(input_var)
         loss = criterion(output, target_var)
-
+        # loss2 = crit2...
+        # loss_comb = loss1 + loss2
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
         losses.update(loss.data[0], input.size(0))
@@ -256,7 +265,10 @@ def validate(val_loader, model, criterion, epoch):
     model.eval()
 
     end = time.time()
-    for i, (input, target) in enumerate(val_loader):
+    for i, dictionary in enumerate(val_loader):
+        input = dictionary["image"]
+        target = dictionary["label"]
+        # print(input)
         # target = target.cuda()
         # target = target.cuda(async=True)
         input_var = torch.autograd.Variable(input, volatile=True)

@@ -1,7 +1,22 @@
 import os
 from torch.utils.data.dataset import Dataset
 import torch
-from skimage import io
+from PIL import Image
+import numpy as np
+from torchvision import transforms
+
+
+def label_to_tensor(label):
+    label_list = []
+    for c in label[:-1]:
+        label_list.append(int(c))
+    return torch.Tensor(label_list)
+
+
+segm_dir = "images/256ISIC2018_Task1_Training_GroundTruth/"
+segm_suffix = "_segmentation"
+jpg = '.jpg'
+png = '.png'
 
 
 class DatasetISIC2018(Dataset):
@@ -22,23 +37,23 @@ class DatasetISIC2018(Dataset):
         f = open(label_file, 'r')
         lines = f.readlines()
         f.close()
-        jpg = '.jpg'
         for line in lines:
             name, label = line.split(' ')
-            name = name + jpg
+            name = name
             self.image_names.append(name)
             self.image_to_onehot[name] = label
 
     def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-        img_name = os.path.join(self.root_dir,
-                                self.image_names[idx])
-        image = io.imread(img_name)
-        label = self.image_to_onehot[self.image_names[idx]]
+        img_path = os.path.join(self.root_dir,
+                                self.image_names[idx] + jpg)
+        segm_path = segm_dir + self.image_names[idx] + segm_suffix + png
+        img = Image.open(img_path)
+        segm = Image.open(segm_path)
         if self.transform:
-            image = self.transform(image)
-        return {'image': image, 'label': label}
+            img = self.transform(img)
+            segm = self.transform(segm)
+        label = label_to_tensor(self.image_to_onehot[self.image_names[idx]])
+        return {'image': img, 'label': label, 'segm': segm}
 
     def __len__(self):
         return len(self.image_to_onehot)
