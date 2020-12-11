@@ -85,11 +85,10 @@ def main():
     # criterion = nn.CrossEntropyLoss()
 
     # criterion = nn.BCELoss()
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss()  # it restricts loss values between 0 and 1 before applying the loss
 
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
     # model = torch.nn.DataParallel(model).cuda()
 
@@ -154,6 +153,7 @@ def main():
             transforms.ToTensor(),
             normalize,
         ]))
+
     test_dataset = DatasetISIC2018(
         test_labels,
         testdir,
@@ -213,6 +213,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # measure data loading time
         data_time.update(time.time() - end)
         # target = target.cuda(async=True)
+
         input_var = torch.autograd.Variable(input)
         # input_var = input
         target_var = torch.autograd.Variable(target)
@@ -348,9 +349,10 @@ def accuracy(output, target, topk=(1,)):
     # print("target view =", target.view(1, -1))
     # print("target.view(1, -1) = ", target.view(1, -1).expand_as(pred))
     pred = pred.float()
+    print('output =', output, ', target =', target)
     correct = pred.eq(target.view(1, -1).expand_as(pred))  # not changing target at all
     res = []
-    for k in topk:
+    for k in topk:  # k = (1, 5)
         correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
