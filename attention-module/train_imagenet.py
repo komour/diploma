@@ -83,7 +83,9 @@ def main():
     # cr = nn.BCEWithLogitsLoss.cuda()
     # criterion = nn.CrossEntropyLoss().cuda()
     # criterion = nn.CrossEntropyLoss()
-    criterion = nn.BCELoss()
+
+    # criterion = nn.BCELoss()
+    criterion = nn.BCEWithLogitsLoss()
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -134,13 +136,6 @@ def main():
             normalize,
         ]))
     val_loader = torch.utils.data.DataLoader(
-        # another dataset
-        # datasets.ImageFolder(valdir, transforms.Compose([
-        #     transforms.Resize(256),
-        #     transforms.CenterCrop(224),
-        #     transforms.ToTensor(),
-        #     normalize,
-        # ])),
         val_dataset,
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
@@ -149,15 +144,6 @@ def main():
         return
 
     size0 = 224
-    # train_dataset = datasets.ImageFolder(
-    #     traindir,
-    #     transforms.Compose([
-    #         transforms.RandomResizedCrop(size0),
-    #         transforms.RandomHorizontalFlip(),
-    #         # transforms.RandomVerticalFlip,
-    #         transforms.ToTensor(),
-    #         normalize,
-    #     ]))
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
@@ -170,7 +156,14 @@ def main():
         ]))
     test_dataset = DatasetISIC2018(
         test_labels,
-        testdir
+        testdir,
+        transforms.Compose([
+            # transforms.RandomResizedCrop(size0),
+            # transforms.RandomHorizontalFlip(),
+            # transforms.RandomVerticalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
     )
     train_sampler = None
 
@@ -211,14 +204,15 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
 
     end = time.time()
-    for i, dictionary in enumerate(train_loader):  # HERE
-        input = dictionary["image"]
-        target = dictionary["label"]
-        # return
+    for i, dictionary in enumerate(train_loader):
+        input = dictionary['image']
+        target = dictionary['label']
+        segm = dictionary['segm']
+        # print("target = ", target)
+
         # measure data loading time
         data_time.update(time.time() - end)
         # target = target.cuda(async=True)
-        # target = target.cuda()
         input_var = torch.autograd.Variable(input)
         # input_var = input
         target_var = torch.autograd.Variable(target)
@@ -226,12 +220,19 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # compute output
         output = model(input_var)
+        # print("output = ", output)
+        # output.data[0] = torch.Tensor([0.5, 0.5, 0.5, 0.5, 0.5])
         loss = criterion(output, target_var)
+
         # loss2 = crit2...
         # loss_comb = loss1 + loss2
+
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], input.size(0))
+
+        # losses.update(loss.data[0], input.size(0))
+        losses.update(loss.item(), input.size(0))
+
         top1.update(prec1[0], input.size(0))
         top5.update(prec5[0], input.size(0))
 
@@ -266,9 +267,9 @@ def validate(val_loader, model, criterion, epoch):
 
     end = time.time()
     for i, dictionary in enumerate(val_loader):
-        input = dictionary["image"]
-        target = dictionary["label"]
-        # print(input)
+        input = dictionary['image']
+        target = dictionary['label']
+        segm = dictionary['segm']
         # target = target.cuda()
         # target = target.cuda(async=True)
         input_var = torch.autograd.Variable(input, volatile=True)
@@ -340,11 +341,14 @@ def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
     batch_size = target.size(0)
-
     _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
+    # pred = pred.t()
+    # print("pred =", pred)
+    # print("target =", target)
+    # print("target view =", target.view(1, -1))
+    # print("target.view(1, -1) = ", target.view(1, -1).expand_as(pred))
+    pred = pred.float()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))  # not changing target at all
     res = []
     for k in topk:
         correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
