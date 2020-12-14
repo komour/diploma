@@ -62,6 +62,21 @@ if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
 label_file = 'images-onehot.txt'
 
+c1_expected = []
+c1_predicted = []
+
+c2_expected = []
+c2_predicted = []
+
+c3_expected = []
+c3_predicted = []
+
+c4_expected = []
+c4_predicted = []
+
+c5_expected = []
+c5_predicted = []
+
 
 def main():
     global args, best_prec1
@@ -175,12 +190,15 @@ def main():
         adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
+        clear_expected_predicted()
         train(train_loader, model, criterion, optimizer, epoch)
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch)
+        clear_expected_predicted()
+        validate(val_loader, model, criterion, epoch)
 
         # remember best prec@1 and save checkpoint
+        # to hell prec1, add own metrics TODO
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
         save_checkpoint({
@@ -225,11 +243,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # output.data[0] = torch.Tensor([0.5, 0.5, 0.5, 0.5, 0.5])
         loss = criterion(output, target_var)
 
-        # loss2 = crit2...
+        # loss2 = crit2... TODO
         # loss_comb = loss1 + loss2
 
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+        measure_accuracy(output.data, target)
 
         # losses.update(loss.data[0], input.size(0))
         losses.update(loss.item(), input.size(0))
@@ -281,8 +299,9 @@ def validate(val_loader, model, criterion, epoch):
         loss = criterion(output, target_var)
 
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], input.size(0))
+        measure_accuracy(output.data, target)
+        # losses.update(loss.data[0], input.size(0))
+        losses.update(loss.item(), input.size(0))
         top1.update(prec1[0], input.size(0))
         top5.update(prec5[0], input.size(0))
 
@@ -338,23 +357,44 @@ def adjust_learning_rate(optimizer, epoch):
         param_group['lr'] = lr
 
 
-def accuracy(output, target, topk=(1,)):
+def write_expected_predicted(output, target):
+    c1_expected.append(target[0])
+    c2_expected.append(target[1])
+    c3_expected.append(target[2])
+    c4_expected.append(target[3])
+    c5_expected.append(target[4])
+
+    c1_predicted.append(output[0])
+    c2_predicted.append(output[1])
+    c3_predicted.append(output[2])
+    c4_predicted.append(output[3])
+    c5_predicted.append(output[4])
+
+
+def clear_expected_predicted():
+    c1_expected.clear()
+    c2_expected.clear()
+    c3_expected.clear()
+    c4_expected.clear()
+    c5_expected.clear()
+
+    c1_predicted.clear()
+    c2_predicted.clear()
+    c3_predicted.clear()
+    c4_predicted.clear()
+    c5_predicted.clear()
+
+
+def measure_accuracy(output, target):
     """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-    _, pred = output.topk(maxk, 1, True, True)
-    # pred = pred.t()
-    # print("pred =", pred)
-    # print("target =", target)
-    # print("target view =", target.view(1, -1))
-    # print("target.view(1, -1) = ", target.view(1, -1).expand_as(pred))
-    pred = pred.float()
-    print('output =', output, ', target =', target)
-    correct = pred.eq(target.view(1, -1).expand_as(pred))  # not changing target at all
-    res = []
-    for k in topk:  # k = (1, 5)
-        correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-        res.append(correct_k.mul_(100.0 / batch_size))
+    th = 0.5
+    sigmoid = nn.Sigmoid()
+    activated_output = sigmoid(output)
+    activated_output = activated_output > th
+    write_expected_predicted(activated_output, target)
+    # calculate metrics here TODO
+    print('output =', activated_output, ', target =', target)
+    # return some metrics here? TODO
     return res
 
 

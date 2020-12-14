@@ -21,6 +21,7 @@
   <component name="ChangeListManager">
     <list default="true" id="b627e8d0-178d-4d48-90e0-e912859e853b" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODELS/model_resnet.py" beforeDir="false" afterPath="$PROJECT_DIR$/MODELS/model_resnet.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/train_imagenet.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_imagenet.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -127,7 +128,7 @@
       <workItem from="1607282622806" duration="1751000" />
       <workItem from="1607506959698" duration="14000" />
       <workItem from="1607633127917" duration="5878000" />
-      <workItem from="1607690813513" duration="8630000" />
+      <workItem from="1607690813513" duration="19380000" />
     </task>
     <servers />
   </component>
@@ -155,54 +156,59 @@
     </ignored-roots>
   </component>
   <component name="WindowStateProjectService">
-    <state x="209" y="74" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1607701363677">
-      <screen x="0" y="0" width="1440" height="900" />
+    <state x="209" y="89" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1607955489375">
+      <screen x="0" y="23" width="1440" height="797" />
     </state>
-    <state x="209" y="74" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1440.900@0.0.1440.900" timestamp="1607701363677" />
+    <state x="209" y="74" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1440.900@0.0.1440.900" timestamp="1607718571417" />
     <state x="223" y="67" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1536.824@0.0.1536.824" timestamp="1606241325256" />
+    <state x="209" y="89" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.23.1440.797@0.23.1440.797" timestamp="1607955489375" />
     <state x="279" y="85" key="#com.intellij.execution.impl.EditConfigurationsDialog/1920.0.1536.832/0.0.1920.1040@0.0.1920.1040" timestamp="1606318548993" />
     <state x="454" y="259" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1606901855784">
       <screen x="0" y="0" width="1440" height="900" />
     </state>
     <state x="454" y="259" key="#com.intellij.fileTypes.FileTypeChooser/0.0.1440.900@0.0.1440.900" timestamp="1606901855784" />
+    <state x="369" y="93" width="732" height="657" key="#com.intellij.openapi.keymap.impl.ui.EditKeymapsDialog" timestamp="1607942376653">
+      <screen x="0" y="23" width="1440" height="797" />
+    </state>
+    <state x="369" y="93" width="732" height="657" key="#com.intellij.openapi.keymap.impl.ui.EditKeymapsDialog/0.23.1440.797@0.23.1440.797" timestamp="1607942376653" />
     <state x="484" y="226" key="FileChooserDialogImpl" timestamp="1606237884500">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
     <state x="484" y="226" key="FileChooserDialogImpl/0.0.1536.824@0.0.1536.824" timestamp="1606237884500" />
-    <state width="1398" height="143" key="GridCell.Tab.0.bottom" timestamp="1607703328794">
-      <screen x="0" y="0" width="1440" height="900" />
+    <state width="1398" height="152" key="GridCell.Tab.0.bottom" timestamp="1607984112883">
+      <screen x="0" y="23" width="1440" height="797" />
     </state>
-    <state width="1398" height="143" key="GridCell.Tab.0.bottom/0.0.1440.900@0.0.1440.900" timestamp="1607703328794" />
+    <state width="1398" height="282" key="GridCell.Tab.0.bottom/0.0.1440.900@0.0.1440.900" timestamp="1607718449397" />
     <state width="1493" height="202" key="GridCell.Tab.0.bottom/0.0.1536.824@0.0.1536.824" timestamp="1606241343180" />
-    <state width="1398" height="119" key="GridCell.Tab.0.bottom/0.23.1440.797@0.23.1440.797" timestamp="1607690341742" />
+    <state width="1398" height="152" key="GridCell.Tab.0.bottom/0.23.1440.797@0.23.1440.797" timestamp="1607984112883" />
     <state width="1476" height="207" key="GridCell.Tab.0.bottom/1920.0.1536.832/0.0.1920.1040@0.0.1920.1040" timestamp="1606319582130" />
-    <state width="1398" height="143" key="GridCell.Tab.0.center" timestamp="1607703328793">
-      <screen x="0" y="0" width="1440" height="900" />
+    <state width="1398" height="152" key="GridCell.Tab.0.center" timestamp="1607984112882">
+      <screen x="0" y="23" width="1440" height="797" />
     </state>
-    <state width="1398" height="143" key="GridCell.Tab.0.center/0.0.1440.900@0.0.1440.900" timestamp="1607703328793" />
+    <state width="1398" height="282" key="GridCell.Tab.0.center/0.0.1440.900@0.0.1440.900" timestamp="1607718449396" />
     <state width="1493" height="202" key="GridCell.Tab.0.center/0.0.1536.824@0.0.1536.824" timestamp="1606241343180" />
-    <state width="1398" height="119" key="GridCell.Tab.0.center/0.23.1440.797@0.23.1440.797" timestamp="1607690341742" />
+    <state width="1398" height="152" key="GridCell.Tab.0.center/0.23.1440.797@0.23.1440.797" timestamp="1607984112882" />
     <state width="1476" height="207" key="GridCell.Tab.0.center/1920.0.1536.832/0.0.1920.1040@0.0.1920.1040" timestamp="1606319582129" />
-    <state width="1398" height="143" key="GridCell.Tab.0.left" timestamp="1607703328792">
-      <screen x="0" y="0" width="1440" height="900" />
+    <state width="1398" height="152" key="GridCell.Tab.0.left" timestamp="1607984112882">
+      <screen x="0" y="23" width="1440" height="797" />
     </state>
-    <state width="1398" height="143" key="GridCell.Tab.0.left/0.0.1440.900@0.0.1440.900" timestamp="1607703328792" />
+    <state width="1398" height="282" key="GridCell.Tab.0.left/0.0.1440.900@0.0.1440.900" timestamp="1607718449395" />
     <state width="1493" height="202" key="GridCell.Tab.0.left/0.0.1536.824@0.0.1536.824" timestamp="1606241343179" />
-    <state width="1398" height="119" key="GridCell.Tab.0.left/0.23.1440.797@0.23.1440.797" timestamp="1607690341741" />
+    <state width="1398" height="152" key="GridCell.Tab.0.left/0.23.1440.797@0.23.1440.797" timestamp="1607984112882" />
     <state width="1476" height="207" key="GridCell.Tab.0.left/1920.0.1536.832/0.0.1920.1040@0.0.1920.1040" timestamp="1606319582129" />
-    <state width="1398" height="143" key="GridCell.Tab.0.right" timestamp="1607703328793">
-      <screen x="0" y="0" width="1440" height="900" />
+    <state width="1398" height="152" key="GridCell.Tab.0.right" timestamp="1607984112883">
+      <screen x="0" y="23" width="1440" height="797" />
     </state>
-    <state width="1398" height="143" key="GridCell.Tab.0.right/0.0.1440.900@0.0.1440.900" timestamp="1607703328793" />
+    <state width="1398" height="282" key="GridCell.Tab.0.right/0.0.1440.900@0.0.1440.900" timestamp="1607718449396" />
     <state width="1493" height="202" key="GridCell.Tab.0.right/0.0.1536.824@0.0.1536.824" timestamp="1606241343180" />
-    <state width="1398" height="119" key="GridCell.Tab.0.right/0.23.1440.797@0.23.1440.797" timestamp="1607690341742" />
+    <state width="1398" height="152" key="GridCell.Tab.0.right/0.23.1440.797@0.23.1440.797" timestamp="1607984112883" />
     <state width="1476" height="207" key="GridCell.Tab.0.right/1920.0.1536.832/0.0.1920.1040@0.0.1920.1040" timestamp="1606319582129" />
-    <state x="260" y="62" key="SettingsEditor" timestamp="1606905846704">
-      <screen x="0" y="0" width="1440" height="900" />
+    <state x="260" y="78" key="SettingsEditor" timestamp="1607889435500">
+      <screen x="0" y="23" width="1440" height="797" />
     </state>
     <state x="260" y="62" key="SettingsEditor/0.0.1440.900@0.0.1440.900" timestamp="1606905846704" />
     <state x="277" y="57" key="SettingsEditor/0.0.1536.824@0.0.1536.824" timestamp="1606241079129" />
-    <state x="260" y="78" key="SettingsEditor/0.23.1440.797@0.23.1440.797" timestamp="1606898732395" />
+    <state x="260" y="78" key="SettingsEditor/0.23.1440.797@0.23.1440.797" timestamp="1607889435500" />
     <state x="346" y="72" key="SettingsEditor/1920.0.1536.832/0.0.1920.1040@0.0.1920.1040" timestamp="1606305072330" />
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup" timestamp="1606305083602">
       <screen x="0" y="0" width="1920" height="1040" />
@@ -210,7 +216,9 @@
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/1920.0.1536.832/0.0.1920.1040@0.0.1920.1040" timestamp="1606305083602" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/attention_module$train_imagenet.coverage" NAME="train_imagenet Coverage Results" MODIFIED="1607703328785" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/attention_module$stuff.coverage" NAME="stuff Coverage Results" MODIFIED="1607716063661" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/attention_module$train_imagenet.coverage" NAME="train_imagenet Coverage Results" MODIFIED="1607956654505" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/attention_module$main.coverage" NAME="main Coverage Results" MODIFIED="1607695920613" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/attention_module$kk.coverage" NAME="kk Coverage Results" MODIFIED="1607718449384" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
