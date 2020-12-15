@@ -95,21 +95,23 @@ def main():
     print("args", args)
 
     torch.manual_seed(args.seed)
-    # torch.cuda.manual_seed_all(args.seed)  # cuda_here
+    torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
 
     # create model
     if args.arch == "resnet":
         model = ResidualNet('ImageNet', args.depth, 5, args.att_type)
+        # model = ResidualNet('ImageNet', args.depth, 1000, args.att_type)
 
     # define loss function (criterion) and optimizer
-    # criterion = nn.BCEWithLogitsLoss().cuda()  # cuda_here
-    criterion = nn.BCEWithLogitsLoss()
 
+    criterion = nn.BCEWithLogitsLoss().cuda()
+
+    # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
 
-    # model = model.cuda()  # cuda_here
+    model = model.cuda()
     print("model")
     print(model)
     # get the number of model parameters
@@ -458,8 +460,7 @@ def print_metrics():
         c1_mAP=c1_mAP, c2_mAP=c2_mAP, c3_mAP=c3_mAP, c4_mAP=c4_mAP, c5_mAP=c5_mAP, avg_mAP=avg_mAP,
         c1_precision=c1_precision, c2_precision=c2_precision, c3_precision=c3_precision, c4_precision=c4_precision,
         c5_precision=c5_precision, avg_precision=avg_precision,
-        c1_recall=c1_recall, c2_recall=c2_recall, c3_recall=c3_recall, c4_recall=c4_recall, c5_recall=c5_recall,
-        avg_recall=avg_recall,
+        c1_recall=c1_recall, c2_recall=c2_recall, c3_recall=c3_recall, c4_recall=c4_recall, c5_recall=c5_recall, avg_recall=avg_recall,
         c1_f1=c1_f1, c2_f1=c2_f1, c3_f1=c3_f1, c4_f1=c4_f1, c5_f1=c5_f1, avg_f1=avg_f1)
     )
 
