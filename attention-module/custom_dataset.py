@@ -47,8 +47,8 @@ class DatasetISIC2018(Dataset):
         img_path = os.path.join(self.root_dir,
                                 self.image_names[idx] + jpg)
         segm_path = segm_dir + self.image_names[idx] + segm_suffix + png
-        img = Image.open(img_path)
-        segm = Image.open(segm_path)
+        img = Image.open(img_path).convert('RGB')
+        segm = Image.open(segm_path).convert('RGB')
         if self.transform:
             img = self.transform(img)
             segm = self.transform(segm)
