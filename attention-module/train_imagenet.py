@@ -107,7 +107,7 @@ def main():
     criterion = nn.BCEWithLogitsLoss()
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
-    model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
+    # model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
 
     # model = model.cuda()  # cuda_here
     print("model")
