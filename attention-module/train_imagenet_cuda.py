@@ -91,6 +91,8 @@ avg_mAP_best = 0
 def main():
     global args, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
     global viz, train_lot, test_lot
+    global c1_expected, c1_predicted, c2_expected, c2_predicted, c3_expected, c3_predicted, c4_expected, c4_predicted
+    global c5_expected, c5_predicted, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
     args = parser.parse_args()
     print("args", args)
 
@@ -112,8 +114,8 @@ def main():
     model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
 
     model = model.cuda()
-    print("model")
-    print(model)
+    # print("model")
+    # print(model)
     # get the number of model parameters
     print('Number of model parameters: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])))
@@ -411,6 +413,8 @@ def clear_expected_predicted():
 
 
 def count_mAP():
+    print(c1_expected)
+    print(c1_predicted)
     c1_mAP = average_precision_score(c1_expected, c1_predicted, average='macro')
     c2_mAP = average_precision_score(c2_expected, c2_predicted, average='macro')
     c3_mAP = average_precision_score(c3_expected, c3_predicted, average='macro')
@@ -451,10 +455,10 @@ def count_f1():
 
 
 def print_metrics():
-    # c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-    c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
-    c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
-    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
+    # c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
+    # c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
+    # c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
     # print('mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
     #       'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
     #       'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
