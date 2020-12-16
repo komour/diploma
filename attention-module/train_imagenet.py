@@ -253,17 +253,17 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, dictionary in enumerate(train_loader):
-        input_img = dictionary['image']
+        inout_img = dictionary['image']
         target = dictionary['label']
-        target = target.cuda()
+        # target = target.cuda()  # cuda_here
         # segm = dictionary['segm'] TODO
         # print("target = ", target)
 
         # measure data loading time
         data_time.update(time.time() - end)
 
-        input_var = torch.autograd.Variable(input_img)
-        input_var = input_var.cuda()
+        input_var = torch.autograd.Variable(inout_img).cuda()
+        # input_var = input
         target_var = torch.autograd.Variable(target)
         # target_var = target
 
@@ -280,7 +280,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         measure_accuracy(output.data, target)
 
         # losses.update(loss.data[0], input.size(0))
-        losses.update(loss.item(), input_img.size(0))
+        losses.update(loss.item(), inout_img.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -312,10 +312,10 @@ def validate(val_loader, model, criterion):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        target = target.cuda()
+        target = target.cuda()  # cuda_here
         # segm = dictionary['segm'] TODO
 
-        input_var = torch.autograd.Variable(input_img, volatile=True)
+        input_var = torch.autograd.Variable(input_img, volatile=True).cuda()
         target_var = torch.autograd.Variable(target, volatile=True)
 
         # compute output
