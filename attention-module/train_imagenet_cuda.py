@@ -413,26 +413,25 @@ def clear_expected_predicted():
 
 
 def count_mAP():
-    y = np.asarray(c1_predicted).astype(float)
-    x = np.asarray(c1_expected).astype(float)
-    print(y.dtype)  # OBJECT ??!!! float32 expected!!
-    print(x.dtype)  # OBJECT ??!!! float32 expected!!
-    if y.ndim > 2:
-        print("UNKNOWN #0")
-    if (y.dtype == object and len(y) and
-            not isinstance(y.flat[0], str)):
-        print("UNKNOWN #1")  # [[[1, 2]]] or [obj_1] and not ["label_1"]
+    c1_pred = np.asarray(c1_predicted).astype(float)
+    c2_pred = np.asarray(c2_predicted).astype(float)
+    c3_pred = np.asarray(c3_predicted).astype(float)
+    c4_pred = np.asarray(c4_predicted).astype(float)
+    c5_pred = np.asarray(c5_predicted).astype(float)
 
-    if y.ndim == 2 and y.shape[1] == 0:
-        print("UNKNOWN #2")  # [[]]
-    # c1_mAP = average_precision_score(c1_expected, c1_predicted, average='macro')
-    # c2_mAP = average_precision_score(c2_expected, c2_predicted, average='macro')
-    # c3_mAP = average_precision_score(c3_expected, c3_predicted, average='macro')
-    # c4_mAP = average_precision_score(c4_expected, c4_predicted, average='macro')
-    # c5_mAP = average_precision_score(c5_expected, c5_predicted, average='macro')
-    # avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
-    # return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
-    return 0, 0, 0, 0, 0, 0
+    c1_exp = np.asarray(c1_expected).astype(float)
+    c2_exp = np.asarray(c2_expected).astype(float)
+    c3_exp = np.asarray(c3_expected).astype(float)
+    c4_exp = np.asarray(c4_expected).astype(float)
+    c5_exp = np.asarray(c5_expected).astype(float)
+
+    c1_mAP = average_precision_score(c1_exp, c1_pred, average='macro')
+    c2_mAP = average_precision_score(c2_exp, c2_pred, average='macro')
+    c3_mAP = average_precision_score(c3_exp, c3_pred, average='macro')
+    c4_mAP = average_precision_score(c4_exp, c4_pred, average='macro')
+    c5_mAP = average_precision_score(c5_exp, c5_pred, average='macro')
+    avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
+    return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
 
 
 def count_precision():
