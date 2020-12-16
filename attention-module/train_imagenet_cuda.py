@@ -451,7 +451,7 @@ def count_f1():
 
 
 def print_metrics():
-    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
+    # c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
