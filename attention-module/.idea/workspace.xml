@@ -19,10 +19,7 @@
     <select />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b627e8d0-178d-4d48-90e0-e912859e853b" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/train_imagenet.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_imagenet.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/train_imagenet_cuda.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_imagenet_cuda.py" afterDir="false" />
-    </list>
+    <list default="true" id="b627e8d0-178d-4d48-90e0-e912859e853b" name="Default Changelist" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -155,7 +152,7 @@
       <workItem from="1608035747623" duration="131000" />
       <workItem from="1608036224601" duration="7511000" />
       <workItem from="1608057941343" duration="934000" />
-      <workItem from="1608116850830" duration="3436000" />
+      <workItem from="1608116850830" duration="3808000" />
     </task>
     <servers />
   </component>

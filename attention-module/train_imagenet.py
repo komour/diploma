@@ -469,7 +469,7 @@ def measure_accuracy(output, target):
     th = 0.5
     sigmoid = nn.Sigmoid()
     activated_output = sigmoid(output)
-    activated_output = activated_output > th
+    activated_output = (activated_output > th).float()
     write_expected_predicted(target, activated_output)
     print('output =', activated_output, ', target =', target, ' , f1 =', avg_f1_best)
 
