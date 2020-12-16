@@ -253,7 +253,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, dictionary in enumerate(train_loader):
-        inout_img = dictionary['image']
+        input_img = dictionary['image']
         target = dictionary['label']
         target = target.cuda()
         # segm = dictionary['segm'] TODO
@@ -262,8 +262,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        input_var = torch.autograd.Variable(inout_img)
-        # input_var = input
+        input_var = torch.autograd.Variable(input_img)
+        input_var = input_var.cuda()
         target_var = torch.autograd.Variable(target)
         # target_var = target
 
@@ -280,7 +280,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         measure_accuracy(output.data, target)
 
         # losses.update(loss.data[0], input.size(0))
-        losses.update(loss.item(), inout_img.size(0))
+        losses.update(loss.item(), input_img.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
