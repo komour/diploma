@@ -94,8 +94,8 @@ def main():
     args = parser.parse_args()
     print("args", args)
 
-    # torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)  # cuda_here
+    torch.manual_seed(args.seed)
+    # torch.cuda.manual_seed_all(args.seed)  # cuda_here
     random.seed(args.seed)
 
     # create model
@@ -103,13 +103,13 @@ def main():
         model = ResidualNet('ImageNet', args.depth, 5, args.att_type)
 
     # define loss function (criterion) and optimizer
-    criterion = nn.BCEWithLogitsLoss().cuda()  # cuda_here
-    # criterion = nn.BCEWithLogitsLoss()
+    # criterion = nn.BCEWithLogitsLoss().cuda()  # cuda_here
+    criterion = nn.BCEWithLogitsLoss()
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
-    # model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
+    # model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))  # cuda_here
 
-    model = model.cuda()  # cuda_here
+    # model = model.cuda()  # cuda_here
     # print("model")
     # print(model)
     # get the number of model parameters
@@ -255,14 +255,14 @@ def train(train_loader, model, criterion, optimizer, epoch):
     for i, dictionary in enumerate(train_loader):
         inout_img = dictionary['image']
         target = dictionary['label']
-        # target = target.cuda()  # cuda_here
         # segm = dictionary['segm'] TODO
+        # target = target.cuda()  # cuda_here
         # print("target = ", target)
 
         # measure data loading time
         data_time.update(time.time() - end)
 
-        input_var = torch.autograd.Variable(inout_img).cuda()
+        input_var = torch.autograd.Variable(inout_img)
         # input_var = input
         target_var = torch.autograd.Variable(target)
         # target_var = target
@@ -312,10 +312,10 @@ def validate(val_loader, model, criterion):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        target = target.cuda()  # cuda_here
         # segm = dictionary['segm'] TODO
+        # target = target.cuda()  # cuda_here
 
-        input_var = torch.autograd.Variable(input_img, volatile=True).cuda()
+        input_var = torch.autograd.Variable(input_img, volatile=True)
         target_var = torch.autograd.Variable(target, volatile=True)
 
         # compute output

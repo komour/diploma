@@ -103,7 +103,6 @@ def main():
     # create model
     if args.arch == "resnet":
         model = ResidualNet('ImageNet', args.depth, 5, args.att_type)
-        # model = ResidualNet('ImageNet', args.depth, 1000, args.att_type)
 
     # define loss function (criterion) and optimizer
 
@@ -111,7 +110,7 @@ def main():
 
     # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
-    model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
+    model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))  # cuda_here
 
     model = model.cuda()
     # print("model")
