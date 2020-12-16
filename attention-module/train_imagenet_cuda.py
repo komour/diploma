@@ -413,14 +413,21 @@ def clear_expected_predicted():
 
 
 def count_mAP():
-    c1_mAP = average_precision_score(np.asarray(c1_expected), np.asarray(c1_predicted), average='macro')
+    y = np.asarray(c1_predicted)
+    if y.ndim > 2 or (y.dtype == object and len(y) and
+                      not isinstance(y.flat[0], str)):
+        print("UNKNOWN #1")  # [[[1, 2]]] or [obj_1] and not ["label_1"]
+
+    if y.ndim == 2 and y.shape[1] == 0:
+        print("UNKNOWN #2")  # [[]]
+    # c1_mAP = average_precision_score(c1_expected, c1_predicted, average='macro')
     # c2_mAP = average_precision_score(c2_expected, c2_predicted, average='macro')
     # c3_mAP = average_precision_score(c3_expected, c3_predicted, average='macro')
     # c4_mAP = average_precision_score(c4_expected, c4_predicted, average='macro')
     # c5_mAP = average_precision_score(c5_expected, c5_predicted, average='macro')
     # avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
     # return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
-    return c1_mAP, 0, 0, 0, 0, 0
+    return 0, 0, 0, 0, 0, 0
 
 
 def count_precision():
