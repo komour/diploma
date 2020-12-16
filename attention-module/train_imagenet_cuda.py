@@ -443,34 +443,30 @@ def count_recall():
 
 
 def count_f1():
-    try:
-        c1_f1 = f1_score(c1_expected, c1_predicted, average='macro')
-    except ZeroDivisionError:
-        print("Zero division")
-    # c2_f1 = f1_score(c2_expected, c2_predicted, average='macro')
-    # c3_f1 = f1_score(c3_expected, c3_predicted, average='macro')
-    # c4_f1 = f1_score(c4_expected, c4_predicted, average='macro')
-    # c5_f1 = f1_score(c5_expected, c5_predicted, average='macro')
-    # avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
-    # return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
-    return 0, 0, 0, 0, 0, 0
+    c1_f1 = f1_score(c1_expected, c1_predicted, average='macro')
+    c2_f1 = f1_score(c2_expected, c2_predicted, average='macro')
+    c3_f1 = f1_score(c3_expected, c3_predicted, average='macro')
+    c4_f1 = f1_score(c4_expected, c4_predicted, average='macro')
+    c5_f1 = f1_score(c5_expected, c5_predicted, average='macro')
+    avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
+    return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 
 
 def print_metrics():
-    # c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-    # c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
-    # c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
+    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
+    c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
+    c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-    # print('mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
-    #       'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
-    #       'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
-    #       'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f})\n'.format(
-    #     c1_mAP=c1_mAP, c2_mAP=c2_mAP, c3_mAP=c3_mAP, c4_mAP=c4_mAP, c5_mAP=c5_mAP, avg_mAP=avg_mAP,
-    #     c1_precision=c1_precision, c2_precision=c2_precision, c3_precision=c3_precision, c4_precision=c4_precision,
-    #     c5_precision=c5_precision, avg_precision=avg_precision,
-    #     c1_recall=c1_recall, c2_recall=c2_recall, c3_recall=c3_recall, c4_recall=c4_recall, c5_recall=c5_recall, avg_recall=avg_recall,
-    #     c1_f1=c1_f1, c2_f1=c2_f1, c3_f1=c3_f1, c4_f1=c4_f1, c5_f1=c5_f1, avg_f1=avg_f1)
-    # )
+    print('mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
+          'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
+          'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
+          'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f})\n'.format(
+        c1_mAP=c1_mAP, c2_mAP=c2_mAP, c3_mAP=c3_mAP, c4_mAP=c4_mAP, c5_mAP=c5_mAP, avg_mAP=avg_mAP,
+        c1_precision=c1_precision, c2_precision=c2_precision, c3_precision=c3_precision, c4_precision=c4_precision,
+        c5_precision=c5_precision, avg_precision=avg_precision,
+        c1_recall=c1_recall, c2_recall=c2_recall, c3_recall=c3_recall, c4_recall=c4_recall, c5_recall=c5_recall, avg_recall=avg_recall,
+        c1_f1=c1_f1, c2_f1=c2_f1, c3_f1=c3_f1, c4_f1=c4_f1, c5_f1=c5_f1, avg_f1=avg_f1)
+    )
 
 
 def measure_accuracy(output, target):

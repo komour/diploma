@@ -94,8 +94,8 @@ def main():
     args = parser.parse_args()
     print("args", args)
 
-    torch.manual_seed(args.seed)
-    # torch.cuda.manual_seed_all(args.seed)  # cuda_here
+    # torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)  # cuda_here
     random.seed(args.seed)
 
     # create model
@@ -103,15 +103,15 @@ def main():
         model = ResidualNet('ImageNet', args.depth, 5, args.att_type)
 
     # define loss function (criterion) and optimizer
-    # criterion = nn.BCEWithLogitsLoss().cuda()  # cuda_here
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss().cuda()  # cuda_here
+    # criterion = nn.BCEWithLogitsLoss()
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
     # model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
 
-    # model = model.cuda()  # cuda_here
-    print("model")
-    print(model)
+    model = model.cuda()  # cuda_here
+    # print("model")
+    # print(model)
     # get the number of model parameters
     print('Number of model parameters: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])))
