@@ -456,7 +456,15 @@ def print_metrics():
     # c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     # c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
     # c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
-    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    try:
+        c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    except ZeroDivisionError:
+        c1_f1 = 0
+        c2_f1 = 0
+        c3_f1 = 0
+        c4_f1 = 0
+        c5_f1 = 0
+        avg_f1 = 0
     # print('mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
     #       'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
     #       'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
