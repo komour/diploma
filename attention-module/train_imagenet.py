@@ -241,7 +241,6 @@ def main():
             'best_f1': avg_f1_best,
             'optimizer': optimizer.state_dict(),
         }, is_best, args.prefix)
-        break
 
 
 def train(train_loader, model, criterion, optimizer, epoch):

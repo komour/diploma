@@ -10,7 +10,8 @@ def main():
     dataset = DatasetISIC2018(label_file, root_dir, transforms.ToTensor())
     for i in range(len(dataset)):
         sample = dataset[i]
-        print(sample['label'], end='\n\n')
+        print(sample['image'], end='\n\n')
+        tensor = transforms.ToTensor()
         return
 
 

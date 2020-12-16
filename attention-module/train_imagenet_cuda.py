@@ -258,6 +258,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     for i, dictionary in enumerate(train_loader):
         inout_img = dictionary['image']
         target = dictionary['label']
+        target = target.cuda()
         # segm = dictionary['segm'] TODO
         # print("target = ", target)
 
@@ -314,6 +315,7 @@ def validate(val_loader, model, criterion):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
+        target = target.cuda()
         # segm = dictionary['segm'] TODO
 
         input_var = torch.autograd.Variable(input_img, volatile=True)
