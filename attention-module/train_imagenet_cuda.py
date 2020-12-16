@@ -245,7 +245,6 @@ def main():
             'best_f1': avg_f1_best,
             'optimizer': optimizer.state_dict(),
         }, is_best, args.prefix)
-        break
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -446,7 +445,7 @@ def count_precision():
     c3_exp = np.asarray(c3_expected).astype(float)
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
-
+    
     c1_precision = precision_score(c1_exp, c1_pred, average='macro')
     c2_precision = precision_score(c2_exp, c2_pred, average='macro')
     c3_precision = precision_score(c3_exp, c3_pred, average='macro')
@@ -468,7 +467,7 @@ def count_recall():
     c3_exp = np.asarray(c3_expected).astype(float)
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
-
+    
     c1_recall = recall_score(c1_exp, c1_pred, average='macro')
     c2_recall = recall_score(c2_exp, c2_pred, average='macro')
     c3_recall = recall_score(c3_exp, c3_pred, average='macro')
