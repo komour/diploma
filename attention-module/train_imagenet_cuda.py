@@ -413,10 +413,10 @@ def clear_expected_predicted():
 
 
 def count_mAP():
-    y = np.asarray(c1_predicted)
-    x = np.asarray(c1_expected)
-    print(y.dtype)
-    print(x.dtype)
+    y = np.asarray(c1_predicted).astype(float)
+    x = np.asarray(c1_expected).astype(float)
+    print(y.dtype)  # OBJECT ??!!! float32 expected!!
+    print(x.dtype)  # OBJECT ??!!! float32 expected!!
     if y.ndim > 2:
         print("UNKNOWN #0")
     if (y.dtype == object and len(y) and
