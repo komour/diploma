@@ -413,11 +413,11 @@ def clear_expected_predicted():
 
 
 def count_mAP():
-    c1_mAP = average_precision_score(c1_expected.data, c1_predicted.data, average='macro')
-    c2_mAP = average_precision_score(c2_expected.data, c2_predicted.data, average='macro')
-    c3_mAP = average_precision_score(c3_expected.data, c3_predicted.data, average='macro')
-    c4_mAP = average_precision_score(c4_expected.data, c4_predicted.data, average='macro')
-    c5_mAP = average_precision_score(c5_expected.data, c5_predicted.data, average='macro')
+    c1_mAP = average_precision_score(c1_expected, c1_predicted, average='macro')
+    c2_mAP = average_precision_score(c2_expected, c2_predicted, average='macro')
+    c3_mAP = average_precision_score(c3_expected, c3_predicted, average='macro')
+    c4_mAP = average_precision_score(c4_expected, c4_predicted, average='macro')
+    c5_mAP = average_precision_score(c5_expected, c5_predicted, average='macro')
     avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
     return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
 
@@ -453,10 +453,10 @@ def count_f1():
 
 
 def print_metrics():
-    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
+    # c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     # c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
     # c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
-    # c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
     # print('mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
     #       'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
     #       'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
