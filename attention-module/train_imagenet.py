@@ -15,6 +15,7 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 from MODELS.model_resnet import *
 from PIL import ImageFile
+import numpy as np
 
 from sklearn.metrics import average_precision_score
 from sklearn.metrics import precision_score
@@ -409,6 +410,18 @@ def clear_expected_predicted():
 
 def count_mAP():
     c1_mAP = average_precision_score(c1_expected, c1_predicted, average='macro')
+    y = np.asarray(c1_predicted)
+    x = np.asarray(c1_expected)
+    print(y.dtype)
+    print(x.dtype)
+    if y.ndim > 2:
+        print("UNKNOWN #0")
+    if (y.dtype == object and len(y) and
+            not isinstance(y.flat[0], str)):
+        print("UNKNOWN #1")  # [[[1, 2]]] or [obj_1] and not ["label_1"]
+
+    if y.ndim == 2 and y.shape[1] == 0:
+        print("UNKNOWN #2")  # [[]]
     c2_mAP = average_precision_score(c2_expected, c2_predicted, average='macro')
     c3_mAP = average_precision_score(c3_expected, c3_predicted, average='macro')
     c4_mAP = average_precision_score(c4_expected, c4_predicted, average='macro')
