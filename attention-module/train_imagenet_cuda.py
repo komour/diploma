@@ -15,6 +15,7 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 from MODELS.model_resnet import *
 from PIL import ImageFile
+import numpy as np
 
 from sklearn.metrics import average_precision_score
 from sklearn.metrics import precision_score
@@ -412,15 +413,14 @@ def clear_expected_predicted():
 
 
 def count_mAP():
-    print(type(c1_expected))
-    print(type(c1_predicted))
-    c1_mAP = average_precision_score(c1_expected, c1_predicted, average='macro')
-    c2_mAP = average_precision_score(c2_expected, c2_predicted, average='macro')
-    c3_mAP = average_precision_score(c3_expected, c3_predicted, average='macro')
-    c4_mAP = average_precision_score(c4_expected, c4_predicted, average='macro')
-    c5_mAP = average_precision_score(c5_expected, c5_predicted, average='macro')
-    avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
-    return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
+    c1_mAP = average_precision_score(np.asarray(c1_expected), np.asarray(c1_predicted), average='macro')
+    # c2_mAP = average_precision_score(c2_expected, c2_predicted, average='macro')
+    # c3_mAP = average_precision_score(c3_expected, c3_predicted, average='macro')
+    # c4_mAP = average_precision_score(c4_expected, c4_predicted, average='macro')
+    # c5_mAP = average_precision_score(c5_expected, c5_predicted, average='macro')
+    # avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
+    # return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
+    return c1_mAP, 0, 0, 0, 0, 0
 
 
 def count_precision():
