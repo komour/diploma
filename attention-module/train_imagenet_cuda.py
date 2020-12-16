@@ -414,8 +414,10 @@ def clear_expected_predicted():
 
 def count_mAP():
     y = np.asarray(c1_predicted)
-    if y.ndim > 2 or (y.dtype == object and len(y) and
-                      not isinstance(y.flat[0], str)):
+    if y.ndim > 2:
+        print("UNKNOWN #0")
+    if (y.dtype == object and len(y) and
+            not isinstance(y.flat[0], str)):
         print("UNKNOWN #1")  # [[[1, 2]]] or [obj_1] and not ["label_1"]
 
     if y.ndim == 2 and y.shape[1] == 0:
