@@ -72,7 +72,6 @@ class Bottleneck(nn.Module):
 
     def forward(self, x):
         residual = x
-
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
@@ -86,14 +85,13 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
             residual = self.downsample(x)
-
         if not self.cbam is None:
             out = self.cbam(out)  #
-
+            cbam = self.cbam(out)
+            # print('forward')
         out += residual
         out = self.relu(out)
-
-        return out
+        return out #, cbam
 
 
 class ResNet(nn.Module):

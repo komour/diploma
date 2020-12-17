@@ -4,6 +4,8 @@ import torch
 from PIL import Image
 import numpy as np
 from torchvision import transforms
+import torchvision.transforms.functional as TF
+import random
 
 
 def label_to_tensor(label):
@@ -22,7 +24,7 @@ png = '.png'
 class DatasetISIC2018(Dataset):
     """ISIC2018 dataset."""
 
-    def __init__(self, label_file, root_dir, transform=None):
+    def __init__(self, label_file, root_dir, perform_flips, transform=None):
         """
         Args:
             label_file (string): Path to the txt file with annotations.
@@ -30,6 +32,7 @@ class DatasetISIC2018(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
+        self.perform_flips = perform_flips
         self.image_to_onehot = {}
         self.image_names = []
         self.root_dir = root_dir
@@ -49,6 +52,13 @@ class DatasetISIC2018(Dataset):
         segm_path = segm_dir + self.image_names[idx] + segm_suffix + png
         img = Image.open(img_path).convert('RGB')
         segm = Image.open(segm_path).convert('RGB')
+        if self.perform_flips:  # same random transformations for image and mask
+            if random.random() > 0.5:
+                img = TF.hflip(img)
+                segm = TF.hflip(segm)
+            if random.random() > 0.5:
+                img = TF.vflip(img)
+                segm = TF.vflip(img)
         if self.transform:
             img = self.transform(img)
             segm = self.transform(segm)
