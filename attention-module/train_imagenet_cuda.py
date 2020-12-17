@@ -149,6 +149,7 @@ def main():
     val_dataset = DatasetISIC2018(
         val_labels,
         valdir,
+        False,
         transforms.Compose([
             # transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -167,10 +168,11 @@ def main():
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
+        True,  # perform flips
         transforms.Compose([
-            transforms.RandomResizedCrop(size0),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
+            # transforms.RandomResizedCrop(size0),
+            # transforms.RandomHorizontalFlip(),
+            # transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
             normalize,
         ]))
@@ -178,6 +180,7 @@ def main():
     # test_dataset = DatasetISIC2018( TODO
     #     test_labels,
     #     testdir,
+    #     True,
     #     transforms.Compose([
     #         # transforms.RandomResizedCrop(size0),
     #         # transforms.RandomHorizontalFlip(),
@@ -273,6 +276,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # compute output
         output = model(input_var)
+        # output, cbam = model(input_var)  # TODO
         # print("output = ", output)
         # output.data[0] = torch.Tensor([0.5, 0.5, 0.5, 0.5, 0.5])
         loss = criterion(output, target_var)

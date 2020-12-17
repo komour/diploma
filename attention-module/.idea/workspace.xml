@@ -21,9 +21,7 @@
   <component name="ChangeListManager">
     <list default="true" id="b627e8d0-178d-4d48-90e0-e912859e853b" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MODELS/model_resnet.py" beforeDir="false" afterPath="$PROJECT_DIR$/MODELS/model_resnet.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/custom_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/custom_dataset.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/train_imagenet.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_imagenet.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train_imagenet_cuda.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_imagenet_cuda.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -158,7 +156,7 @@
       <workItem from="1608036224601" duration="7511000" />
       <workItem from="1608057941343" duration="934000" />
       <workItem from="1608116850830" duration="6661000" />
-      <workItem from="1608211940465" duration="1874000" />
+      <workItem from="1608211940465" duration="2354000" />
     </task>
     <servers />
   </component>
