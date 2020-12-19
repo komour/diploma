@@ -164,13 +164,13 @@ def main():
         validate(val_loader, model, criterion)
         return
 
-    # size0 = 224
+    size0 = 224
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
         True,  # perform flips
         transforms.Compose([
-            # transforms.RandomResizedCrop(size0),
+            transforms.RandomResizedCrop(size0),
             # transforms.RandomHorizontalFlip(),
             # transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
