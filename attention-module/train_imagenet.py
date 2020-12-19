@@ -102,6 +102,9 @@ def main():
     # create model
     if args.arch == "resnet":
         model = ResidualNet('ImageNet', args.depth, 5, args.att_type)
+    else:
+        print('arch `resnet` expected, "', args.arch, '"found')
+        return
 
     # define loss function (criterion) and optimizer
     # criterion = nn.BCEWithLogitsLoss().cuda()  # cuda_here
@@ -161,7 +164,7 @@ def main():
         validate(val_loader, model, criterion)
         return
 
-    size0 = 224
+    # size0 = 224
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
@@ -171,7 +174,7 @@ def main():
             # transforms.RandomHorizontalFlip(),
             # transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
-            normalize,
+            normalize,  # not for mask TODO
         ]))
 
     # test_dataset = DatasetISIC2018( TODO
@@ -193,7 +196,7 @@ def main():
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
+        # adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
         clear_expected_predicted()
@@ -257,7 +260,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, dictionary in enumerate(train_loader):
-        inout_img = dictionary['image']
+        input_img = dictionary['image']
         target = dictionary['label']
         # segm = dictionary['segm'] TODO
         # target = target.cuda()  # cuda_here
@@ -266,10 +269,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        input_var = torch.autograd.Variable(inout_img)
-        # input_var = input
-        target_var = torch.autograd.Variable(target)
-        # target_var = target
+        input_var = input_img
+        target_var = target
 
         # compute output
         output = model(input_var)
@@ -285,7 +286,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         measure_accuracy(output.data, target)
 
         # losses.update(loss.data[0], input.size(0))
-        losses.update(loss.item(), inout_img.size(0))
+        losses.update(loss.item(), input_img.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -413,53 +414,41 @@ def clear_expected_predicted():
 
 
 def count_mAP():
-    c1_mAP = average_precision_score(c1_expected, c1_predicted, average='macro')
-    y = np.asarray(c1_predicted)
-    x = np.asarray(c1_expected)
-    print(y.dtype)
-    print(x.dtype)
-    if y.ndim > 2:
-        print("UNKNOWN #0")
-    if (y.dtype == object and len(y) and
-            not isinstance(y.flat[0], str)):
-        print("UNKNOWN #1")  # [[[1, 2]]] or [obj_1] and not ["label_1"]
-
-    if y.ndim == 2 and y.shape[1] == 0:
-        print("UNKNOWN #2")  # [[]]
-    c2_mAP = average_precision_score(c2_expected, c2_predicted, average='macro')
-    c3_mAP = average_precision_score(c3_expected, c3_predicted, average='macro')
-    c4_mAP = average_precision_score(c4_expected, c4_predicted, average='macro')
-    c5_mAP = average_precision_score(c5_expected, c5_predicted, average='macro')
+    c1_mAP = average_precision_score(c1_expected, c1_predicted, average='binary')
+    c2_mAP = average_precision_score(c2_expected, c2_predicted, average='binary')
+    c3_mAP = average_precision_score(c3_expected, c3_predicted, average='binary')
+    c4_mAP = average_precision_score(c4_expected, c4_predicted, average='binary')
+    c5_mAP = average_precision_score(c5_expected, c5_predicted, average='binary')
     avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
     return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
 
 
 def count_precision():
-    c1_precision = precision_score(c1_expected, c1_predicted, average='macro')
-    c2_precision = precision_score(c2_expected, c2_predicted, average='macro')
-    c3_precision = precision_score(c3_expected, c3_predicted, average='macro')
-    c4_precision = precision_score(c4_expected, c4_predicted, average='macro')
-    c5_precision = precision_score(c5_expected, c5_predicted, average='macro')
+    c1_precision = precision_score(c1_expected, c1_predicted, average='binary')
+    c2_precision = precision_score(c2_expected, c2_predicted, average='binary')
+    c3_precision = precision_score(c3_expected, c3_predicted, average='binary')
+    c4_precision = precision_score(c4_expected, c4_predicted, average='binary')
+    c5_precision = precision_score(c5_expected, c5_predicted, average='binary')
     avg_precision = (c1_precision + c2_precision + c3_precision + c4_precision + c5_precision) / 5
     return c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision
 
 
 def count_recall():
-    c1_recall = recall_score(c1_expected, c1_predicted, average='macro')
-    c2_recall = recall_score(c2_expected, c2_predicted, average='macro')
-    c3_recall = recall_score(c3_expected, c3_predicted, average='macro')
-    c4_recall = recall_score(c4_expected, c4_predicted, average='macro')
-    c5_recall = recall_score(c5_expected, c5_predicted, average='macro')
+    c1_recall = recall_score(c1_expected, c1_predicted, average='binary')
+    c2_recall = recall_score(c2_expected, c2_predicted, average='binary')
+    c3_recall = recall_score(c3_expected, c3_predicted, average='binary')
+    c4_recall = recall_score(c4_expected, c4_predicted, average='binary')
+    c5_recall = recall_score(c5_expected, c5_predicted, average='binary')
     avg_recall = (c1_recall + c2_recall + c3_recall + c4_recall + c5_recall) / 5
     return c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall
 
 
 def count_f1():
-    c1_f1 = f1_score(c1_expected, c1_predicted, average='macro')
-    c2_f1 = f1_score(c2_expected, c2_predicted, average='macro')
-    c3_f1 = f1_score(c3_expected, c3_predicted, average='macro')
-    c4_f1 = f1_score(c4_expected, c4_predicted, average='macro')
-    c5_f1 = f1_score(c5_expected, c5_predicted, average='macro')
+    c1_f1 = f1_score(c1_expected, c1_predicted, average='binary')
+    c2_f1 = f1_score(c2_expected, c2_predicted, average='binary')
+    c3_f1 = f1_score(c3_expected, c3_predicted, average='binary')
+    c4_f1 = f1_score(c4_expected, c4_predicted, average='binary')
+    c5_f1 = f1_score(c5_expected, c5_predicted, average='binary')
     avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 

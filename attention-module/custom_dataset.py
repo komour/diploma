@@ -37,21 +37,30 @@ class DatasetISIC2018(Dataset):
         self.image_names = []
         self.root_dir = root_dir
         self.transform = transform
+        self.pil_images = []
+        self.pil_images_segm = []
         f = open(label_file, 'r')
         lines = f.readlines()
         f.close()
         for line in lines:
             name, label = line.split(' ')
-            name = name
             self.image_names.append(name)
             self.image_to_onehot[name] = label
+            img_path = os.path.join(self.root_dir, name + jpg)
+            segm_path = segm_dir + name + segm_suffix + png
+            img = Image.open(img_path).convert('RGB')
+            segm = Image.open(segm_path).convert('RGB')
+            self.pil_images.append(img)
+            self.pil_images_segm.append(segm)
 
     def __getitem__(self, idx):
-        img_path = os.path.join(self.root_dir,
-                                self.image_names[idx] + jpg)
-        segm_path = segm_dir + self.image_names[idx] + segm_suffix + png
-        img = Image.open(img_path).convert('RGB')
-        segm = Image.open(segm_path).convert('RGB')
+        # img_path = os.path.join(self.root_dir,
+        #                         self.image_names[idx] + jpg)
+        # segm_path = segm_dir + self.image_names[idx] + segm_suffix + png
+        # img = Image.open(img_path).convert('RGB')
+        # segm = Image.open(segm_path).convert('RGB')
+        img = self.pil_images[idx]
+        segm = self.pil_images_segm[idx]
         if self.perform_flips:  # same random transformations for image and mask
             if random.random() > 0.5:
                 img = TF.hflip(img)

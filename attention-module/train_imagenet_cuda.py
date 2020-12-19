@@ -104,6 +104,9 @@ def main():
     # create model
     if args.arch == "resnet":
         model = ResidualNet('ImageNet', args.depth, 5, args.att_type)
+    else:
+        print('arch `resnet` expected, "', args.arch, '"found')
+        return
 
     # define loss function (criterion) and optimizer
 
@@ -164,7 +167,7 @@ def main():
         validate(val_loader, model, criterion)
         return
 
-    size0 = 224
+    # size0 = 224
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
@@ -196,7 +199,7 @@ def main():
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
+        # adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
         clear_expected_predicted()
@@ -428,11 +431,11 @@ def count_mAP():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
 
-    c1_mAP = average_precision_score(c1_exp, c1_pred, average='macro')
-    c2_mAP = average_precision_score(c2_exp, c2_pred, average='macro')
-    c3_mAP = average_precision_score(c3_exp, c3_pred, average='macro')
-    c4_mAP = average_precision_score(c4_exp, c4_pred, average='macro')
-    c5_mAP = average_precision_score(c5_exp, c5_pred, average='macro')
+    c1_mAP = average_precision_score(c1_exp, c1_pred, average='micro')
+    c2_mAP = average_precision_score(c2_exp, c2_pred, average='micro')
+    c3_mAP = average_precision_score(c3_exp, c3_pred, average='micro')
+    c4_mAP = average_precision_score(c4_exp, c4_pred, average='micro')
+    c5_mAP = average_precision_score(c5_exp, c5_pred, average='micro')
     avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
     return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
 
@@ -450,11 +453,11 @@ def count_precision():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
     
-    c1_precision = precision_score(c1_exp, c1_pred, average='macro')
-    c2_precision = precision_score(c2_exp, c2_pred, average='macro')
-    c3_precision = precision_score(c3_exp, c3_pred, average='macro')
-    c4_precision = precision_score(c4_exp, c4_pred, average='macro')
-    c5_precision = precision_score(c5_exp, c5_pred, average='macro')
+    c1_precision = precision_score(c1_exp, c1_pred, average='micro')
+    c2_precision = precision_score(c2_exp, c2_pred, average='micro')
+    c3_precision = precision_score(c3_exp, c3_pred, average='micro')
+    c4_precision = precision_score(c4_exp, c4_pred, average='micro')
+    c5_precision = precision_score(c5_exp, c5_pred, average='micro')
     avg_precision = (c1_precision + c2_precision + c3_precision + c4_precision + c5_precision) / 5
     return c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision
 
@@ -472,11 +475,11 @@ def count_recall():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
     
-    c1_recall = recall_score(c1_exp, c1_pred, average='macro')
-    c2_recall = recall_score(c2_exp, c2_pred, average='macro')
-    c3_recall = recall_score(c3_exp, c3_pred, average='macro')
-    c4_recall = recall_score(c4_exp, c4_pred, average='macro')
-    c5_recall = recall_score(c5_exp, c5_pred, average='macro')
+    c1_recall = recall_score(c1_exp, c1_pred, average='micro')
+    c2_recall = recall_score(c2_exp, c2_pred, average='micro')
+    c3_recall = recall_score(c3_exp, c3_pred, average='micro')
+    c4_recall = recall_score(c4_exp, c4_pred, average='micro')
+    c5_recall = recall_score(c5_exp, c5_pred, average='micro')
     avg_recall = (c1_recall + c2_recall + c3_recall + c4_recall + c5_recall) / 5
     return c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall
 
@@ -494,11 +497,11 @@ def count_f1():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
     
-    c1_f1 = f1_score(c1_exp, c1_pred, average='macro')
-    c2_f1 = f1_score(c2_exp, c2_pred, average='macro')
-    c3_f1 = f1_score(c3_exp, c3_pred, average='macro')
-    c4_f1 = f1_score(c4_exp, c4_pred, average='macro')
-    c5_f1 = f1_score(c5_exp, c5_pred, average='macro')
+    c1_f1 = f1_score(c1_exp, c1_pred, average='micro')
+    c2_f1 = f1_score(c2_exp, c2_pred, average='micro')
+    c3_f1 = f1_score(c3_exp, c3_pred, average='micro')
+    c4_f1 = f1_score(c4_exp, c4_pred, average='micro')
+    c5_f1 = f1_score(c5_exp, c5_pred, average='micro')
     avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 

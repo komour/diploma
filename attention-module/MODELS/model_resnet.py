@@ -87,7 +87,7 @@ class Bottleneck(nn.Module):
             residual = self.downsample(x)
         if not self.cbam is None:
             out = self.cbam(out)  #
-            cbam = self.cbam(out)
+            # cbam = self.cbam(out)
             # print('forward')
         out += residual
         out = self.relu(out)
@@ -157,18 +157,19 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
+        # print('forward')
         if self.network_type == "ImageNet":
             x = self.maxpool(x)
 
-        x = self.layer1(x)
+        x = self.layer1(x)  # here
         if not self.bam1 is None:
             x = self.bam1(x)
 
-        x = self.layer2(x)
+        x = self.layer2(x)  # here
         if not self.bam2 is None:
             x = self.bam2(x)
 
-        x = self.layer3(x)
+        x = self.layer3(x)  # here
         if not self.bam3 is None:
             x = self.bam3(x)
 
