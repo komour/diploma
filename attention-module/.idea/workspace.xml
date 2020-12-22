@@ -21,6 +21,7 @@
   <component name="ChangeListManager">
     <list default="true" id="b627e8d0-178d-4d48-90e0-e912859e853b" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train_imagenet_cuda.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_imagenet_cuda.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -161,6 +162,8 @@
       <workItem from="1608417532975" duration="242000" />
       <workItem from="1608540866891" duration="156000" />
       <workItem from="1608576693762" duration="197000" />
+      <workItem from="1608582823090" duration="253000" />
+      <workItem from="1608628930608" duration="161000" />
     </task>
     <servers />
   </component>
