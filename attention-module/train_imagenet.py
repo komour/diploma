@@ -92,11 +92,13 @@ avg_mAP_best = 0
 def main():
     global args, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
     global viz, train_lot, test_lot
+    global c1_expected, c1_predicted, c2_expected, c2_predicted, c3_expected, c3_predicted, c4_expected, c4_predicted
+    global c5_expected, c5_predicted, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
     args = parser.parse_args()
     print("args", args)
 
     torch.manual_seed(args.seed)
-    # torch.cuda.manual_seed_all(args.seed)  # cuda_here
+    torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
 
     # create model
@@ -107,13 +109,14 @@ def main():
         return
 
     # define loss function (criterion) and optimizer
-    # criterion = nn.BCEWithLogitsLoss().cuda()  # cuda_here
+
     criterion = nn.BCEWithLogitsLoss()
 
+    # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
-    # model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))  # cuda_here
+    model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))  # cuda_here
 
-    # model = model.cuda()  # cuda_here
+    model = model
     # print("model")
     # print(model)
     # get the number of model parameters
@@ -174,7 +177,7 @@ def main():
             # transforms.RandomHorizontalFlip(),
             # transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
-            normalize,  # not for mask TODO
+            normalize,
         ]))
 
     # test_dataset = DatasetISIC2018( TODO
@@ -217,37 +220,37 @@ def main():
             avg_mAP_best = avg_mAP
             avg_recall_best = avg_recall
             avg_precision_best = avg_precision
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'arch': args.arch,
-            'state_dict': model.state_dict(),
-            'c1_mAP': c1_mAP,
-            'c2_mAP': c2_mAP,
-            'c3_mAP': c3_mAP,
-            'c4_mAP': c4_mAP,
-            'c5_mAP': c5_mAP,
-            'avg_mAP': avg_mAP,
-            'c1_precision': c1_precision,
-            'c2_precision': c2_precision,
-            'c3_precision': c3_precision,
-            'c4_precision': c4_precision,
-            'c5_precision': c5_precision,
-            'avg_precision': avg_precision,
-            'c1_recall': c1_recall,
-            'c2_recall': c2_recall,
-            'c3_recall': c3_recall,
-            'c4_recall': c4_recall,
-            'c5_recall': c5_recall,
-            'avg_recall': avg_recall,
-            'c1_f1': c1_f1,
-            'c2_f1': c2_f1,
-            'c3_f1': c3_f1,
-            'c4_f1': c4_f1,
-            'c5_f1': c5_f1,
-            'avg_f1': avg_f1,
-            'best_f1': avg_f1_best,
-            'optimizer': optimizer.state_dict(),
-        }, is_best, args.prefix)
+        # save_checkpoint({
+        #     'epoch': epoch + 1,
+        #     'arch': args.arch,
+        #     'state_dict': model.state_dict(),
+        #     'c1_mAP': c1_mAP,
+        #     'c2_mAP': c2_mAP,
+        #     'c3_mAP': c3_mAP,
+        #     'c4_mAP': c4_mAP,
+        #     'c5_mAP': c5_mAP,
+        #     'avg_mAP': avg_mAP,
+        #     'c1_precision': c1_precision,
+        #     'c2_precision': c2_precision,
+        #     'c3_precision': c3_precision,
+        #     'c4_precision': c4_precision,
+        #     'c5_precision': c5_precision,
+        #     'avg_precision': avg_precision,
+        #     'c1_recall': c1_recall,
+        #     'c2_recall': c2_recall,
+        #     'c3_recall': c3_recall,
+        #     'c4_recall': c4_recall,
+        #     'c5_recall': c5_recall,
+        #     'avg_recall': avg_recall,
+        #     'c1_f1': c1_f1,
+        #     'c2_f1': c2_f1,
+        #     'c3_f1': c3_f1,
+        #     'c4_f1': c4_f1,
+        #     'c5_f1': c5_f1,
+        #     'avg_f1': avg_f1,
+        #     'best_f1': avg_f1_best,
+        #     'optimizer': optimizer.state_dict(),
+        # }, is_best, args.prefix)
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -262,35 +265,33 @@ def train(train_loader, model, criterion, optimizer, epoch):
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        # segm = dictionary['segm'] TODO
-        # target = target.cuda()  # cuda_here
+        target = target
+        segm = dictionary['segm']
         # print("target = ", target)
 
         # measure data loading time
         data_time.update(time.time() - end)
 
-        input_var = input_img
-        target_var = target
-
         # compute output
-        output = model(input_var)
-        # output, cbam_output = model(input_var)  # TODO
+        output, cbam_output = model(input_img)
+        # output, cbam = model(input_var)  # TODO
         # print("output = ", output)
         # output.data[0] = torch.Tensor([0.5, 0.5, 0.5, 0.5, 0.5])
-        loss = criterion(output, target_var)
-
-        # loss2 = crit2... TODO
+        loss1 = criterion(output, target)
+        print(segm.size())
+        print(cbam_output[0].size(), cbam_output[1].size(), cbam_output[2].size(), cbam_output[3].size())
+        # loss2 = criterion(cbam_output[-1], segm)
         # loss_comb = loss1 + loss2
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
         # losses.update(loss.data[0], input.size(0))
-        losses.update(loss.item(), input_img.size(0))
+        losses.update(loss1.item(), input_img.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
-        loss.backward()
+        loss1.backward()
         optimizer.step()
 
         # measure elapsed time
@@ -304,7 +305,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
                 epoch, i, len(train_loader), batch_time=batch_time,
                 data_time=data_time, loss=losses))
-            if i != 0:
+            if i > 0:
                 print_metrics()
 
 
@@ -318,15 +319,13 @@ def validate(val_loader, model, criterion):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
+        target = target
         # segm = dictionary['segm'] TODO
-        # target = target.cuda()  # cuda_here
-
-        input_var = torch.autograd.Variable(input_img, volatile=True)
-        target_var = torch.autograd.Variable(target, volatile=True)
 
         # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
+        with torch.no_grad():
+            output, _ = model(input_img)
+            loss = criterion(output, target)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -414,41 +413,89 @@ def clear_expected_predicted():
 
 
 def count_mAP():
-    c1_mAP = average_precision_score(c1_expected, c1_predicted, average='binary')
-    c2_mAP = average_precision_score(c2_expected, c2_predicted, average='binary')
-    c3_mAP = average_precision_score(c3_expected, c3_predicted, average='binary')
-    c4_mAP = average_precision_score(c4_expected, c4_predicted, average='binary')
-    c5_mAP = average_precision_score(c5_expected, c5_predicted, average='binary')
+    c1_pred = np.asarray(c1_predicted).astype(float)
+    c2_pred = np.asarray(c2_predicted).astype(float)
+    c3_pred = np.asarray(c3_predicted).astype(float)
+    c4_pred = np.asarray(c4_predicted).astype(float)
+    c5_pred = np.asarray(c5_predicted).astype(float)
+
+    c1_exp = np.asarray(c1_expected).astype(float)
+    c2_exp = np.asarray(c2_expected).astype(float)
+    c3_exp = np.asarray(c3_expected).astype(float)
+    c4_exp = np.asarray(c4_expected).astype(float)
+    c5_exp = np.asarray(c5_expected).astype(float)
+
+    c1_mAP = average_precision_score(c1_exp, c1_pred, average='micro')
+    c2_mAP = average_precision_score(c2_exp, c2_pred, average='micro')
+    c3_mAP = average_precision_score(c3_exp, c3_pred, average='micro')
+    c4_mAP = average_precision_score(c4_exp, c4_pred, average='micro')
+    c5_mAP = average_precision_score(c5_exp, c5_pred, average='micro')
     avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
     return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
 
 
 def count_precision():
-    c1_precision = precision_score(c1_expected, c1_predicted, average='binary')
-    c2_precision = precision_score(c2_expected, c2_predicted, average='binary')
-    c3_precision = precision_score(c3_expected, c3_predicted, average='binary')
-    c4_precision = precision_score(c4_expected, c4_predicted, average='binary')
-    c5_precision = precision_score(c5_expected, c5_predicted, average='binary')
+    c1_pred = np.asarray(c1_predicted).astype(float)
+    c2_pred = np.asarray(c2_predicted).astype(float)
+    c3_pred = np.asarray(c3_predicted).astype(float)
+    c4_pred = np.asarray(c4_predicted).astype(float)
+    c5_pred = np.asarray(c5_predicted).astype(float)
+
+    c1_exp = np.asarray(c1_expected).astype(float)
+    c2_exp = np.asarray(c2_expected).astype(float)
+    c3_exp = np.asarray(c3_expected).astype(float)
+    c4_exp = np.asarray(c4_expected).astype(float)
+    c5_exp = np.asarray(c5_expected).astype(float)
+
+    c1_precision = precision_score(c1_exp, c1_pred, average='micro')
+    c2_precision = precision_score(c2_exp, c2_pred, average='micro')
+    c3_precision = precision_score(c3_exp, c3_pred, average='micro')
+    c4_precision = precision_score(c4_exp, c4_pred, average='micro')
+    c5_precision = precision_score(c5_exp, c5_pred, average='micro')
     avg_precision = (c1_precision + c2_precision + c3_precision + c4_precision + c5_precision) / 5
     return c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision
 
 
 def count_recall():
-    c1_recall = recall_score(c1_expected, c1_predicted, average='binary')
-    c2_recall = recall_score(c2_expected, c2_predicted, average='binary')
-    c3_recall = recall_score(c3_expected, c3_predicted, average='binary')
-    c4_recall = recall_score(c4_expected, c4_predicted, average='binary')
-    c5_recall = recall_score(c5_expected, c5_predicted, average='binary')
+    c1_pred = np.asarray(c1_predicted).astype(float)
+    c2_pred = np.asarray(c2_predicted).astype(float)
+    c3_pred = np.asarray(c3_predicted).astype(float)
+    c4_pred = np.asarray(c4_predicted).astype(float)
+    c5_pred = np.asarray(c5_predicted).astype(float)
+
+    c1_exp = np.asarray(c1_expected).astype(float)
+    c2_exp = np.asarray(c2_expected).astype(float)
+    c3_exp = np.asarray(c3_expected).astype(float)
+    c4_exp = np.asarray(c4_expected).astype(float)
+    c5_exp = np.asarray(c5_expected).astype(float)
+
+    c1_recall = recall_score(c1_exp, c1_pred, average='micro')
+    c2_recall = recall_score(c2_exp, c2_pred, average='micro')
+    c3_recall = recall_score(c3_exp, c3_pred, average='micro')
+    c4_recall = recall_score(c4_exp, c4_pred, average='micro')
+    c5_recall = recall_score(c5_exp, c5_pred, average='micro')
     avg_recall = (c1_recall + c2_recall + c3_recall + c4_recall + c5_recall) / 5
     return c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall
 
 
 def count_f1():
-    c1_f1 = f1_score(c1_expected, c1_predicted, average='binary')
-    c2_f1 = f1_score(c2_expected, c2_predicted, average='binary')
-    c3_f1 = f1_score(c3_expected, c3_predicted, average='binary')
-    c4_f1 = f1_score(c4_expected, c4_predicted, average='binary')
-    c5_f1 = f1_score(c5_expected, c5_predicted, average='binary')
+    c1_pred = np.asarray(c1_predicted).astype(float)
+    c2_pred = np.asarray(c2_predicted).astype(float)
+    c3_pred = np.asarray(c3_predicted).astype(float)
+    c4_pred = np.asarray(c4_predicted).astype(float)
+    c5_pred = np.asarray(c5_predicted).astype(float)
+
+    c1_exp = np.asarray(c1_expected).astype(float)
+    c2_exp = np.asarray(c2_expected).astype(float)
+    c3_exp = np.asarray(c3_expected).astype(float)
+    c4_exp = np.asarray(c4_expected).astype(float)
+    c5_exp = np.asarray(c5_expected).astype(float)
+
+    c1_f1 = f1_score(c1_exp, c1_pred, average='micro')
+    c2_f1 = f1_score(c2_exp, c2_pred, average='micro')
+    c3_f1 = f1_score(c3_exp, c3_pred, average='micro')
+    c4_f1 = f1_score(c4_exp, c4_pred, average='micro')
+    c5_f1 = f1_score(c5_exp, c5_pred, average='micro')
     avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 

@@ -29,7 +29,6 @@ class BasicBlock(nn.Module):
 
     def forward(self, x):
         residual = x
-
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
@@ -52,8 +51,9 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, use_cbam=False):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, use_cbam=False, first_launch=True):
         super(Bottleneck, self).__init__()
+        self.first_launch = first_launch
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
@@ -71,6 +71,11 @@ class Bottleneck(nn.Module):
             self.cbam = None
 
     def forward(self, x):
+        if not self.first_launch:
+            x = x[0]
+        else:
+            x = x
+        # self.first_launch = False
         residual = x
         out = self.conv1(x)
         out = self.bn1(out)
@@ -85,13 +90,13 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
             residual = self.downsample(x)
+        cbam = None
         if not self.cbam is None:
-            out = self.cbam(out)  #
-            # cbam = self.cbam(out)
-            # print('forward')
+            out = self.cbam(out)
+            cbam = self.cbam(out)
         out += residual
         out = self.relu(out)
-        return out #, cbam
+        return out, cbam
 
 
 class ResNet(nn.Module):
@@ -149,45 +154,47 @@ class ResNet(nn.Module):
         layers = [block(self.inplanes, planes, stride, downsample, use_cbam=att_type == 'CBAM')]
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, use_cbam=att_type == 'CBAM'))
+            layers.append(block(self.inplanes, planes, use_cbam=att_type == 'CBAM', first_launch=False))
 
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        cbam_output = []
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        # print('forward')
         if self.network_type == "ImageNet":
             x = self.maxpool(x)
+        x, cbam1 = self.layer1(x)  # here
+        if self.bam1 is not None:
+            x, _ = self.bam1(x)
+        x, cbam2 = self.layer2(x)  # here
+        if self.bam2 is not None:
+            x, _ = self.bam2(x)
 
-        x = self.layer1(x)  # here
-        if not self.bam1 is None:
-            x = self.bam1(x)
+        x, cbam3 = self.layer3(x)  # here
+        if self.bam3 is not None:
+            x, _ = self.bam3(x)
 
-        x = self.layer2(x)  # here
-        if not self.bam2 is None:
-            x = self.bam2(x)
-
-        x = self.layer3(x)  # here
-        if not self.bam3 is None:
-            x = self.bam3(x)
-
-        x = self.layer4(x)
-
+        x, cbam4 = self.layer4(x)  # here
         if self.network_type == "ImageNet":
             x = self.avgpool(x)
         else:
             x = F.avg_pool2d(x, 4)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
-        return x
+
+        cbam_output.append(cbam1)
+        cbam_output.append(cbam2)
+        cbam_output.append(cbam3)
+        cbam_output.append(cbam4)
+        return x, cbam_output
 
 
 def ResidualNet(network_type, depth, num_classes, att_type):
     assert network_type in ["ImageNet", "CIFAR10", "CIFAR100"], "network type should be ImageNet or CIFAR10 / CIFAR100"
     assert depth in [18, 34, 50, 101], 'network depth should be 18, 34, 50 or 101'
-
+    model = None
     if depth == 18:
         model = ResNet(BasicBlock, [2, 2, 2, 2], network_type, num_classes, att_type)
 

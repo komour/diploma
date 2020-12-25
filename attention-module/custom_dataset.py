@@ -68,6 +68,7 @@ class DatasetISIC2018(Dataset):
             if random.random() > 0.5:
                 img = TF.vflip(img)
                 segm = TF.vflip(img)
+        # segm = transforms.ToTensor()(segm)
         if self.transform:
             img = self.transform(img)
             segm = self.transform(segm)

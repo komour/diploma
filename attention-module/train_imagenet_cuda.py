@@ -266,19 +266,17 @@ def train(train_loader, model, criterion, optimizer, epoch):
         input_img = dictionary['image']
         target = dictionary['label']
         target = target.cuda()
-        # segm = dictionary['segm'] TODO
+        segm = dictionary['segm']
         # print("target = ", target)
 
         # measure data loading time
         data_time.update(time.time() - end)
 
         # compute output
-        output = model(input_img)
-        # output, cbam = model(input_var)  # TODO
-        # print("output = ", output)
-        # output.data[0] = torch.Tensor([0.5, 0.5, 0.5, 0.5, 0.5])
+        output, cbam_output = model(input_img)
         loss = criterion(output, target)
-
+        print(cbam_output[-1])
+        # loss2 = criterion(cbam_output[-1], segm)
         # loss2 = crit2... TODO
         # loss_comb = loss1 + loss2
 
@@ -323,7 +321,7 @@ def validate(val_loader, model, criterion):
 
         # compute output
         with torch.no_grad():
-            output = model(input_img)
+            output, _ = model(input_img)
             loss = criterion(output, target)
 
         # measure accuracy and record loss
