@@ -4,7 +4,7 @@ from .bam import *
 
 
 def conv3x3(in_planes, out_planes, stride=1):
-    "3x3 convolution with padding"
+    """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
 
@@ -39,7 +39,7 @@ class BasicBlock(nn.Module):
         if self.downsample is not None:
             residual = self.downsample(x)
 
-        if not self.cbam is None:
+        if self.cbam is not None:
             out = self.cbam(out)
 
         out += residual
@@ -75,7 +75,6 @@ class Bottleneck(nn.Module):
             x = x[0]
         else:
             x = x
-        # self.first_launch = False
         residual = x
         out = self.conv1(x)
         out = self.bn1(out)
@@ -91,12 +90,12 @@ class Bottleneck(nn.Module):
         if self.downsample is not None:
             residual = self.downsample(x)
         cbam = None
-        if not self.cbam is None:
+        if self.cbam is not None:
             out = self.cbam(out)
             cbam = self.cbam(out)
         out += residual
         out = self.relu(out)
-        return out, cbam
+        return out, cbam  # not all CBAM.. only SPM TODO
 
 
 class ResNet(nn.Module):

@@ -275,7 +275,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # compute output
         output, cbam_output = model(input_img)
         loss = criterion(output, target)
-        print(cbam_output[-1])
+        # print(cbam_output[-1])
         # loss2 = criterion(cbam_output[-1], segm)
         # loss2 = crit2... TODO
         # loss_comb = loss1 + loss2
@@ -422,11 +422,11 @@ def count_mAP():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
 
-    c1_mAP = average_precision_score(c1_exp, c1_pred, average='micro')
-    c2_mAP = average_precision_score(c2_exp, c2_pred, average='micro')
-    c3_mAP = average_precision_score(c3_exp, c3_pred, average='micro')
-    c4_mAP = average_precision_score(c4_exp, c4_pred, average='micro')
-    c5_mAP = average_precision_score(c5_exp, c5_pred, average='micro')
+    c1_mAP = average_precision_score(c1_exp, c1_pred, average='binary')
+    c2_mAP = average_precision_score(c2_exp, c2_pred, average='binary')
+    c3_mAP = average_precision_score(c3_exp, c3_pred, average='binary')
+    c4_mAP = average_precision_score(c4_exp, c4_pred, average='binary')
+    c5_mAP = average_precision_score(c5_exp, c5_pred, average='binary')
     avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
     return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
 
@@ -444,11 +444,11 @@ def count_precision():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
     
-    c1_precision = precision_score(c1_exp, c1_pred, average='micro')
-    c2_precision = precision_score(c2_exp, c2_pred, average='micro')
-    c3_precision = precision_score(c3_exp, c3_pred, average='micro')
-    c4_precision = precision_score(c4_exp, c4_pred, average='micro')
-    c5_precision = precision_score(c5_exp, c5_pred, average='micro')
+    c1_precision = precision_score(c1_exp, c1_pred, average='binary')
+    c2_precision = precision_score(c2_exp, c2_pred, average='binary')
+    c3_precision = precision_score(c3_exp, c3_pred, average='binary')
+    c4_precision = precision_score(c4_exp, c4_pred, average='binary')
+    c5_precision = precision_score(c5_exp, c5_pred, average='binary')
     avg_precision = (c1_precision + c2_precision + c3_precision + c4_precision + c5_precision) / 5
     return c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision
 
@@ -466,11 +466,11 @@ def count_recall():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
     
-    c1_recall = recall_score(c1_exp, c1_pred, average='micro')
-    c2_recall = recall_score(c2_exp, c2_pred, average='micro')
-    c3_recall = recall_score(c3_exp, c3_pred, average='micro')
-    c4_recall = recall_score(c4_exp, c4_pred, average='micro')
-    c5_recall = recall_score(c5_exp, c5_pred, average='micro')
+    c1_recall = recall_score(c1_exp, c1_pred, average='binary')
+    c2_recall = recall_score(c2_exp, c2_pred, average='binary')
+    c3_recall = recall_score(c3_exp, c3_pred, average='binary')
+    c4_recall = recall_score(c4_exp, c4_pred, average='binary')
+    c5_recall = recall_score(c5_exp, c5_pred, average='binary')
     avg_recall = (c1_recall + c2_recall + c3_recall + c4_recall + c5_recall) / 5
     return c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall
 
@@ -488,11 +488,11 @@ def count_f1():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
     
-    c1_f1 = f1_score(c1_exp, c1_pred, average='micro')
-    c2_f1 = f1_score(c2_exp, c2_pred, average='micro')
-    c3_f1 = f1_score(c3_exp, c3_pred, average='micro')
-    c4_f1 = f1_score(c4_exp, c4_pred, average='micro')
-    c5_f1 = f1_score(c5_exp, c5_pred, average='micro')
+    c1_f1 = f1_score(c1_exp, c1_pred, average='binary')
+    c2_f1 = f1_score(c2_exp, c2_pred, average='binary')
+    c3_f1 = f1_score(c3_exp, c3_pred, average='binary')
+    c4_f1 = f1_score(c4_exp, c4_pred, average='binary')
+    c5_f1 = f1_score(c5_exp, c5_pred, average='binary')
     avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 
