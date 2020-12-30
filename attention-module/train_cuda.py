@@ -102,8 +102,9 @@ def main():
     random.seed(args.seed)
 
     # create model
+    CLASS_AMOUNT = 5
     if args.arch == "resnet":
-        model = ResidualNet('ImageNet', args.depth, 5, args.att_type)
+        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, args.att_type)
     else:
         print('arch `resnet` expected, "', args.arch, '"found')
         return
@@ -422,11 +423,11 @@ def count_mAP():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
 
-    c1_mAP = average_precision_score(c1_exp, c1_pred, average='binary')
-    c2_mAP = average_precision_score(c2_exp, c2_pred, average='binary')
-    c3_mAP = average_precision_score(c3_exp, c3_pred, average='binary')
-    c4_mAP = average_precision_score(c4_exp, c4_pred, average='binary')
-    c5_mAP = average_precision_score(c5_exp, c5_pred, average='binary')
+    c1_mAP = average_precision_score(c1_exp, c1_pred)
+    c2_mAP = average_precision_score(c2_exp, c2_pred)
+    c3_mAP = average_precision_score(c3_exp, c3_pred)
+    c4_mAP = average_precision_score(c4_exp, c4_pred)
+    c5_mAP = average_precision_score(c5_exp, c5_pred)
     avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
     return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
 
