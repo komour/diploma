@@ -24,6 +24,9 @@ from sklearn.metrics import f1_score
 
 from custom_dataset import DatasetISIC2018
 
+from torchsummary import summary
+
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
