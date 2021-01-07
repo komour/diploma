@@ -270,34 +270,41 @@ def train(train_loader, model, criterion, optimizer, epoch):
         target = dictionary['label']
         target = target
         segm = dictionary['segm']
-        # print("target = ", target)
 
         # measure data loading time
         data_time.update(time.time() - end)
 
         # compute output
-        # output, cbam_output = model(input_img)
-        # output = model(input_img)
         output, spm_output = model(input_img)
-        print(len(spm_output))
-        print(spm_output[0].size())
-        # print("output = ", output)
-        # output.data[0] = torch.Tensor([0.5, 0.5, 0.5, 0.5, 0.5])
+        for spm in spm_output:
+            print(spm.size(), end=' ')
+
+        # initial segm size = [1, 3, 224, 224]
+        # [1, 1, 56, 56]x3 , [1, 1, 28, 28]x4 [1, 1, 14, 14]x6 , [1, 1, 7, 7]x3
+
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+
+        processed_segm1 = maxpool_segm1(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
+
         loss1 = criterion(output, target)
-        print(segm.size())
-        # print(cbam_output[0].size(), cbam_output[1].size(), cbam_output[2].size(), cbam_output[3].size())
-        # loss2 = criterion(cbam_output[-1], segm)
-        # loss_comb = loss1 + loss2
+        loss2 = criterion(spm_output[0], processed_segm1)
+
+        loss_comb = loss1 + loss2
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
-        # losses.update(loss.data[0], input.size(0))
-        losses.update(loss1.item(), input_img.size(0))
+        losses.update(loss_comb.item(), input_img.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
-        loss1.backward()
+        loss_comb.backward()
         optimizer.step()
 
         # measure elapsed time
