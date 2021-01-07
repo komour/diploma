@@ -24,9 +24,6 @@ from sklearn.metrics import f1_score
 
 from custom_dataset import DatasetISIC2018
 
-from torchsummary import summary
-
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -103,7 +100,6 @@ def main():
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
-
     # create model
     CLASS_AMOUNT = 5
     if args.arch == "resnet":
@@ -118,7 +114,7 @@ def main():
 
     # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
-    model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))  # cuda_here
+    model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
 
     model = model.cuda()
     # print("model")
@@ -157,6 +153,7 @@ def main():
         val_labels,
         valdir,
         False,
+        False,
         transforms.Compose([
             # transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -176,8 +173,9 @@ def main():
         train_labels,
         traindir,
         True,  # perform flips
+        True,  # perform random resized crop
         transforms.Compose([
-            transforms.RandomResizedCrop(size0),
+            # transforms.RandomResizedCrop(size0),
             # transforms.RandomHorizontalFlip(),
             # transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
@@ -187,7 +185,8 @@ def main():
     # test_dataset = DatasetISIC2018( TODO
     #     test_labels,
     #     testdir,
-    #     True,
+    #     False,
+    #     False
     #     transforms.Compose([
     #         # transforms.RandomResizedCrop(size0),
     #         # transforms.RandomHorizontalFlip(),
@@ -271,28 +270,41 @@ def train(train_loader, model, criterion, optimizer, epoch):
         target = dictionary['label']
         target = target.cuda()
         segm = dictionary['segm']
-        # print("target = ", target)
 
         # measure data loading time
         data_time.update(time.time() - end)
 
         # compute output
-        output, cbam_output = model(input_img)
-        loss = criterion(output, target)
-        # print(cbam_output[-1])
-        # loss2 = criterion(cbam_output[-1], segm)
-        # loss2 = crit2... TODO
-        # loss_comb = loss1 + loss2
+        output, spm_output = model(input_img)
+        for spm in spm_output:
+            print(spm.size(), end=' ')
+
+        # initial segm size = [1, 3, 224, 224]
+        # [1, 1, 56, 56]x3 , [1, 1, 28, 28]x4 [1, 1, 14, 14]x6 , [1, 1, 7, 7]x3
+
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+
+        processed_segm1 = maxpool_segm1(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
+
+        loss1 = criterion(output, target)
+        loss2 = criterion(spm_output[0], processed_segm1)
+
+        loss_comb = loss1 + loss2
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
-        # losses.update(loss.data[0], input.size(0))
-        losses.update(loss.item(), input_img.size(0))
+        losses.update(loss_comb.item(), input_img.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
-        loss.backward()
+        loss_comb.backward()
         optimizer.step()
 
         # measure elapsed time
@@ -321,7 +333,6 @@ def validate(val_loader, model, criterion):
         input_img = dictionary['image']
         target = dictionary['label']
         target = target.cuda()
-        # segm = dictionary['segm'] TODO
 
         # compute output
         with torch.no_grad():
@@ -447,12 +458,12 @@ def count_precision():
     c3_exp = np.asarray(c3_expected).astype(float)
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
-    
-    c1_precision = precision_score(c1_exp, c1_pred, average='binary')
-    c2_precision = precision_score(c2_exp, c2_pred, average='binary')
-    c3_precision = precision_score(c3_exp, c3_pred, average='binary')
-    c4_precision = precision_score(c4_exp, c4_pred, average='binary')
-    c5_precision = precision_score(c5_exp, c5_pred, average='binary')
+
+    c1_precision = precision_score(c1_exp, c1_pred, average="binary")
+    c2_precision = precision_score(c2_exp, c2_pred, average="binary")
+    c3_precision = precision_score(c3_exp, c3_pred, average="binary")
+    c4_precision = precision_score(c4_exp, c4_pred, average="binary")
+    c5_precision = precision_score(c5_exp, c5_pred, average="binary")
     avg_precision = (c1_precision + c2_precision + c3_precision + c4_precision + c5_precision) / 5
     return c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision
 
@@ -469,12 +480,12 @@ def count_recall():
     c3_exp = np.asarray(c3_expected).astype(float)
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
-    
-    c1_recall = recall_score(c1_exp, c1_pred, average='binary')
-    c2_recall = recall_score(c2_exp, c2_pred, average='binary')
-    c3_recall = recall_score(c3_exp, c3_pred, average='binary')
-    c4_recall = recall_score(c4_exp, c4_pred, average='binary')
-    c5_recall = recall_score(c5_exp, c5_pred, average='binary')
+
+    c1_recall = recall_score(c1_exp, c1_pred, average="binary")
+    c2_recall = recall_score(c2_exp, c2_pred, average="binary")
+    c3_recall = recall_score(c3_exp, c3_pred, average="binary")
+    c4_recall = recall_score(c4_exp, c4_pred, average="binary")
+    c5_recall = recall_score(c5_exp, c5_pred, average="binary")
     avg_recall = (c1_recall + c2_recall + c3_recall + c4_recall + c5_recall) / 5
     return c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall
 
@@ -491,12 +502,12 @@ def count_f1():
     c3_exp = np.asarray(c3_expected).astype(float)
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
-    
-    c1_f1 = f1_score(c1_exp, c1_pred, average='binary')
-    c2_f1 = f1_score(c2_exp, c2_pred, average='binary')
-    c3_f1 = f1_score(c3_exp, c3_pred, average='binary')
-    c4_f1 = f1_score(c4_exp, c4_pred, average='binary')
-    c5_f1 = f1_score(c5_exp, c5_pred, average='binary')
+
+    c1_f1 = f1_score(c1_exp, c1_pred, average="binary")
+    c2_f1 = f1_score(c2_exp, c2_pred, average="binary")
+    c3_f1 = f1_score(c3_exp, c3_pred, average="binary")
+    c4_f1 = f1_score(c4_exp, c4_pred, average="binary")
+    c5_f1 = f1_score(c5_exp, c5_pred, average="binary")
     avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 
@@ -513,7 +524,8 @@ def print_metrics():
         c1_mAP=c1_mAP, c2_mAP=c2_mAP, c3_mAP=c3_mAP, c4_mAP=c4_mAP, c5_mAP=c5_mAP, avg_mAP=avg_mAP,
         c1_precision=c1_precision, c2_precision=c2_precision, c3_precision=c3_precision, c4_precision=c4_precision,
         c5_precision=c5_precision, avg_precision=avg_precision,
-        c1_recall=c1_recall, c2_recall=c2_recall, c3_recall=c3_recall, c4_recall=c4_recall, c5_recall=c5_recall, avg_recall=avg_recall,
+        c1_recall=c1_recall, c2_recall=c2_recall, c3_recall=c3_recall, c4_recall=c4_recall, c5_recall=c5_recall,
+        avg_recall=avg_recall,
         c1_f1=c1_f1, c2_f1=c2_f1, c3_f1=c3_f1, c4_f1=c4_f1, c5_f1=c5_f1, avg_f1=avg_f1)
     )
 

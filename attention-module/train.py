@@ -114,7 +114,7 @@ def main():
 
     # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
-    model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))  # cuda_here
+    model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
 
     model = model
     # print("model")
@@ -123,7 +123,7 @@ def main():
     print('Number of model parameters: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])))
     # optionally resume from a checkpoint
-    # if args.resume: TODO
+    # if args.resume:
     #     if os.path.isfile(args.resume):
     #         print("=> loading checkpoint '{}'".format(args.resume))
     #         checkpoint = torch.load(args.resume)
@@ -143,7 +143,7 @@ def main():
     train_labels = os.path.join(args.data, 'train', 'images_onehot_train.txt')
     valdir = os.path.join(args.data, 'val')
     val_labels = os.path.join(args.data, 'val', 'images_onehot_val.txt')
-    # testdir = os.path.join(args.data, 'test') TODO
+    # testdir = os.path.join(args.data, 'test')
     # test_labels = os.path.join(args.data, 'test', 'images_onehot_test.txt')
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -182,7 +182,7 @@ def main():
             normalize,
         ]))
 
-    # test_dataset = DatasetISIC2018( TODO
+    # test_dataset = DatasetISIC2018(
     #     test_labels,
     #     testdir,
     #     False,
@@ -333,7 +333,6 @@ def validate(val_loader, model, criterion):
         input_img = dictionary['image']
         target = dictionary['label']
         target = target
-        # segm = dictionary['segm'] TODO
 
         # compute output
         with torch.no_grad():
