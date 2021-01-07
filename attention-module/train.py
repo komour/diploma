@@ -22,6 +22,8 @@ from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import f1_score
 
+import matplotlib.pyplot as plt
+
 from custom_dataset import DatasetISIC2018
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -276,11 +278,15 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # compute output
         output, spm_output = model(input_img)
-        for spm in spm_output:
-            print(spm.size(), end=' ')
+        # for spm in spm_output:
+        #     print(spm.size(), end=' ')
 
         # initial segm size = [1, 3, 224, 224]
         # [1, 1, 56, 56]x3 , [1, 1, 28, 28]x4 [1, 1, 14, 14]x6 , [1, 1, 7, 7]x3
+
+        np_img = torch.squeeze(spm_output[0]).detach().numpy()
+        plt.imshow(np_img)
+        # plt.show()
 
         maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
