@@ -68,7 +68,7 @@ class DatasetISIC2018(Dataset):
                 segm = TF.hflip(segm)
             if random.random() > 0.5:
                 img = TF.vflip(img)
-                segm = TF.vflip(img)
+                segm = TF.vflip(segm)
         if self.perform_crop:
             scale = (0.08, 1.0)
             ratio = (3. / 4., 4. / 3.)
