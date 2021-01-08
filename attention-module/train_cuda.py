@@ -111,8 +111,7 @@ def main():
         return
 
     # define loss function (criterion) and optimizer
-    criterion = nn.BCEWithLogitsLoss().cuda(arg.cuda_device)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss().cuda(args.cuda_device)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     # don't need to parallelize on different devices
