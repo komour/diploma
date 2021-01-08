@@ -28,8 +28,10 @@ class Flatten(nn.Module):
 
 
 class ChannelGate(nn.Module):
-    def __init__(self, gate_channels, reduction_ratio=16, pool_types=['avg', 'max']):
+    def __init__(self, gate_channels, reduction_ratio=16, pool_types=None):
         super(ChannelGate, self).__init__()
+        if pool_types is None:
+            pool_types = ['avg', 'max']
         self.gate_channels = gate_channels
         self.mlp = nn.Sequential(
             Flatten(),
@@ -88,12 +90,15 @@ class SpatialGate(nn.Module):
         x_compress = self.compress(x)
         x_out = self.spatial(x_compress)
         scale = torch.sigmoid(x_out)  # broadcasting
-        return x * scale
+        # print(scale.size())
+        return x * scale, scale  # scale TODO
 
 
 class CBAM(nn.Module):
-    def __init__(self, gate_channels, reduction_ratio=16, pool_types=['avg', 'max'], no_spatial=False):
+    def __init__(self, gate_channels, reduction_ratio=16, pool_types=None, no_spatial=False):
         super(CBAM, self).__init__()
+        if pool_types is None:
+            pool_types = ['avg', 'max']
         self.ChannelGate = ChannelGate(gate_channels, reduction_ratio, pool_types)
         self.no_spatial = no_spatial
         if not no_spatial:
@@ -102,5 +107,5 @@ class CBAM(nn.Module):
     def forward(self, x):
         x_out = self.ChannelGate(x)
         if not self.no_spatial:
-            x_out = self.SpatialGate(x_out)
-        return x_out
+            x_out, scale = self.SpatialGate(x_out)
+        return x_out, scale

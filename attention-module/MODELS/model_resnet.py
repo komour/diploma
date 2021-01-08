@@ -12,7 +12,7 @@ def conv3x3(in_planes, out_planes, stride=1):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, use_cbam=False):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, use_cbam=False, first_launch=False):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -51,8 +51,9 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, use_cbam=False, first_launch=True):
+    def __init__(self, inplanes, planes, stride=1, num=None, downsample=None, use_cbam=False, first_launch=True):
         super(Bottleneck, self).__init__()
+        self.num = num
         self.first_launch = first_launch
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -70,35 +71,61 @@ class Bottleneck(nn.Module):
         else:
             self.cbam = None
 
-    def forward(self, x):
+    def forward(self, x_init):
         if not self.first_launch:
-            x = x[0]
+            x = x_init[0]
+            spm_output_list = x_init[1]
         else:
-            x = x
+            x = x_init
+            spm_output_list = []
+
+        # print('Number:', self.num)
+        # print('x', x.size())
+
         residual = x
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
-
-        out = self.conv3(out)
-        out = self.bn3(out)
-
         if self.downsample is not None:
             residual = self.downsample(x)
-        cbam = None
-        if self.cbam is not None:
-            out = self.cbam(out)
-            cbam = self.cbam(out)
-        out += residual
+            # print('downsample', residual.size())
+
+        out = self.conv1(x)
+        # print('conv1', out.size())
+        out = self.bn1(out)
+        # print('bn1', out.size())
         out = self.relu(out)
-        return out, cbam  # not all CBAM.. only SPM TODO
+        # print('relu', out.size())
+
+        out = self.conv2(out)
+        # print('conv2', out.size())
+        out = self.bn2(out)
+        # print('bn2', out.size())
+        out = self.relu(out)
+        # print('relu', out.size())
+
+        out = self.conv3(out)
+        # print('conv3', out.size())
+        out = self.bn3(out)
+        # print('bn3', out.size())
+
+        spm_output = None
+        if self.cbam is not None:
+            out, spm_output = self.cbam(out)
+            # print('cbam', out.size())
+        out += residual
+        # print('+= residual', out.size())
+        out = self.relu(out)
+        # print('relu', out.size())
+        # print()
+        # print(spm_output.size())
+        spm_output_list.append(spm_output)
+        return out, spm_output_list
 
 
 class ResNet(nn.Module):
+    # block = BasicBlock
+    # layers = [3, 4, 6, 3] (depth = 50)
+    # network_type = ImageNet
+    # num_classes = 5
+    # att_type = CBAM
     def __init__(self, block, layers, network_type, num_classes, att_type=None):
         self.inplanes = 64
         super(ResNet, self).__init__()
@@ -150,32 +177,36 @@ class ResNet(nn.Module):
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
-        layers = [block(self.inplanes, planes, stride, downsample, use_cbam=att_type == 'CBAM')]
+        layers = [block(self.inplanes, planes, stride, num=0, downsample=downsample, use_cbam=att_type == 'CBAM', first_launch=True)]
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, use_cbam=att_type == 'CBAM', first_launch=False))
+            layers.append(block(self.inplanes, planes, num=i, use_cbam=att_type == 'CBAM', first_launch=False))
 
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        cbam_output = []
+        spm_output = []
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        if self.network_type == "ImageNet":
+        if self.network_type == "ImageNet":  # true
             x = self.maxpool(x)
-        x, cbam1 = self.layer1(x)  # here
-        if self.bam1 is not None:
+        x, spm1 = self.layer1(x)
+        # x = self.layer1(x)
+        if self.bam1 is not None:  # false
             x, _ = self.bam1(x)
-        x, cbam2 = self.layer2(x)  # here
-        if self.bam2 is not None:
+        x, spm2 = self.layer2(x)
+        # x = self.layer2(x)
+        if self.bam2 is not None:  # false
             x, _ = self.bam2(x)
 
-        x, cbam3 = self.layer3(x)  # here
-        if self.bam3 is not None:
+        x, spm3 = self.layer3(x)
+        # x = self.layer3(x)
+        if self.bam3 is not None:  # false
             x, _ = self.bam3(x)
 
-        x, cbam4 = self.layer4(x)  # here
+        x, spm4 = self.layer4(x)
+        # x = self.layer4(x)
         if self.network_type == "ImageNet":
             x = self.avgpool(x)
         else:
@@ -183,13 +214,16 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
-        cbam_output.append(cbam1)
-        cbam_output.append(cbam2)
-        cbam_output.append(cbam3)
-        cbam_output.append(cbam4)
-        return x, cbam_output
+        spm_output += spm1
+        spm_output += spm2
+        spm_output += spm3
+        spm_output += spm4
+        return x, spm_output
+        # return x
 
 
+# att_type = CBAM
+# network_type = ImageNet
 def ResidualNet(network_type, depth, num_classes, att_type):
     assert network_type in ["ImageNet", "CIFAR10", "CIFAR100"], "network type should be ImageNet or CIFAR10 / CIFAR100"
     assert depth in [18, 34, 50, 101], 'network depth should be 18, 34, 50 or 101'
