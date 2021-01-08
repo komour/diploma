@@ -132,6 +132,7 @@ def main():
     run = wandb.init(config=config, project="baseline")
 
     model = model.cuda(args.cuda_device)
+    wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
     # print("model")
     # print(model)
     # get the number of model parameters
@@ -281,7 +282,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     # switch to train mode
     model.train()
-    wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
     end = time.time()
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
