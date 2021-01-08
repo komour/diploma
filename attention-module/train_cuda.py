@@ -272,8 +272,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        target = target.cuda(args.cuda_device)
         # segm = dictionary['segm']
+        input_img = input_img.cuda(args.cuda_device)
+        target = target.cuda(args.cuda_device)
+        # segm = segm.cuda(args.cuda_device)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -340,6 +342,7 @@ def validate(val_loader, model, criterion):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
+        input_img = input_img.cuda(args.cuda_device)
         target = target.cuda(args.cuda_device)
 
         # compute output
