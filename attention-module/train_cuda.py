@@ -346,7 +346,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
             if i > 0:
                 print_metrics()
                 wandb_log_train(epoch, losses.val, losses.avg, i * args.batch_size)
-                
+
 
 def validate(val_loader, model, criterion, epoch):
     batch_time = AverageMeter()
@@ -553,8 +553,8 @@ def wandb_log_train(epoch, loss, loss_avg, step):
                "c5_recall": c5_recall, "avg_recall": avg_recall,
                "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1,
                "best_f1": avg_f1_best
-               },
-              step=step)
+               })#,
+              #step=step)
 
 
 def wandb_log_test(epoch, loss, loss_avg, step):
@@ -572,8 +572,8 @@ def wandb_log_test(epoch, loss, loss_avg, step):
                "c5_recall_test": c5_recall, "avg_recall_test": avg_recall,
                "c1_f1_test": c1_f1, "c2_f1": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1, "avg_f1_test": avg_f1,
                "best_f1_test": avg_f1_best
-               },
-              step=step)
+               })#,
+              #step=step)
 
 
 def print_metrics():
