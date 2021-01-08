@@ -1,1 +1,1 @@
-python3 train_cuda.py --print-freq 100 --ngpu 4 --workers 4 --arch resnet --depth 50 --epochs 100 --batch-size 1 --lr 0.000001 --att-type CBAM --prefix ISIC2018_CBAM data/
+python3 train_cuda.py --print-freq 100 --cuda-device=2 --workers 4 --arch resnet --depth 50 --epochs 100 --batch-size 16 --lr 0.0001 --att-type CBAM --prefix ISIC2018_CBAM data/
