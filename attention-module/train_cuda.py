@@ -227,7 +227,7 @@ def main():
 
         # evaluate on validation set
         clear_expected_predicted()
-        validate(val_loader, model, criterion)
+        validate(val_loader, model, criterion, epoch)
 
         # save checkpoint
         c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
@@ -346,9 +346,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
             if i > 0:
                 print_metrics()
                 wandb_log_train(epoch, losses.val, losses.avg, i * args.batch_size)
+                
 
-
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, epoch):
     batch_time = AverageMeter()
     losses = AverageMeter()
     # switch to evaluate mode
