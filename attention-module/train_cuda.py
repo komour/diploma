@@ -345,7 +345,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i > 0:
                 print_metrics()
-                wandb_log_train(epoch, losses.val, losses.avg, i * args.batch_size)
+    wandb_log_train(epoch, losses.val, losses.avg)
 
 
 def validate(val_loader, model, criterion, epoch):
@@ -381,7 +381,7 @@ def validate(val_loader, model, criterion, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i != 0:
                 print_metrics()
-                wandb_log_test(epoch, losses.val, losses.avg, i * args.batch_size)
+    wandb_log_test(epoch, losses.val, losses.avg)
 
 
 def save_checkpoint(state, is_best, prefix):
@@ -538,7 +538,7 @@ def count_f1():
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 
 
-def wandb_log_train(epoch, loss, loss_avg, step):
+def wandb_log_train(epoch, loss, loss_avg):
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
@@ -553,27 +553,31 @@ def wandb_log_train(epoch, loss, loss_avg, step):
                "c5_recall": c5_recall, "avg_recall": avg_recall,
                "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1,
                "best_f1": avg_f1_best
-               })#,
-              #step=step)
+               },
+              step=epoch)
 
 
-def wandb_log_test(epoch, loss, loss_avg, step):
+def wandb_log_test(epoch, loss, loss_avg):
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
     wandb.log({"epoch_test": epoch, "loss_test": loss, "loss_avg_test": loss_avg,
-               "c1_mAP_test": c1_mAP, "c2_mAP_test": c2_mAP, "c3_mAP_test": c3_mAP, "c4_mAP_test": c4_mAP, "c5_mAP_test": c5_mAP,
+               "c1_mAP_test": c1_mAP, "c2_mAP_test": c2_mAP, "c3_mAP_test": c3_mAP, "c4_mAP_test": c4_mAP,
+               "c5_mAP_test": c5_mAP,
                "avg_mAP": avg_mAP,
                "c1_precision_test": c1_precision, "c2_precision_test": c2_precision, "c3_precision_test": c3_precision,
-               "c4_precision_test": c4_precision, "c5_precision_test": c5_precision, "avg_precision_test": avg_precision,
-               "c1_recall_test": c1_recall, "c2_recall_test": c2_recall, "c3_recall_test": c3_recall, "c4_recall_test": c4_recall,
+               "c4_precision_test": c4_precision, "c5_precision_test": c5_precision,
+               "avg_precision_test": avg_precision,
+               "c1_recall_test": c1_recall, "c2_recall_test": c2_recall, "c3_recall_test": c3_recall,
+               "c4_recall_test": c4_recall,
                "c5_recall_test": c5_recall, "avg_recall_test": avg_recall,
-               "c1_f1_test": c1_f1, "c2_f1": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1, "avg_f1_test": avg_f1,
+               "c1_f1_test": c1_f1, "c2_f1": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1,
+               "avg_f1_test": avg_f1,
                "best_f1_test": avg_f1_best
-               })#,
-              #step=step)
+               },
+              step=epoch)
 
 
 def print_metrics():
