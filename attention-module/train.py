@@ -26,6 +26,8 @@ import matplotlib.pyplot as plt
 
 from custom_dataset import DatasetISIC2018
 
+import wandb
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -65,6 +67,8 @@ parser.add_argument("--prefix", type=str, required=True, metavar='PFX', help='pr
 parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='evaluation only')
 parser.add_argument('--att-type', type=str, choices=['BAM', 'CBAM'], default=None)
 parser.add_argument('--cuda-device', type=int, default=0)
+parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
+parser.add_argument('--is-server', type=int,  choices=[0, 1], default=1)
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -90,15 +94,19 @@ avg_precision_best = 0
 avg_recall_best = 0
 avg_mAP_best = 0
 
+args = parser.parse_args()
+is_server = args.server_run == 1
+
 
 def main():
+    if is_server:
+        wandb.login()
     global args, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
     global viz, train_lot, test_lot
     global c1_expected, c1_predicted, c2_expected, c2_predicted, c3_expected, c3_predicted, c4_expected, c4_predicted
     global c5_expected, c5_predicted, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
     args = parser.parse_args()
     print("args", args)
-
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
@@ -111,12 +119,30 @@ def main():
         return
 
     # define loss function (criterion) and optimizer
-    criterion = nn.BCEWithLogitsLoss()
+    if is_server:
+        criterion = nn.BCEWithLogitsLoss().cuda(args.cuda_device)
+    else:
+        criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     # don't need to parallelize on different devices
     # model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
 
+    config = dict(
+        epochs=args.epochs,
+        classes=CLASS_AMOUNT,
+        batch_size=args.batch_size,
+        learning_rate=args.lr,
+        dataset="ISIC2018",
+        architecture=f"{args.arch}{args.depth}"
+    )
+    if is_server:
+        run = wandb.init(config=config, project="baseline", name=args.run_name)
+
+    if is_server:
+        model = model.cuda(args.cuda_device)
+    if is_server:
+        wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
     # print("model")
     # print(model)
     # get the number of model parameters
@@ -211,7 +237,7 @@ def main():
 
         # evaluate on validation set
         clear_expected_predicted()
-        validate(val_loader, model, criterion)
+        validate(val_loader, model, criterion, epoch)
 
         # save checkpoint
         c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
@@ -224,39 +250,39 @@ def main():
             avg_mAP_best = avg_mAP
             avg_recall_best = avg_recall
             avg_precision_best = avg_precision
-
-        # not working with checkpoints for now
-        # save_checkpoint({
-        #     'epoch': epoch + 1,
-        #     'arch': args.arch,
-        #     'state_dict': model.state_dict(),
-        #     'c1_mAP': c1_mAP,
-        #     'c2_mAP': c2_mAP,
-        #     'c3_mAP': c3_mAP,
-        #     'c4_mAP': c4_mAP,
-        #     'c5_mAP': c5_mAP,
-        #     'avg_mAP': avg_mAP,
-        #     'c1_precision': c1_precision,
-        #     'c2_precision': c2_precision,
-        #     'c3_precision': c3_precision,
-        #     'c4_precision': c4_precision,
-        #     'c5_precision': c5_precision,
-        #     'avg_precision': avg_precision,
-        #     'c1_recall': c1_recall,
-        #     'c2_recall': c2_recall,
-        #     'c3_recall': c3_recall,
-        #     'c4_recall': c4_recall,
-        #     'c5_recall': c5_recall,
-        #     'avg_recall': avg_recall,
-        #     'c1_f1': c1_f1,
-        #     'c2_f1': c2_f1,
-        #     'c3_f1': c3_f1,
-        #     'c4_f1': c4_f1,
-        #     'c5_f1': c5_f1,
-        #     'avg_f1': avg_f1,
-        #     'best_f1': avg_f1_best,
-        #     'optimizer': optimizer.state_dict(),
-        # }, is_best, args.prefix)
+    run.finish()
+    # not working with checkpoints for now
+    # save_checkpoint({
+    #     'epoch': epoch + 1,
+    #     'arch': args.arch,
+    #     'state_dict': model.state_dict(),
+    #     'c1_mAP': c1_mAP,
+    #     'c2_mAP': c2_mAP,
+    #     'c3_mAP': c3_mAP,
+    #     'c4_mAP': c4_mAP,
+    #     'c5_mAP': c5_mAP,
+    #     'avg_mAP': avg_mAP,
+    #     'c1_precision': c1_precision,
+    #     'c2_precision': c2_precision,
+    #     'c3_precision': c3_precision,
+    #     'c4_precision': c4_precision,
+    #     'c5_precision': c5_precision,
+    #     'avg_precision': avg_precision,
+    #     'c1_recall': c1_recall,
+    #     'c2_recall': c2_recall,
+    #     'c3_recall': c3_recall,
+    #     'c4_recall': c4_recall,
+    #     'c5_recall': c5_recall,
+    #     'avg_recall': avg_recall,
+    #     'c1_f1': c1_f1,
+    #     'c2_f1': c2_f1,
+    #     'c3_f1': c3_f1,
+    #     'c4_f1': c4_f1,
+    #     'c5_f1': c5_f1,
+    #     'avg_f1': avg_f1,
+    #     'best_f1': avg_f1_best,
+    #     'optimizer': optimizer.state_dict(),
+    # }, is_best, args.prefix)
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -266,12 +292,15 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     # switch to train mode
     model.train()
-
     end = time.time()
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
         # segm = dictionary['segm']
+        if is_server:
+            input_img = input_img.cuda(args.cuda_device)
+            target = target.cuda(args.cuda_device)
+            # segm = segm.cuda(args.cuda_device)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -290,20 +319,20 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # plt.show()
 
         # initial segm size = [1, 3, 224, 224]
-        # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4)) actual
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
         # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
         # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
-        # processed_segm1 = maxpool_segm1(segm) actual
+        processed_segm1 = maxpool_segm1(segm)
         # processed_segm2 = maxpool_segm2(segm)
         # processed_segm3 = maxpool_segm3(segm)
         # processed_segm4 = maxpool_segm4(segm)
 
         loss1 = criterion(output, target)
-        # loss2 = criterion(spm_output[0], processed_segm1)  baseline for now
+        loss2 = criterion(spm_output[0], processed_segm1)
 
-        loss_comb = loss1  # + loss2  baseline for now
+        loss_comb = loss1 + loss2
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -319,6 +348,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
+        # step -- number of examples seen
         if i % args.print_freq == 0:
             print(f'\nEpoch: [{epoch}][{i}/{len(train_loader)}]\t'
                   f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -326,9 +356,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i > 0:
                 print_metrics()
+    wandb_log_train(epoch, losses.val, losses.avg)
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, epoch):
     batch_time = AverageMeter()
     losses = AverageMeter()
     # switch to evaluate mode
@@ -338,6 +369,9 @@ def validate(val_loader, model, criterion):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
+        if is_server:
+            input_img = input_img.cuda(args.cuda_device)
+            target = target.cuda(args.cuda_device)
 
         # compute output
         with torch.no_grad():
@@ -359,7 +393,7 @@ def validate(val_loader, model, criterion):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i != 0:
                 print_metrics()
-    print_metrics()
+    wandb_log_test(epoch, losses.val, losses.avg)
 
 
 def save_checkpoint(state, is_best, prefix):
@@ -514,6 +548,52 @@ def count_f1():
     c5_f1 = f1_score(c5_exp, c5_pred, average="binary")
     avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
+
+
+def wandb_log_train(epoch, loss, loss_avg):
+    if not is_server:
+        return
+    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
+    c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
+    c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
+    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+
+    wandb.log({"epoch": epoch, "loss": loss, "loss_avg": loss_avg,
+               "c1_mAP": c1_mAP, "c2_mAP": c2_mAP, "c3_mAP": c3_mAP, "c4_mAP": c4_mAP, "c5_mAP": c5_mAP,
+               "avg_mAP": avg_mAP,
+               "c1_precision": c1_precision, "c2_precision": c2_precision, "c3_precision": c3_precision,
+               "c4_precision": c4_precision, "c5_precision": c5_precision, "avg_precision": avg_precision,
+               "c1_recall": c1_recall, "c2_recall": c2_recall, "c3_recall": c3_recall, "c4_recall": c4_recall,
+               "c5_recall": c5_recall, "avg_recall": avg_recall,
+               "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1,
+               "best_f1": avg_f1_best
+               },
+              step=epoch)
+
+
+def wandb_log_test(epoch, loss, loss_avg):
+    if not is_server:
+        return
+    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
+    c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
+    c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
+    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+
+    wandb.log({"epoch_test": epoch, "loss_test": loss, "loss_avg_test": loss_avg,
+               "c1_mAP_test": c1_mAP, "c2_mAP_test": c2_mAP, "c3_mAP_test": c3_mAP, "c4_mAP_test": c4_mAP,
+               "c5_mAP_test": c5_mAP,
+               "avg_mAP": avg_mAP,
+               "c1_precision_test": c1_precision, "c2_precision_test": c2_precision, "c3_precision_test": c3_precision,
+               "c4_precision_test": c4_precision, "c5_precision_test": c5_precision,
+               "avg_precision_test": avg_precision,
+               "c1_recall_test": c1_recall, "c2_recall_test": c2_recall, "c3_recall_test": c3_recall,
+               "c4_recall_test": c4_recall,
+               "c5_recall_test": c5_recall, "avg_recall_test": avg_recall,
+               "c1_f1_test": c1_f1, "c2_f1": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1,
+               "avg_f1_test": avg_f1,
+               "best_f1_test": avg_f1_best
+               },
+              step=epoch)
 
 
 def print_metrics():
