@@ -81,8 +81,8 @@ class DatasetISIC2018(Dataset):
             img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)
             segm = TF.resized_crop(segm, i, j, h, w, size, Image.BILINEAR)
 
-        img = self.normalize(img)
         img = self.to_tensor(img)
+        img = self.normalize(img)
         segm = self.to_tensor(segm)
         label = label_to_tensor(self.image_to_onehot[self.image_names[idx]])
         return {'image': img, 'label': label, 'segm': segm}
