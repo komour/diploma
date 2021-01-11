@@ -29,17 +29,22 @@ class DatasetISIC2018(Dataset):
         Args:
             label_file (string): Path to the txt file with annotations.
             root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
+            transform (callable, optional): Some additional transformations only for image
+            perform_flips (bool): If true: perform same random horizontal and random vertical flips on image and mask
+            perform_crop (bool): If true: perform same RandomResizedCrop(224) for image and mask
         """
+        self.transform = transform
         self.perform_crop = perform_crop
         self.perform_flips = perform_flips
         self.image_to_onehot = {}
         self.image_names = []
         self.root_dir = root_dir
-        self.transform = transform
+        self.to_tensor = transforms.ToTensor()
+        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
         self.pil_images = []
         self.pil_images_segm = []
+
         f = open(label_file, 'r')
         lines = f.readlines()
         f.close()
@@ -77,10 +82,11 @@ class DatasetISIC2018(Dataset):
             size = (size0, size0)
             img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)
             segm = TF.resized_crop(segm, i, j, h, w, size, Image.BILINEAR)
-
         if self.transform:
             img = self.transform(img)
-            segm = self.transform(segm)
+        img = self.to_tensor(img)
+        img = self.normalize(img)
+        segm = self.to_tensor(segm)
         label = label_to_tensor(self.image_to_onehot[self.image_names[idx]])
         return {'image': img, 'label': label, 'segm': segm}
 
