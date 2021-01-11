@@ -1,1 +1,1 @@
-python3 train.py --is-server 1 --run-name "lr = 0.1" --cuda-device=2 --lr 0.1 data/
+python3 train.py --run-name "lr = 0.1" --cuda-device=2 --lr 0.1 data/
