@@ -136,7 +136,7 @@ def main():
         architecture=f"{args.arch}{args.depth}"
     )
     if is_server:
-        run = wandb.init(config=config, project="baseline", name=args.run_name)
+        run = wandb.init(config=config, project="vol.2", name=args.run_name)
 
     if is_server:
         model = model.cuda(args.cuda_device)
@@ -369,7 +369,7 @@ def validate(val_loader, model, criterion, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % (args.print_freq * 10) == 0:
+        if i % args.print_freq == 0:
             print(f'Validate: [{i}/{len(val_loader)}]\t'
                   f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
