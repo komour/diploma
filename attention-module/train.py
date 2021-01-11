@@ -46,12 +46,12 @@ parser.add_argument('--ngpu', default=4, type=int, metavar='G',
                     help='number of gpus to use')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
-                    metavar='N', help='mini-batch size (default: 256)')
+parser.add_argument('-b', '--batch-size', default=16, type=int,
+                    metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -63,9 +63,9 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument("--seed", type=int, default=1234, metavar='BS', help='input batch size for training (default: 64)')
-parser.add_argument("--prefix", type=str, required=True, metavar='PFX', help='prefix for logging & checkpoint saving')
+parser.add_argument("--prefix", type=str, default='ISIC2018_CBAM', metavar='PFX', help='prefix for logging & checkpoint saving')
 parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='evaluation only')
-parser.add_argument('--att-type', type=str, choices=['BAM', 'CBAM'], default=None)
+parser.add_argument('--att-type', type=str, choices=['BAM', 'CBAM'], default='CBAM')
 parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int,  choices=[0, 1], default=1)
@@ -95,7 +95,7 @@ avg_recall_best = 0
 avg_mAP_best = 0
 
 args = parser.parse_args()
-is_server = args.server_run == 1
+is_server = args.is_server == 1
 
 
 def main():
@@ -133,11 +133,10 @@ def main():
         classes=CLASS_AMOUNT,
         batch_size=args.batch_size,
         learning_rate=args.lr,
-        dataset="ISIC2018",
         architecture=f"{args.arch}{args.depth}"
     )
     if is_server:
-        run = wandb.init(config=config, project="baseline", name=args.run_name)
+        run = wandb.init(config=config, project="add.loss vol.1", name=args.run_name)
 
     if is_server:
         model = model.cuda(args.cuda_device)
@@ -180,19 +179,14 @@ def main():
         val_labels,
         valdir,
         False,
-        False,
-        transforms.Compose([
-            # transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ]))
+        False
+    )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     if args.evaluate:
-        validate(val_loader, model, criterion)
+        validate(val_loader, model, criterion, 0)
         return
 
     # size0 = 224
@@ -200,27 +194,14 @@ def main():
         train_labels,
         traindir,
         True,  # perform flips
-        True,  # perform random resized crop
-        transforms.Compose([
-            # transforms.RandomResizedCrop(size0),
-            # transforms.RandomHorizontalFlip(),
-            # transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
+        True   # perform random resized crop
+    )
 
     # test_dataset = DatasetISIC2018(
     #     test_labels,
     #     testdir,
     #     False,
-    #     False
-    #     transforms.Compose([
-    #         # transforms.RandomResizedCrop(size0),
-    #         # transforms.RandomHorizontalFlip(),
-    #         # transforms.RandomVerticalFlip(),
-    #         transforms.ToTensor(),
-    #         normalize,
-    #     ])
+    #     False,
     # )
     train_sampler = None
 
@@ -250,7 +231,8 @@ def main():
             avg_mAP_best = avg_mAP
             avg_recall_best = avg_recall
             avg_precision_best = avg_precision
-    run.finish()
+    if is_server:
+        run.finish()
     # not working with checkpoints for now
     # save_checkpoint({
     #     'epoch': epoch + 1,
@@ -296,11 +278,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        # segm = dictionary['segm']
+        segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-            # segm = segm.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -356,7 +338,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i > 0:
                 print_metrics()
-    wandb_log_train(epoch, losses.val, losses.avg)
+    wandb_log_train(epoch, losses.avg)
 
 
 def validate(val_loader, model, criterion, epoch):
@@ -393,7 +375,7 @@ def validate(val_loader, model, criterion, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i != 0:
                 print_metrics()
-    wandb_log_test(epoch, losses.val, losses.avg)
+    wandb_log_test(epoch, losses.avg)
 
 
 def save_checkpoint(state, is_best, prefix):
@@ -550,7 +532,7 @@ def count_f1():
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 
 
-def wandb_log_train(epoch, loss, loss_avg):
+def wandb_log_train(epoch, loss_avg):
     if not is_server:
         return
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
@@ -558,7 +540,7 @@ def wandb_log_train(epoch, loss, loss_avg):
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
-    wandb.log({"epoch": epoch, "loss": loss, "loss_avg": loss_avg,
+    wandb.log({"epoch": epoch, "loss_avg": loss_avg,
                "c1_mAP": c1_mAP, "c2_mAP": c2_mAP, "c3_mAP": c3_mAP, "c4_mAP": c4_mAP, "c5_mAP": c5_mAP,
                "avg_mAP": avg_mAP,
                "c1_precision": c1_precision, "c2_precision": c2_precision, "c3_precision": c3_precision,
@@ -571,7 +553,7 @@ def wandb_log_train(epoch, loss, loss_avg):
               step=epoch)
 
 
-def wandb_log_test(epoch, loss, loss_avg):
+def wandb_log_test(epoch, loss_avg):
     if not is_server:
         return
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
@@ -579,7 +561,7 @@ def wandb_log_test(epoch, loss, loss_avg):
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
-    wandb.log({"epoch_test": epoch, "loss_test": loss, "loss_avg_test": loss_avg,
+    wandb.log({"epoch_test": epoch, "loss_avg_test": loss_avg,
                "c1_mAP_test": c1_mAP, "c2_mAP_test": c2_mAP, "c3_mAP_test": c3_mAP, "c4_mAP_test": c4_mAP,
                "c5_mAP_test": c5_mAP,
                "avg_mAP": avg_mAP,

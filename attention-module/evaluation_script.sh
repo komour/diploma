@@ -1,1 +1,1 @@
-python3 train.py --is-server 1 --run-name "add.loss vol.1" --print-freq 10 --cuda-device=2 --workers 4 --arch resnet --depth 50 --epochs 100 --batch-size 16 --lr 0.1 --att-type CBAM --prefix ISIC2018_CBAM data/
+python3 train.py --is-server 1 --run-name "lr = 0.1" --cuda-device=2 --lr 0.1 data/
