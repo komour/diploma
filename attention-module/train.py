@@ -357,7 +357,7 @@ def validate(val_loader, model, criterion, epoch):
 
         # compute output
         with torch.no_grad():
-            output, _ = model(input_img)
+            output, spm_output = model(input_img)
             loss = criterion(output, target)
 
         # measure accuracy and record loss

@@ -207,10 +207,13 @@ class ResNet(nn.Module):
 
         x, spm4 = self.layer4(x)
         # x = self.layer4(x)
+        print(x.size())
         if self.network_type == "ImageNet":
             x = self.avgpool(x)
         else:
             x = F.avg_pool2d(x, 4)
+        print(x.size())
+        print()
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
