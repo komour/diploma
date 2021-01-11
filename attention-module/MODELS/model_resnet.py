@@ -79,43 +79,26 @@ class Bottleneck(nn.Module):
             x = x_init
             spm_output_list = []
 
-        # print('Number:', self.num)
-        # print('x', x.size())
-
         residual = x
         if self.downsample is not None:
             residual = self.downsample(x)
-            # print('downsample', residual.size())
 
         out = self.conv1(x)
-        # print('conv1', out.size())
         out = self.bn1(out)
-        # print('bn1', out.size())
         out = self.relu(out)
-        # print('relu', out.size())
 
         out = self.conv2(out)
-        # print('conv2', out.size())
         out = self.bn2(out)
-        # print('bn2', out.size())
         out = self.relu(out)
-        # print('relu', out.size())
 
         out = self.conv3(out)
-        # print('conv3', out.size())
         out = self.bn3(out)
-        # print('bn3', out.size())
 
         spm_output = None
         if self.cbam is not None:
             out, spm_output = self.cbam(out)
-            # print('cbam', out.size())
         out += residual
-        # print('+= residual', out.size())
         out = self.relu(out)
-        # print('relu', out.size())
-        # print()
-        # print(spm_output.size())
         spm_output_list.append(spm_output)
         return out, spm_output_list
 
@@ -186,41 +169,26 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         spm_output = []
-        print(x.size())
         x = self.conv1(x)
-        print(x.size())
         x = self.bn1(x)
-        print(x.size())
         x = self.relu(x)
-        print(x.size())
         if self.network_type == "ImageNet":  # true
             x = self.maxpool(x)
         x, spm1 = self.layer1(x)
-        print(x.size())
-        # x = self.layer1(x)
         if self.bam1 is not None:  # false
             x, _ = self.bam1(x)
         x, spm2 = self.layer2(x)
-        print(x.size())
-        # x = self.layer2(x)
         if self.bam2 is not None:  # false
             x, _ = self.bam2(x)
 
         x, spm3 = self.layer3(x)
-        print(x.size())
-        # x = self.layer3(x)
         if self.bam3 is not None:  # false
             x, _ = self.bam3(x)
-        print(x.size())
         x, spm4 = self.layer4(x)
-        # x = self.layer4(x)
-        print(x.size())
         if self.network_type == "ImageNet":
             x = self.avgpool(x)
         else:
             x = F.avg_pool2d(x, 4)
-        print(x.size())
-        print()
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
@@ -229,7 +197,6 @@ class ResNet(nn.Module):
         spm_output += spm3
         spm_output += spm4
         return x, spm_output
-        # return x
 
 
 # att_type = CBAM

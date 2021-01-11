@@ -175,11 +175,13 @@ def main():
                                      std=[0.229, 0.224, 0.225])
     # import pdb
     # pdb.set_trace()
+    size0 = 224
     val_dataset = DatasetISIC2018(
         val_labels,
         valdir,
         False,
-        False
+        False,
+        transforms.CenterCrop(size0)
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
@@ -189,12 +191,11 @@ def main():
         validate(val_loader, model, criterion, 0)
         return
 
-    # size0 = 224
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
         True,  # perform flips
-        True   # perform random resized crop
+        True  # perform random resized crop
     )
 
     # test_dataset = DatasetISIC2018(

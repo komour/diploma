@@ -24,7 +24,7 @@ png = '.png'
 class DatasetISIC2018(Dataset):
     """ISIC2018 dataset."""
 
-    def __init__(self, label_file, root_dir, perform_flips=False, perform_crop=False):
+    def __init__(self, label_file, root_dir, perform_flips=False, perform_crop=False, transformations=None):
         """
         Args:
             label_file (string): Path to the txt file with annotations.
@@ -32,6 +32,7 @@ class DatasetISIC2018(Dataset):
             perform_flips (bool): If true: perform same random horizontal and random vertical flips on image and mask
             perform_crop (bool): If true: perform same RandomResizedCrop(224) for image and mask
         """
+        self.transform = transformations
         self.perform_crop = perform_crop
         self.perform_flips = perform_flips
         self.image_to_onehot = {}
@@ -80,7 +81,8 @@ class DatasetISIC2018(Dataset):
             size = (size0, size0)
             img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)
             segm = TF.resized_crop(segm, i, j, h, w, size, Image.BILINEAR)
-
+        if self.transform is not None:
+            img = self.transform(img)
         img = self.to_tensor(img)
         img = self.normalize(img)
         segm = self.to_tensor(segm)
