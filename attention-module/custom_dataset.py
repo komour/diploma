@@ -29,6 +29,7 @@ class DatasetISIC2018(Dataset):
         Args:
             label_file (string): Path to the txt file with annotations.
             root_dir (string): Directory with all the images.
+            transform (callable, optional): Some additional transformations only for image
             perform_flips (bool): If true: perform same random horizontal and random vertical flips on image and mask
             perform_crop (bool): If true: perform same RandomResizedCrop(224) for image and mask
         """
@@ -82,7 +83,6 @@ class DatasetISIC2018(Dataset):
             img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)
             segm = TF.resized_crop(segm, i, j, h, w, size, Image.BILINEAR)
         if self.transform:
-            print('CenterCrop')
             img = self.transform(img)
         img = self.to_tensor(img)
         img = self.normalize(img)

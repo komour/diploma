@@ -171,8 +171,7 @@ def main():
     val_labels = os.path.join(args.data, 'val', 'images_onehot_val.txt')
     # testdir = os.path.join(args.data, 'test')
     # test_labels = os.path.join(args.data, 'test', 'images_onehot_test.txt')
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+
     # import pdb
     # pdb.set_trace()
     size0 = 224
@@ -185,7 +184,7 @@ def main():
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=args.batch_size, shuffle=False,
+        batch_size=1, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     if args.evaluate:
         validate(val_loader, model, criterion, 0)
@@ -370,7 +369,7 @@ def validate(val_loader, model, criterion, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
+        if i % (args.print_freq * 10) == 0:
             print(f'Validate: [{i}/{len(val_loader)}]\t'
                   f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
