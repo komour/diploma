@@ -184,7 +184,7 @@ def main():
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=1, shuffle=False,
+        batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     if args.evaluate:
         validate(val_loader, model, criterion, 0)
@@ -194,7 +194,7 @@ def main():
         train_labels,
         traindir,
         True,  # perform flips
-        True  # perform random resized crop
+        True  # perform random resized crop with size = 224
     )
 
     # test_dataset = DatasetISIC2018(
