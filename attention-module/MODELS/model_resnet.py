@@ -186,25 +186,32 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         spm_output = []
+        print(x.size())
         x = self.conv1(x)
+        print(x.size())
         x = self.bn1(x)
+        print(x.size())
         x = self.relu(x)
+        print(x.size())
         if self.network_type == "ImageNet":  # true
             x = self.maxpool(x)
         x, spm1 = self.layer1(x)
+        print(x.size())
         # x = self.layer1(x)
         if self.bam1 is not None:  # false
             x, _ = self.bam1(x)
         x, spm2 = self.layer2(x)
+        print(x.size())
         # x = self.layer2(x)
         if self.bam2 is not None:  # false
             x, _ = self.bam2(x)
 
         x, spm3 = self.layer3(x)
+        print(x.size())
         # x = self.layer3(x)
         if self.bam3 is not None:  # false
             x, _ = self.bam3(x)
-
+        print(x.size())
         x, spm4 = self.layer4(x)
         # x = self.layer4(x)
         print(x.size())

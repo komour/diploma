@@ -136,7 +136,7 @@ def main():
         architecture=f"{args.arch}{args.depth}"
     )
     if is_server:
-        run = wandb.init(config=config, project="add.loss vol.1", name=args.run_name)
+        run = wandb.init(config=config, project="baseline", name=args.run_name)
 
     if is_server:
         model = model.cuda(args.cuda_device)
