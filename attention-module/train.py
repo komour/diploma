@@ -543,8 +543,7 @@ def wandb_log_train(epoch, loss_avg):
                "c4_precision": c4_precision, "c5_precision": c5_precision, "avg_precision": avg_precision,
                "c1_recall": c1_recall, "c2_recall": c2_recall, "c3_recall": c3_recall, "c4_recall": c4_recall,
                "c5_recall": c5_recall, "avg_recall": avg_recall,
-               "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1,
-               "best_f1": avg_f1_best_test
+               "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1
                },
               step=epoch)
 
