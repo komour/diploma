@@ -81,7 +81,7 @@ class DatasetISIC2018(Dataset):
             size0 = 224
             size = (size0, size0)
             img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)
-            segm = TF.resized_crop(segm, i, j, h, w, size, Image.BILINEAR)
+            segm = TF.resized_crop(segm, i, j, h, w, size, Image.NEAREST)
         if self.transform:
             img = self.transform(img)
         img = self.to_tensor(img)

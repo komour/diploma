@@ -29,21 +29,10 @@ from custom_dataset import DatasetISIC2018
 import wandb
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-model_names = sorted(name for name in models.__dict__
-                     if name.islower() and not name.startswith("__")
-                     and callable(models.__dict__[name]))
 
-parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('data', metavar='DIR',
-                    help='path to dataset')
-parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet',
-                    help='model architecture: ' +
-                         ' | '.join(model_names) +
-                         ' (default: resnet18)')
-parser.add_argument('--depth', default=50, type=int, metavar='D',
-                    help='model depth')
-parser.add_argument('--ngpu', default=4, type=int, metavar='G',
-                    help='number of gpus to use')
+parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Training')
+parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet')
+parser.add_argument('--depth', default=50, type=int, metavar='D', help='model depth')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
@@ -62,13 +51,13 @@ parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument("--seed", type=int, default=1234, metavar='BS', help='input batch size for training (default: 64)')
-parser.add_argument("--prefix", type=str, default='ISIC2018_CBAM', metavar='PFX', help='prefix for logging & checkpoint saving')
+parser.add_argument('--seed', type=int, default=1234, metavar='BS')
+parser.add_argument('--prefix', type=str, default='', metavar='PFX',
+                    help='prefix for logging & checkpoint saving')
 parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='evaluation only')
-parser.add_argument('--att-type', type=str, choices=['BAM', 'CBAM'], default='CBAM')
 parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
-parser.add_argument('--is-server', type=int,  choices=[0, 1], default=1)
+parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -89,10 +78,10 @@ c4_predicted = []
 c5_expected = []
 c5_predicted = []
 
-avg_f1_best = 0
-avg_precision_best = 0
-avg_recall_best = 0
-avg_mAP_best = 0
+avg_f1_best_test = 0
+avg_precision_best_test = 0
+avg_recall_best_test = 0
+avg_mAP_best_test = 0
 
 args = parser.parse_args()
 is_server = args.is_server == 1
@@ -101,10 +90,10 @@ is_server = args.is_server == 1
 def main():
     if is_server:
         wandb.login()
-    global args, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
+    global args, avg_f1_best_test, avg_precision_best_test, avg_recall_best_test, avg_mAP_best_test
     global viz, train_lot, test_lot
     global c1_expected, c1_predicted, c2_expected, c2_predicted, c3_expected, c3_predicted, c4_expected, c4_predicted
-    global c5_expected, c5_predicted, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
+    global c5_expected, c5_predicted, avg_f1_best_test, avg_precision_best_test, avg_recall_best_test, avg_mAP_best_test
     args = parser.parse_args()
     print("args", args)
     torch.manual_seed(args.seed)
@@ -113,7 +102,7 @@ def main():
     # create model
     CLASS_AMOUNT = 5
     if args.arch == "resnet":
-        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, args.att_type)
+        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM')
     else:
         print('arch `resnet` expected, "', args.arch, '"found')
         return
@@ -125,15 +114,19 @@ def main():
         criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
-    # don't need to parallelize on different devices
-    # model = torch.nn.DataParallel(model, device_ids=list(range(args.ngpu)))
-
     config = dict(
-        epochs=args.epochs,
-        classes=CLASS_AMOUNT,
-        batch_size=args.batch_size,
+        architecture=f"{args.arch}{args.depth}",
         learning_rate=args.lr,
-        architecture=f"{args.arch}{args.depth}"
+        epochs=args.epochs,
+        start_epoch=args.start_epoch,
+        seed=args.seed,
+        weight_decay=args.weight_decay,
+        batch_size=args.batch_size,
+        momentum=args.momentum,
+        workers=args.workers,
+        prefix=args.prefix,
+        resume=args.resume,
+        evaluate=args.evaluate
     )
     if is_server:
         run = wandb.init(config=config, project="vol.2", name=args.run_name)
@@ -165,10 +158,11 @@ def main():
 
     cudnn.benchmark = True
     # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    train_labels = os.path.join(args.data, 'train', 'images_onehot_train.txt')
-    valdir = os.path.join(args.data, 'val')
-    val_labels = os.path.join(args.data, 'val', 'images_onehot_val.txt')
+    root_dir = 'data/'
+    traindir = os.path.join(root_dir, 'train')
+    train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
+    valdir = os.path.join(root_dir, 'val')
+    val_labels = os.path.join(root_dir, 'val', 'images_onehot_val.txt')
     # testdir = os.path.join(args.data, 'test')
     # test_labels = os.path.join(args.data, 'test', 'images_onehot_test.txt')
 
@@ -185,7 +179,8 @@ def main():
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+        num_workers=args.workers, pin_memory=True
+    )
     if args.evaluate:
         validate(val_loader, model, criterion, 0)
         return
@@ -207,7 +202,8 @@ def main():
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+        num_workers=args.workers, pin_memory=True, sampler=train_sampler
+    )
 
     for epoch in range(args.start_epoch, args.epochs):
         # adjust_learning_rate(optimizer, epoch)
@@ -225,12 +221,12 @@ def main():
         c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
         c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
         c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-        is_best = avg_f1 > avg_f1_best
+        is_best = avg_f1 > avg_f1_best_test
         if is_best:
-            avg_f1_best = avg_f1
-            avg_mAP_best = avg_mAP
-            avg_recall_best = avg_recall
-            avg_precision_best = avg_precision
+            avg_f1_best_test = avg_f1
+            avg_mAP_best_test = avg_mAP
+            avg_recall_best_test = avg_recall
+            avg_precision_best_test = avg_precision
     if is_server:
         run.finish()
     # not working with checkpoints for now
@@ -540,15 +536,14 @@ def wandb_log_train(epoch, loss_avg):
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
-    wandb.log({"epoch": epoch, "loss_avg": loss_avg,
+    wandb.log({"loss_avg": loss_avg,
                "c1_mAP": c1_mAP, "c2_mAP": c2_mAP, "c3_mAP": c3_mAP, "c4_mAP": c4_mAP, "c5_mAP": c5_mAP,
                "avg_mAP": avg_mAP,
                "c1_precision": c1_precision, "c2_precision": c2_precision, "c3_precision": c3_precision,
                "c4_precision": c4_precision, "c5_precision": c5_precision, "avg_precision": avg_precision,
                "c1_recall": c1_recall, "c2_recall": c2_recall, "c3_recall": c3_recall, "c4_recall": c4_recall,
                "c5_recall": c5_recall, "avg_recall": avg_recall,
-               "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1,
-               "best_f1": avg_f1_best
+               "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1
                },
               step=epoch)
 
@@ -561,19 +556,19 @@ def wandb_log_test(epoch, loss_avg):
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
-    wandb.log({"epoch_test": epoch, "loss_avg_test": loss_avg,
+    wandb.log({"loss_avg_test": loss_avg,
                "c1_mAP_test": c1_mAP, "c2_mAP_test": c2_mAP, "c3_mAP_test": c3_mAP, "c4_mAP_test": c4_mAP,
                "c5_mAP_test": c5_mAP,
-               "avg_mAP": avg_mAP,
+               "avg_mAP_test": avg_mAP,
                "c1_precision_test": c1_precision, "c2_precision_test": c2_precision, "c3_precision_test": c3_precision,
                "c4_precision_test": c4_precision, "c5_precision_test": c5_precision,
                "avg_precision_test": avg_precision,
                "c1_recall_test": c1_recall, "c2_recall_test": c2_recall, "c3_recall_test": c3_recall,
                "c4_recall_test": c4_recall,
                "c5_recall_test": c5_recall, "avg_recall_test": avg_recall,
-               "c1_f1_test": c1_f1, "c2_f1": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1,
+               "c1_f1_test": c1_f1, "c2_f1_test": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1,
                "avg_f1_test": avg_f1,
-               "best_f1_test": avg_f1_best
+               "best_f1_test": avg_f1_best_test
                },
               step=epoch)
 
@@ -586,7 +581,7 @@ def print_metrics():
     print(f'mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
           f'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
           f'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
-          f'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f}), best = {avg_f1_best}\n'
+          f'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f}), best = {avg_f1_best_test}\n'
           )
 
 
