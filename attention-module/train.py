@@ -78,10 +78,10 @@ c4_predicted = []
 c5_expected = []
 c5_predicted = []
 
-avg_f1_best = 0
-avg_precision_best = 0
-avg_recall_best = 0
-avg_mAP_best = 0
+avg_f1_best_test = 0
+avg_precision_best_test = 0
+avg_recall_best_test = 0
+avg_mAP_best_test = 0
 
 args = parser.parse_args()
 is_server = args.is_server == 1
@@ -90,10 +90,10 @@ is_server = args.is_server == 1
 def main():
     if is_server:
         wandb.login()
-    global args, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
+    global args, avg_f1_best_test, avg_precision_best_test, avg_recall_best_test, avg_mAP_best_test
     global viz, train_lot, test_lot
     global c1_expected, c1_predicted, c2_expected, c2_predicted, c3_expected, c3_predicted, c4_expected, c4_predicted
-    global c5_expected, c5_predicted, avg_f1_best, avg_precision_best, avg_recall_best, avg_mAP_best
+    global c5_expected, c5_predicted, avg_f1_best_test, avg_precision_best_test, avg_recall_best_test, avg_mAP_best_test
     args = parser.parse_args()
     print("args", args)
     torch.manual_seed(args.seed)
@@ -221,12 +221,12 @@ def main():
         c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
         c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
         c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-        is_best = avg_f1 > avg_f1_best
+        is_best = avg_f1 > avg_f1_best_test
         if is_best:
-            avg_f1_best = avg_f1
-            avg_mAP_best = avg_mAP
-            avg_recall_best = avg_recall
-            avg_precision_best = avg_precision
+            avg_f1_best_test = avg_f1
+            avg_mAP_best_test = avg_mAP
+            avg_recall_best_test = avg_recall
+            avg_precision_best_test = avg_precision
     if is_server:
         run.finish()
     # not working with checkpoints for now
@@ -536,7 +536,7 @@ def wandb_log_train(epoch, loss_avg):
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
-    wandb.log({"epoch": epoch, "loss_avg": loss_avg,
+    wandb.log({"loss_avg": loss_avg,
                "c1_mAP": c1_mAP, "c2_mAP": c2_mAP, "c3_mAP": c3_mAP, "c4_mAP": c4_mAP, "c5_mAP": c5_mAP,
                "avg_mAP": avg_mAP,
                "c1_precision": c1_precision, "c2_precision": c2_precision, "c3_precision": c3_precision,
@@ -544,7 +544,7 @@ def wandb_log_train(epoch, loss_avg):
                "c1_recall": c1_recall, "c2_recall": c2_recall, "c3_recall": c3_recall, "c4_recall": c4_recall,
                "c5_recall": c5_recall, "avg_recall": avg_recall,
                "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1,
-               "best_f1": avg_f1_best
+               "best_f1": avg_f1_best_test
                },
               step=epoch)
 
@@ -557,19 +557,19 @@ def wandb_log_test(epoch, loss_avg):
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
-    wandb.log({"epoch_test": epoch, "loss_avg_test": loss_avg,
+    wandb.log({"loss_avg_test": loss_avg,
                "c1_mAP_test": c1_mAP, "c2_mAP_test": c2_mAP, "c3_mAP_test": c3_mAP, "c4_mAP_test": c4_mAP,
                "c5_mAP_test": c5_mAP,
-               "avg_mAP": avg_mAP,
+               "avg_mAP_test": avg_mAP,
                "c1_precision_test": c1_precision, "c2_precision_test": c2_precision, "c3_precision_test": c3_precision,
                "c4_precision_test": c4_precision, "c5_precision_test": c5_precision,
                "avg_precision_test": avg_precision,
                "c1_recall_test": c1_recall, "c2_recall_test": c2_recall, "c3_recall_test": c3_recall,
                "c4_recall_test": c4_recall,
                "c5_recall_test": c5_recall, "avg_recall_test": avg_recall,
-               "c1_f1_test": c1_f1, "c2_f1": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1,
+               "c1_f1_test": c1_f1, "c2_f1_test": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1,
                "avg_f1_test": avg_f1,
-               "best_f1_test": avg_f1_best
+               "best_f1_test": avg_f1_best_test
                },
               step=epoch)
 
@@ -582,7 +582,7 @@ def print_metrics():
     print(f'mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
           f'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
           f'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
-          f'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f}), best = {avg_f1_best}\n'
+          f'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f}), best = {avg_f1_best_test}\n'
           )
 
 
