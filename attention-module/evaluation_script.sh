@@ -1,1 +1,1 @@
-python3 train.py --run-name "baseline, lr = 0.1" --lr 0.1 --cuda-device 2 data/
+python3 train.py --run-name "baseline, lr = 1e-7" --lr 0.0000001 --cuda-device 2
