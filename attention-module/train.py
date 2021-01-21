@@ -284,33 +284,36 @@ def train(train_loader, model, criterion, optimizer, epoch):
         data_time.update(time.time() - end)
 
         # compute output
-        output, spm_output = model(input_img)
-        # spm_output shapes:
+        output, sam_output = model(input_img)
+        # sam_output shapes:
         # [1, 1, 56, 56]x3 , [1, 1, 28, 28]x4 [1, 1, 14, 14]x6 , [1, 1, 7, 7]x3
 
-        # visualize mask/input_image/spm_output
-        # np_spm = torch.squeeze(spm_output[0]).detach().numpy()
+        # visualize mask/input_image/sam_output
+        # np_sam = torch.squeeze(sam_output[0]).detach().numpy()
         # np_segm = np.moveaxis(torch.squeeze(segm).detach().numpy(), 0, -1)
         # np_input = np.moveaxis(torch.squeeze(input_img).detach().numpy(), 0, -1)
         # plt.imshow(np_segm.astype(np.uint8))
-        # plt.imshow(np_spm)
+        # plt.imshow(np_sam)
         # plt.show()
 
         # initial segm size = [1, 3, 224, 224]
         maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
         processed_segm1 = maxpool_segm1(segm)
-        # processed_segm2 = maxpool_segm2(segm)
-        # processed_segm3 = maxpool_segm3(segm)
-        # processed_segm4 = maxpool_segm4(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
 
         loss1 = criterion(output, target)
-        loss2 = criterion(spm_output[0], processed_segm1)
+        loss2 = criterion(sam_output[2], processed_segm1)
+        loss3 = criterion(sam_output[6], processed_segm2)
+        loss4 = criterion(sam_output[12], processed_segm3)
+        loss5 = criterion(sam_output[15], processed_segm4)
 
-        loss_comb = loss1 + loss2
+        loss_comb = loss1 + loss2 + loss3 + loss4 + loss5
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -353,7 +356,7 @@ def validate(val_loader, model, criterion, epoch):
 
         # compute output
         with torch.no_grad():
-            output, spm_output = model(input_img)
+            output, sam_output = model(input_img)
             loss = criterion(output, target)
 
         # measure accuracy and record loss
