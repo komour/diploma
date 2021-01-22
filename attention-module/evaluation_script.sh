@@ -1,1 +1,1 @@
-python3 train.py --run-name "3-7-13-16-add.loss, lr = 1e-7" --lr 0.0000001 --cuda-device 2
+python3 train.py --run-name "ALL add.loss, 500 epoch, lr = 1" --lr 1 --cuda-device 2

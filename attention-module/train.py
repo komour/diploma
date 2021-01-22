@@ -308,12 +308,24 @@ def train(train_loader, model, criterion, optimizer, epoch):
         processed_segm4 = maxpool_segm4(segm)
 
         loss1 = criterion(output, target)
-        loss2 = criterion(sam_output[2], processed_segm1)
-        loss3 = criterion(sam_output[6], processed_segm2)
-        loss4 = criterion(sam_output[12], processed_segm3)
-        loss5 = criterion(sam_output[15], processed_segm4)
+        loss20 = criterion(sam_output[0], processed_segm1)
+        loss21 = criterion(sam_output[1], processed_segm1)
+        loss22 = criterion(sam_output[2], processed_segm1)
+        loss30 = criterion(sam_output[3], processed_segm2)
+        loss31 = criterion(sam_output[4], processed_segm2)
+        loss32 = criterion(sam_output[5], processed_segm2)
+        loss33 = criterion(sam_output[6], processed_segm2)
+        loss40 = criterion(sam_output[7], processed_segm3)
+        loss41 = criterion(sam_output[8], processed_segm3)
+        loss42 = criterion(sam_output[9], processed_segm3)
+        loss43 = criterion(sam_output[10], processed_segm3)
+        loss44 = criterion(sam_output[11], processed_segm3)
+        loss45 = criterion(sam_output[12], processed_segm3)
+        loss50 = criterion(sam_output[13], processed_segm4)
+        loss51 = criterion(sam_output[14], processed_segm4)
+        loss52 = criterion(sam_output[15], processed_segm4)
 
-        loss_comb = loss1 + loss2 + loss3 + loss4 + loss5
+        loss_comb = loss1 + loss20 + loss21 + loss22 + loss30 + loss31 + loss32 + loss33 + loss40 + loss41 + loss42 + loss43 + loss44 + loss45 + loss50 + loss51 + loss52
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
