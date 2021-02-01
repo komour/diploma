@@ -178,7 +178,7 @@ def main():
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=args.batch_size, shuffle=False,
+        batch_size=1, shuffle=False,
         num_workers=args.workers, pin_memory=True
     )
     if args.evaluate:
@@ -201,7 +201,7 @@ def main():
     train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=1, shuffle=False,
+        train_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=train_sampler
     )
 
@@ -296,40 +296,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # plt.imshow(np_sam)
         # plt.show()
 
-        # log 20 SAM outputs to W&B
-        if i < 21:
-            print(sam_output[0].size())
-            print(sam_output[0].cpu().size())
-            np_sam1 = torch.squeeze(sam_output[0].cpu()).detach().numpy()
-            np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
-            np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
-            np_sam16 = torch.squeeze(sam_output[15].cpu()).detach().numpy()
-
-            fig, axs = plt.subplots(nrows=2, ncols=4, figsize=(12, 8))
-            plt.suptitle(epoch, fontsize=14)
-
-            axs[1][0].imshow(np_sam1, cmap='gray')
-            axs[1][0].set_title('relative')
-            axs[0][0].imshow(np_sam1, vmin=0., vmax=1., cmap='gray')
-            axs[0][0].set_title('absolute')
-
-            axs[1][1].imshow(np_sam6, cmap='gray')
-            axs[1][1].set_title('relative')
-            axs[0][1].imshow(np_sam6, vmin=0., vmax=1., cmap='gray')
-            axs[0][1].set_title('absolute')
-
-            axs[1][2].imshow(np_sam11, cmap='gray')
-            axs[1][2].set_title('relative')
-            axs[0][2].imshow(np_sam11, vmin=0., vmax=1., cmap='gray')
-            axs[0][2].set_title('absolute')
-
-            axs[1][3].imshow(np_sam16, cmap='gray')
-            axs[1][3].set_title('relative')
-            axs[0][3].imshow(np_sam16, vmin=0., vmax=1., cmap='gray')
-            axs[0][3].set_title('absolute')
-            wandb.log({f'{i}': plt})
-
-
         # initial segm size = [1, 3, 224, 224]
         maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
@@ -392,6 +358,36 @@ def validate(val_loader, model, criterion, epoch):
         with torch.no_grad():
             output, sam_output = model(input_img)
             loss = criterion(output, target)
+
+            # log 20 SAM outputs to W&B
+            if i < 21:
+                np_sam1 = torch.squeeze(sam_output[0].cpu()).detach().numpy()
+                np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
+                np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
+                np_sam16 = torch.squeeze(sam_output[15].cpu()).detach().numpy()
+
+                fig, axs = plt.subplots(nrows=2, ncols=4, figsize=(12, 8))
+
+                axs[1][0].imshow(np_sam1, cmap='gray')
+                axs[1][0].set_title('relative')
+                axs[0][0].imshow(np_sam1, vmin=0., vmax=1., cmap='gray')
+                axs[0][0].set_title('absolute')
+
+                axs[1][1].imshow(np_sam6, cmap='gray')
+                axs[1][1].set_title('relative')
+                axs[0][1].imshow(np_sam6, vmin=0., vmax=1., cmap='gray')
+                axs[0][1].set_title('absolute')
+
+                axs[1][2].imshow(np_sam11, cmap='gray')
+                axs[1][2].set_title('relative')
+                axs[0][2].imshow(np_sam11, vmin=0., vmax=1., cmap='gray')
+                axs[0][2].set_title('absolute')
+
+                axs[1][3].imshow(np_sam16, cmap='gray')
+                axs[1][3].set_title('relative')
+                axs[0][3].imshow(np_sam16, vmin=0., vmax=1., cmap='gray')
+                axs[0][3].set_title('absolute')
+                wandb.log({f'image: {i}, epoch: {epoch}': plt})
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
