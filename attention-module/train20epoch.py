@@ -201,7 +201,7 @@ def main():
     train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=False,
+        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler
     )
 
@@ -367,7 +367,7 @@ def validate(val_loader, model, criterion, epoch):
                 np_sam16 = torch.squeeze(sam_output[15].cpu()).detach().numpy()
 
                 fig, axs = plt.subplots(nrows=2, ncols=4, figsize=(12, 8))
-
+                plt.suptitle(f'epoch: {epoch}')
                 axs[1][0].imshow(np_sam1, cmap='gray')
                 axs[1][0].set_title('relative')
                 axs[0][0].imshow(np_sam1, vmin=0., vmax=1., cmap='gray')
@@ -387,7 +387,7 @@ def validate(val_loader, model, criterion, epoch):
                 axs[1][3].set_title('relative')
                 axs[0][3].imshow(np_sam16, vmin=0., vmax=1., cmap='gray')
                 axs[0][3].set_title('absolute')
-                wandb.log({f'image: {i}, epoch: {epoch}': plt})
+                wandb.log({f'image: {i}': plt}, step=epoch)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
