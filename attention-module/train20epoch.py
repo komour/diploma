@@ -178,7 +178,7 @@ def main():
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=1, shuffle=False,
+        batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True
     )
     if args.evaluate:
@@ -201,7 +201,7 @@ def main():
     train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+        train_dataset, batch_size=1, shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=train_sampler
     )
 
@@ -298,6 +298,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # log 20 SAM outputs to W&B
         if i < 21:
+            print(sam_output[0].size())
+            print(sam_output[0].cpu().size())
             np_sam1 = torch.squeeze(sam_output[0].cpu()).detach().numpy()
             np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
             np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
