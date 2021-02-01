@@ -1,0 +1,1 @@
+python3 train20epoch.py --run-name "20 epoch experiment" --epochs 20 --lr 1 --cuda-device 2 --batch-size 1
