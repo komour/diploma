@@ -298,10 +298,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # log 20 SAM outputs to W&B
         if i < 21:
-            np_sam1 = torch.squeeze(sam_output[0]).detach().numpy()
-            np_sam6 = torch.squeeze(sam_output[5]).detach().numpy()
-            np_sam11 = torch.squeeze(sam_output[10]).detach().numpy()
-            np_sam16 = torch.squeeze(sam_output[15]).detach().numpy()
+            np_sam1 = torch.squeeze(sam_output[0].cpu()).detach().numpy()
+            np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
+            np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
+            np_sam16 = torch.squeeze(sam_output[15].cpu()).detach().numpy()
 
             fig, axs = plt.subplots(nrows=2, ncols=4, figsize=(12, 8))
             plt.suptitle(epoch, fontsize=14)
