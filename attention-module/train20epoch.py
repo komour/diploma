@@ -327,7 +327,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
             axs[1][3].set_title('relative')
             axs[0][3].imshow(np_sam16, vmin=0., vmax=1., cmap='gray')
             axs[0][3].set_title('absolute')
-            wandb.log({i: plt})
+            wandb.log({f'{i}': plt})
 
 
         # initial segm size = [1, 3, 224, 224]
