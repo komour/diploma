@@ -178,7 +178,7 @@ def main():
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=args.batch_size, shuffle=False,
+        batch_size=1, shuffle=False,
         num_workers=args.workers, pin_memory=True
     )
     if args.evaluate:
