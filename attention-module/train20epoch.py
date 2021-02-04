@@ -58,6 +58,7 @@ parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='ev
 parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
+parser.add_argument("--tags", type=list, default=['concurrent', 'baseline'])
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -129,7 +130,7 @@ def main():
         evaluate=args.evaluate
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.2", name=args.run_name)
+        run = wandb.init(config=config, project="vol.2", name=args.run_name, tags=args.tags)
 
     if is_server:
         model = model.cuda(args.cuda_device)
@@ -307,13 +308,14 @@ def train(train_loader, model, criterion, optimizer, epoch):
         processed_segm3 = maxpool_segm3(segm)
         processed_segm4 = maxpool_segm4(segm)
 
-        loss1 = criterion(output, target)
-        loss20 = criterion(sam_output[0], processed_segm1)
-        loss32 = criterion(sam_output[5], processed_segm2)
-        loss43 = criterion(sam_output[10], processed_segm3)
-        loss52 = criterion(sam_output[15], processed_segm4)
+        loss0 = criterion(output, target)
 
-        loss_comb = loss1 + loss20 + loss32 + loss43 + loss52
+        loss1 = criterion(sam_output[0], processed_segm1)
+        loss6 = criterion(sam_output[5], processed_segm2)
+        loss11 = criterion(sam_output[10], processed_segm3)
+        loss16 = criterion(sam_output[15], processed_segm4)
+
+        loss_comb = loss0 + loss1 + loss6 + loss11 + loss16
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -369,7 +371,7 @@ def validate(val_loader, model, criterion, epoch):
                     segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
                     segm_numpy = np.moveaxis(segm_numpy, 0, 2)
                     wandb.log({f'segm: {i}': [wandb.Image(segm_numpy)]}, step=0)
-                    
+
                 np_sam1 = torch.squeeze(sam_output[0].cpu()).detach().numpy()
                 np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
                 np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()

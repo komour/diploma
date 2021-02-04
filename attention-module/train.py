@@ -58,6 +58,7 @@ parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='ev
 parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
+parser.add_argument("--tags", type=list, default=['concurrent', 'baseline'])
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -129,7 +130,7 @@ def main():
         evaluate=args.evaluate
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.2", name=args.run_name)
+        run = wandb.init(config=config, project="vol.2", name=args.run_name, tags=args.tags)
 
     if is_server:
         model = model.cuda(args.cuda_device)
@@ -307,25 +308,26 @@ def train(train_loader, model, criterion, optimizer, epoch):
         processed_segm3 = maxpool_segm3(segm)
         processed_segm4 = maxpool_segm4(segm)
 
-        loss1 = criterion(output, target)
-        loss20 = criterion(sam_output[0], processed_segm1)
-        loss21 = criterion(sam_output[1], processed_segm1)
-        loss22 = criterion(sam_output[2], processed_segm1)
-        loss30 = criterion(sam_output[3], processed_segm2)
-        loss31 = criterion(sam_output[4], processed_segm2)
-        loss32 = criterion(sam_output[5], processed_segm2)
-        loss33 = criterion(sam_output[6], processed_segm2)
-        loss40 = criterion(sam_output[7], processed_segm3)
-        loss41 = criterion(sam_output[8], processed_segm3)
-        loss42 = criterion(sam_output[9], processed_segm3)
-        loss43 = criterion(sam_output[10], processed_segm3)
-        loss44 = criterion(sam_output[11], processed_segm3)
-        loss45 = criterion(sam_output[12], processed_segm3)
-        loss50 = criterion(sam_output[13], processed_segm4)
-        loss51 = criterion(sam_output[14], processed_segm4)
-        loss52 = criterion(sam_output[15], processed_segm4)
+        loss0 = criterion(output, target)
 
-        loss_comb = loss1 + loss20 + loss21 + loss22 + loss30 + loss31 + loss32 + loss33 + loss40 + loss41 + loss42 + loss43 + loss44 + loss45 + loss50 + loss51 + loss52
+        loss1 = criterion(sam_output[0], processed_segm1)
+        loss2 = criterion(sam_output[1], processed_segm1)
+        loss3 = criterion(sam_output[2], processed_segm1)
+        loss4 = criterion(sam_output[3], processed_segm2)
+        loss5 = criterion(sam_output[4], processed_segm2)
+        loss6 = criterion(sam_output[5], processed_segm2)
+        loss7 = criterion(sam_output[6], processed_segm2)
+        loss8 = criterion(sam_output[7], processed_segm3)
+        loss9 = criterion(sam_output[8], processed_segm3)
+        loss10 = criterion(sam_output[9], processed_segm3)
+        loss11 = criterion(sam_output[10], processed_segm3)
+        loss12 = criterion(sam_output[11], processed_segm3)
+        loss13 = criterion(sam_output[12], processed_segm3)
+        loss14 = criterion(sam_output[13], processed_segm4)
+        loss15 = criterion(sam_output[14], processed_segm4)
+        loss16 = criterion(sam_output[15], processed_segm4)
+
+        loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
