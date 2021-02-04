@@ -388,7 +388,6 @@ def validate(val_loader, model, criterion, epoch):
                 axs[0][3].imshow(np_sam16, vmin=0., vmax=1., cmap='gray')
                 axs[0][3].set_title('16 absolute')
                 wandb.log({f'image: {i}': plt}, step=epoch)
-                plt.close('all')
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
