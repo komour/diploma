@@ -357,10 +357,7 @@ def validate(val_loader, model, criterion, epoch):
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-        if first_validate:
-            segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
-            segm_numpy = np.moveaxis(segm_numpy, 0, 2)
-            wandb.log({f'segm: {i}': [wandb.Image(segm_numpy)]}, step=0)
+
         # compute output
         with torch.no_grad():
             output, sam_output = model(input_img)
@@ -368,6 +365,11 @@ def validate(val_loader, model, criterion, epoch):
 
             # log 20 SAM outputs to W&B
             if i < 21:
+                if first_validate:
+                    segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
+                    segm_numpy = np.moveaxis(segm_numpy, 0, 2)
+                    wandb.log({f'segm: {i}': [wandb.Image(segm_numpy)]}, step=0)
+                    
                 np_sam1 = torch.squeeze(sam_output[0].cpu()).detach().numpy()
                 np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
                 np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
