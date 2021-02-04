@@ -365,7 +365,8 @@ def validate(val_loader, model, criterion, epoch):
                 np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
                 np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
                 np_sam16 = torch.squeeze(sam_output[15].cpu()).detach().numpy()
-
+                
+                plt.close('all')
                 fig, axs = plt.subplots(nrows=2, ncols=4, figsize=(12, 8))
                 plt.suptitle(f'epoch: {epoch}')
                 axs[1][0].imshow(np_sam1, cmap='gray')
