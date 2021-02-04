@@ -360,7 +360,7 @@ def validate(val_loader, model, criterion, epoch):
         if first_validate:
             segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
             segm_numpy = np.moveaxis(segm_numpy, 0, 2)
-            wandb.log({f'segm: {i}': [wandb.Image(segm_numpy)]})
+            wandb.log({f'segm: {i}': [wandb.Image(segm_numpy)]}, step=0)
         # compute output
         with torch.no_grad():
             output, sam_output = model(input_img)
@@ -395,7 +395,7 @@ def validate(val_loader, model, criterion, epoch):
                 axs[1][3].set_title('16 relative')
                 axs[0][3].imshow(np_sam16, vmin=0., vmax=1., cmap='gray')
                 axs[0][3].set_title('16 absolute')
-                wandb.log({f'image: {i}': plt}, step=epoch)
+                wandb.log({f'image: {i}': fig}, step=epoch)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
