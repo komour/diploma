@@ -340,20 +340,27 @@ def train(train_loader, model, criterion, optimizer, epoch):
     wandb_log_train(epoch, losses.avg)
 
 
+first_validate = True
+
+
 def validate(val_loader, model, criterion, epoch):
     batch_time = AverageMeter()
     losses = AverageMeter()
     # switch to evaluate mode
     model.eval()
-
+    global first_validate
     end = time.time()
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
+        segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-
+        if first_validate:
+            segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
+            segm_numpy = np.moveaxis(segm_numpy, 0, 2)
+            wandb.log({f'segm: {i}': [wandb.Image(segm_numpy)]})
         # compute output
         with torch.no_grad():
             output, sam_output = model(input_img)
@@ -365,7 +372,7 @@ def validate(val_loader, model, criterion, epoch):
                 np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
                 np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
                 np_sam16 = torch.squeeze(sam_output[15].cpu()).detach().numpy()
-                
+
                 plt.close('all')
                 fig, axs = plt.subplots(nrows=2, ncols=4, figsize=(12, 8))
                 plt.suptitle(f'epoch: {epoch}')
@@ -406,6 +413,7 @@ def validate(val_loader, model, criterion, epoch):
             if i != 0:
                 print_metrics()
     wandb_log_test(epoch, losses.avg)
+    first_validate = False
 
 
 def save_checkpoint(state, is_best, prefix):
