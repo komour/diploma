@@ -190,21 +190,6 @@ def main():
     print('Number of model parameters: {}'.format(
         sum([p.data.nelement() for p in model.parameters()])))
 
-    # optionally resume from a checkpoint (not working with checkpoints for now)
-    # if args.resume:
-    #     if os.path.isfile(args.resume):
-    #         print("=> loading checkpoint '{}'".format(args.resume))
-    #         checkpoint = torch.load(args.resume)
-    #         args.start_epoch = checkpoint['epoch']
-    #         best_prec1 = checkpoint['best_prec1']
-    #         model.load_state_dict(checkpoint['state_dict'])
-    #         if 'optimizer' in checkpoint:
-    #             optimizer.load_state_dict(checkpoint['optimizer'])
-    #         print("=> loaded checkpoint '{}' (epoch {})"
-    #               .format(args.resume, checkpoint['epoch']))
-    #     else:
-    #         print("=> no checkpoint found at '{}'".format(args.resume))
-
     cudnn.benchmark = True
     # Data loading code
     root_dir = 'data/'
@@ -264,52 +249,8 @@ def main():
         # evaluate on validation set
         clear_expected_predicted()
         validate(val_loader, model, criterion, epoch)
-
-        # save checkpoint
-        c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-        c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
-        c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
-        c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-        is_best = avg_f1 > avg_f1_best_test
-        if is_best:
-            avg_f1_best_test = avg_f1
-            avg_mAP_best_test = avg_mAP
-            avg_recall_best_test = avg_recall
-            avg_precision_best_test = avg_precision
     if is_server:
         run.finish()
-    # not working with checkpoints for now
-    # save_checkpoint({
-    #     'epoch': epoch + 1,
-    #     'arch': args.arch,
-    #     'state_dict': model.state_dict(),
-    #     'c1_mAP': c1_mAP,
-    #     'c2_mAP': c2_mAP,
-    #     'c3_mAP': c3_mAP,
-    #     'c4_mAP': c4_mAP,
-    #     'c5_mAP': c5_mAP,
-    #     'avg_mAP': avg_mAP,
-    #     'c1_precision': c1_precision,
-    #     'c2_precision': c2_precision,
-    #     'c3_precision': c3_precision,
-    #     'c4_precision': c4_precision,
-    #     'c5_precision': c5_precision,
-    #     'avg_precision': avg_precision,
-    #     'c1_recall': c1_recall,
-    #     'c2_recall': c2_recall,
-    #     'c3_recall': c3_recall,
-    #     'c4_recall': c4_recall,
-    #     'c5_recall': c5_recall,
-    #     'avg_recall': avg_recall,
-    #     'c1_f1': c1_f1,
-    #     'c2_f1': c2_f1,
-    #     'c3_f1': c3_f1,
-    #     'c4_f1': c4_f1,
-    #     'c5_f1': c5_f1,
-    #     'avg_f1': avg_f1,
-    #     'best_f1': avg_f1_best,
-    #     'optimizer': optimizer.state_dict(),
-    # }, is_best, args.prefix)
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -464,13 +405,6 @@ def validate(val_loader, model, criterion, epoch):
             if i != 0:
                 print_metrics()
     wandb_log_test(epoch, losses.avg)
-
-
-def save_checkpoint(state, is_best, prefix):
-    filename = './checkpoints/%s_checkpoint.pth.tar' % prefix
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, './checkpoints/%s_model_best.pth.tar' % prefix)
 
 
 class AverageMeter(object):
