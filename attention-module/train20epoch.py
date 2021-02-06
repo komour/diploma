@@ -135,14 +135,13 @@ c5_recall_test_best = 0
 args = parser.parse_args()
 is_server = args.is_server == 1
 
+run = None
+
 
 def main():
     if is_server:
         wandb.login()
-    global args, avg_f1_best_test, avg_precision_best_test, avg_recall_best_test, avg_mAP_best_test
-    global viz, train_lot, test_lot
-    global c1_expected, c1_predicted, c2_expected, c2_predicted, c3_expected, c3_predicted, c4_expected, c4_predicted
-    global c5_expected, c5_predicted, avg_f1_best_test, avg_precision_best_test, avg_recall_best_test, avg_mAP_best_test
+    global args, run
     args = parser.parse_args()
     print("args", args)
     torch.manual_seed(args.seed)
@@ -557,7 +556,7 @@ def count_f1():
 def wandb_log_train(epoch, loss_avg):
     if not is_server:
         return
-
+    global run
     global c1_f1_best, c2_f1_best, c3_f1_best, c4_f1_best, c5_f1_best
     global c1_mAP_best, c2_mAP_best, c3_mAP_best, c4_mAP_best, c5_mAP_best
     global c1_recall_best, c2_recall_best, c3_recall_best, c4_recall_best, c5_recall_best
@@ -571,80 +570,80 @@ def wandb_log_train(epoch, loss_avg):
 
     if avg_f1 > avg_f1_best:
         avg_f1_best = avg_f1
-        wandb.run.summary["avg_f1"] = avg_f1_best
+        run.summary["avg_f1"] = avg_f1_best
     if avg_mAP > avg_mAP_best:
         avg_mAP_best = avg_mAP
-        wandb.run.summary["avg_mAP"] = avg_mAP_best
+        run.summary["avg_mAP"] = avg_mAP_best
     if avg_recall > avg_recall_best:
         avg_recall_best = avg_mAP_test_best
-        wandb.run.summary["avg_recall"] = avg_recall_best
+        run.summary["avg_recall"] = avg_recall_best
     if avg_precision > avg_precision_best:
         avg_precision_best = avg_precision
-        wandb.run.summary["avg_precision"] = avg_precision_best
+        run.summary["avg_precision"] = avg_precision_best
 
     if c1_mAP > c1_mAP_best:
         c1_mAP_best = c1_mAP
-        wandb.run.summary["c1_mAP"] = c1_mAP_best
+        run.summary["c1_mAP"] = c1_mAP_best
     if c2_mAP > c2_mAP_best:
         c2_mAP_best = c2_mAP
-        wandb.run.summary["c2_mAP"] = c2_mAP_best
+        run.summary["c2_mAP"] = c2_mAP_best
     if c3_mAP > c3_mAP_best:
         c3_mAP_best = c3_mAP
-        wandb.run.summary["c3_mAP"] = c3_mAP_best
+        run.summary["c3_mAP"] = c3_mAP_best
     if c4_mAP > c4_mAP_best:
         c4_mAP_best = c4_mAP
-        wandb.run.summary["c4_mAP"] = c4_mAP_best
+        run.summary["c4_mAP"] = c4_mAP_best
     if c5_mAP > c5_mAP_best:
         c5_mAP_best = c5_mAP
-        wandb.run.summary["c5_mAP"] = c5_mAP_best
+        run.summary["c5_mAP"] = c5_mAP_best
 
     if c1_precision > c1_precision_best:
         c1_precision_best = c1_precision
-        wandb.run.summary["c1_precision"] = c1_precision_best
+        run.summary["c1_precision"] = c1_precision_best
     if c2_precision > c2_precision_best:
         c2_precision_best = c2_precision
-        wandb.run.summary["c2_precision"] = c2_precision_best
+        run.summary["c2_precision"] = c2_precision_best
     if c3_precision > c3_precision_best:
         c3_precision_best = c3_precision
-        wandb.run.summary["c3_precision"] = c3_precision_best
+        run.summary["c3_precision"] = c3_precision_best
     if c4_precision > c4_precision_best:
         c4_precision_best = c4_precision
-        wandb.run.summary["c4_precision"] = c4_precision_best
+        run.summary["c4_precision"] = c4_precision_best
     if c5_precision > c5_precision_best:
         c5_precision_best = c5_precision
-        wandb.run.summary["c5_precision"] = c5_precision_best
+        run.summary["c5_precision"] = c5_precision_best
 
     if c1_recall > c1_recall_best:
         c1_recall_best = c1_recall
-        wandb.run.summary["c1_recall"] = c1_recall_best
+        run.summary["c1_recall"] = c1_recall_best
     if c2_recall > c2_recall_best:
         c2_recall_best = c2_recall
-        wandb.run.summary["c2_recall"] = c2_recall_best
+        run.summary["c2_recall"] = c2_recall_best
     if c3_recall > c3_recall_best:
         c3_recall_best = c3_recall
-        wandb.run.summary["c3_recall"] = c3_recall_best
+        run.summary["c3_recall"] = c3_recall_best
     if c4_recall > c4_recall_best:
         c4_recall_best = c4_recall
-        wandb.run.summary["c4_recall"] = c4_recall_best
+        run.summary["c4_recall"] = c4_recall_best
     if c5_recall > c5_recall_best:
         c5_recall_best = c5_recall
-        wandb.run.summary["c5_recall"] = c5_recall_best
+        run.summary["c5_recall"] = c5_recall_best
 
     if c1_f1 > c1_f1_best:
         c1_f1_best = c1_f1
-        wandb.run.summary["c1_f1"] = c1_f1_best
+        run.summary["c1_f1"] = c1_f1_best
     if c2_f1 > c2_f1_best:
         c2_f1_best = c2_f1
-        wandb.run.summary["c2_f1"] = c2_f1_best
+        run.summary["c2_f1"] = c2_f1_best
     if c3_f1 > c3_f1_best:
         c3_f1_best = c3_f1
-        wandb.run.summary["c3_f1"] = c3_f1_best
+        run.summary["c3_f1"] = c3_f1_best
     if c4_f1 > c4_f1_best:
         c4_f1_best = c4_f1
-        wandb.run.summary["c4_f1"] = c4_f1_best
+        run.summary["c4_f1"] = c4_f1_best
     if c5_f1 > c5_f1_best:
         c5_f1_best = c5_f1
-        wandb.run.summary["c5_f1"] = c5_f1_best
+        run.summary["c5_f1"] = c5_f1_best
 
     wandb.log({"loss_avg": loss_avg,
                "c1_mAP": c1_mAP, "c2_mAP": c2_mAP, "c3_mAP": c3_mAP, "c4_mAP": c4_mAP, "c5_mAP": c5_mAP,
@@ -662,6 +661,7 @@ def wandb_log_test(epoch, loss_avg):
     if not is_server:
         return
 
+    global run
     global c1_f1_test_best, c2_f1_test_best, c3_f1_test_best, c4_f1_test_best, c5_f1_test_best
     global c1_mAP_test_best, c2_mAP_test_best, c3_mAP_test_best, c4_mAP_test_best, c5_mAP_test_best
     global c1_recall_test_best, c2_recall_test_best, c3_recall_test_best, c4_recall_test_best, c5_recall_test_best
@@ -675,80 +675,84 @@ def wandb_log_test(epoch, loss_avg):
 
     if avg_f1 > avg_f1_test_best:
         avg_f1_test_best = avg_f1
-        wandb.run.summary["avg_f1_test"] = avg_f1_test_best
+        run.summary["avg_f1_test"] = avg_f1_test_best
     if avg_mAP > avg_mAP_test_best:
         avg_mAP_test_best = avg_mAP
-        wandb.run.summary["avg_mAP_test"] = avg_mAP_test_best
+        run.summary["avg_mAP_test"] = avg_mAP_test_best
     if avg_recall > avg_recall_test_best:
         avg_recall_test_best = avg_mAP_test_best
-        wandb.run.summary["avg_recall_test"] = avg_recall_test_best
+        run.summary["avg_recall_test"] = avg_recall_test_best
     if avg_precision > avg_precision_test_best:
         avg_precision_test_best = avg_precision
-        wandb.run.summary["avg_precision_test"] = avg_precision_test_best
+        run.summary["avg_precision_test"] = avg_precision_test_best
 
     if c1_mAP > c1_mAP_test_best:
         c1_mAP_test_best = c1_mAP
-        wandb.run.summary["c1_mAP_test"] = c1_mAP_test_best
+        run.summary["c1_mAP_test"] = c1_mAP_test_best
     if c2_mAP > c2_mAP_test_best:
         c2_mAP_test_best = c2_mAP
-        wandb.run.summary["c2_mAP_test"] = c2_mAP_test_best
+        run.summary["c2_mAP_test"] = c2_mAP_test_best
     if c3_mAP > c3_mAP_test_best:
         c3_mAP_test_best = c3_mAP
-        wandb.run.summary["c3_mAP_test"] = c3_mAP_test_best
+        run.summary["c3_mAP_test"] = c3_mAP_test_best
     if c4_mAP > c4_mAP_test_best:
         c4_mAP_test_best = c4_mAP
-        wandb.run.summary["c4_mAP_test"] = c4_mAP_test_best
+        run.summary["c4_mAP_test"] = c4_mAP_test_best
     if c5_mAP > c5_mAP_test_best:
         c5_mAP_test_best = c5_mAP
-        wandb.run.summary["c5_mAP_test"] = c5_mAP_test_best
+        run.summary["c5_mAP_test"] = c5_mAP_test_best
 
     if c1_precision > c1_precision_test_best:
         c1_precision_test_best = c1_precision
-        wandb.run.summary["c1_precision_test"] = c1_precision_test_best
+        run.summary["c1_precision_test"] = c1_precision_test_best
     if c2_precision > c2_precision_test_best:
         c2_precision_test_best = c2_precision
-        wandb.run.summary["c2_precision_test"] = c2_precision_test_best
+        run.summary["c2_precision_test"] = c2_precision_test_best
     if c3_precision > c3_precision_test_best:
         c3_precision_test_best = c3_precision
-        wandb.run.summary["c3_precision_test"] = c3_precision_test_best
+        run.summary["c3_precision_test"] = c3_precision_test_best
     if c4_precision > c4_precision_test_best:
         c4_precision_test_best = c4_precision
-        wandb.run.summary["c4_precision_test"] = c4_precision_test_best
+        run.summary["c4_precision_test"] = c4_precision_test_best
     if c5_precision > c5_precision_test_best:
         c5_precision_test_best = c5_precision
-        wandb.run.summary["c5_precision_test"] = c5_precision_test_best
+        run.summary["c5_precision_test"] = c5_precision_test_best
 
     if c1_recall > c1_recall_test_best:
         c1_recall_test_best = c1_recall
-        wandb.run.summary["c1_recall_test"] = c1_recall_test_best
+        run.summary["c1_recall_test"] = c1_recall_test_best
     if c2_recall > c2_recall_test_best:
         c2_recall_test_best = c2_recall
-        wandb.run.summary["c2_recall_test"] = c2_recall_test_best
+        run.summary["c2_recall_test"] = c2_recall_test_best
     if c3_recall > c3_recall_test_best:
         c3_recall_test_best = c3_recall
-        wandb.run.summary["c3_recall_test"] = c3_recall_test_best
+        run.summary["c3_recall_test"] = c3_recall_test_best
     if c4_recall > c4_recall_test_best:
         c4_recall_test_best = c4_recall
-        wandb.run.summary["c4_recall_test"] = c4_recall_test_best
+        run.summary["c4_recall_test"] = c4_recall_test_best
     if c5_recall > c5_recall_test_best:
         c5_recall_test_best = c5_recall
-        wandb.run.summary["c5_recall_test"] = c5_recall_test_best
+        run.summary["c5_recall_test"] = c5_recall_test_best
 
     if c1_f1 > c1_f1_test_best:
         c1_f1_test_best = c1_f1
-        wandb.run.summary["c1_f1_test"] = c1_f1_test_best
+        run.summary["c1_f1_test"] = c1_f1_test_best
     if c2_f1 > c2_f1_test_best:
         c2_f1_test_best = c2_f1
-        wandb.run.summary["c2_f1_test"] = c2_f1_test_best
+        run.summary["c2_f1_test"] = c2_f1_test_best
+        print()
+        print("c2_f1_test:")
+        print(c2_f1)
+        print(c2_f1_test_best)
     if c3_f1 > c3_f1_test_best:
         c3_f1_test_best = c3_f1
-        wandb.run.summary["c3_f1_test"] = c3_f1_test_best
+        run.summary["c3_f1_test"] = c3_f1_test_best
     if c4_f1 > c4_f1_test_best:
         c4_f1_test_best = c4_f1
-        wandb.run.summary["c4_f1_test"] = c4_f1_test_best
+        run.summary["c4_f1_test"] = c4_f1_test_best
     if c5_f1 > c5_f1_test_best:
         c5_f1_test_best = c5_f1
-        wandb.run.summary["c5_f1_test"] = c5_f1_test_best
+        run.summary["c5_f1_test"] = c5_f1_test_best
 
     wandb.log({"loss_avg_test": loss_avg,
                "c1_mAP_test": c1_mAP, "c2_mAP_test": c2_mAP, "c3_mAP_test": c3_mAP, "c4_mAP_test": c4_mAP,

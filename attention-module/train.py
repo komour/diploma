@@ -136,14 +136,13 @@ c4_recall_test_best = 0
 c5_recall_best = 0
 c5_recall_test_best = 0
 
+run = None
+
 
 def main():
     if is_server:
         wandb.login()
-    global args, avg_f1_best_test, avg_precision_best_test, avg_recall_best_test, avg_mAP_best_test
-    global viz, train_lot, test_lot
-    global c1_expected, c1_predicted, c2_expected, c2_predicted, c3_expected, c3_predicted, c4_expected, c4_predicted
-    global c5_expected, c5_predicted, avg_f1_best_test, avg_precision_best_test, avg_recall_best_test, avg_mAP_best_test
+    global args, run
     args = parser.parse_args()
     print("args", args)
     torch.manual_seed(args.seed)
