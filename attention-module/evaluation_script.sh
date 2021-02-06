@@ -1,1 +1,1 @@
-python3 train.py --tags "concurrent" "SAM-all" --run-name "ALL add.loss, 500 epoch, lr = 1" --lr 1 --cuda-device 2
+python3 train.py --tags concurrent SAM-all --run-name "ALL add.loss, 500 epoch, lr = 1" --lr 1 --cuda-device 2

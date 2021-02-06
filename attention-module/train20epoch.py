@@ -58,7 +58,7 @@ parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='ev
 parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
-parser.add_argument("--tags", type=list, nargs='+', default=['concurrent', 'baseline'])
+parser.add_argument("--tags", nargs='+', default=['concurrent', 'baseline'])
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -382,9 +382,9 @@ def validate(val_loader, model, criterion, epoch):
                 plt.close('all')
                 fig, axs = plt.subplots(nrows=2, ncols=5, figsize=(12, 8))
                 plt.suptitle(f'epoch: {epoch}')
-                axs[1][1].imshow(segm_numpy, cmap='gray')
+                axs[1][1].imshow(segm_numpy)
                 axs[1][1].set_title('mask relative')
-                axs[0][1].imshow(segm_numpy, vmin=0., vmax=1., cmap='gray')
+                axs[0][1].imshow(segm_numpy, vmin=0., vmax=1.)
                 axs[0][1].set_title('mask absolute')
 
                 axs[1][1].imshow(np_sam1, cmap='gray')
