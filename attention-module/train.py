@@ -136,13 +136,11 @@ c4_recall_test_best = 0
 c5_recall_best = 0
 c5_recall_test_best = 0
 
-run = None
-
 
 def main():
     if is_server:
         wandb.login()
-    global args, run
+    global args
     args = parser.parse_args()
     print("args", args)
     torch.manual_seed(args.seed)
