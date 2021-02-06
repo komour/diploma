@@ -840,7 +840,7 @@ def print_metrics():
     print(f'mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
           f'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
           f'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
-          f'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f}), best = {avg_f1_best_test}\n'
+          f'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f})\n'
           )
 
 
@@ -850,7 +850,6 @@ def measure_accuracy(output, target):
     activated_output = sigmoid(output)
     activated_output = (activated_output > th).float()
     write_expected_predicted(target, activated_output)
-    # print('output =', activated_output, ', target =', target, ' , best f1 =', avg_f1_best)
 
 
 if __name__ == '__main__':
