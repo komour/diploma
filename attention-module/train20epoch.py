@@ -175,7 +175,7 @@ def main():
         evaluate=args.evaluate
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.2", name=args.run_name, tags=args.tags)
+        wandb.init(config=config, project="vol.2", name=args.run_name, tags=args.tags)
 
     if is_server:
         model = model.cuda(args.cuda_device)
@@ -246,8 +246,6 @@ def main():
         # evaluate on validation set
         clear_expected_predicted()
         validate(val_loader, model, criterion, epoch)
-    if is_server:
-        run.finish()
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
