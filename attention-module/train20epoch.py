@@ -378,7 +378,8 @@ def validate(val_loader, model, criterion, epoch):
                 np_sam16 = torch.squeeze(sam_output[15].cpu()).detach().numpy()
 
                 segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
-
+                segm_numpy = np.moveaxis(segm_numpy, 0, 2)
+                
                 plt.close('all')
                 fig, axs = plt.subplots(nrows=2, ncols=5, figsize=(12, 8))
                 plt.suptitle(f'epoch: {epoch}')
