@@ -58,7 +58,7 @@ parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='ev
 parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
-parser.add_argument("--tags", type=list, default=['concurrent', 'baseline'])
+parser.add_argument("--tags", type=list, nargs='+', default=['concurrent', 'baseline'])
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
