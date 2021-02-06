@@ -342,15 +342,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
     wandb_log_train(epoch, losses.avg)
 
 
-first_validate = True
-
-
 def validate(val_loader, model, criterion, epoch):
     batch_time = AverageMeter()
     losses = AverageMeter()
     # switch to evaluate mode
     model.eval()
-    global first_validate
     end = time.time()
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
@@ -367,11 +363,6 @@ def validate(val_loader, model, criterion, epoch):
 
             # log 20 SAM outputs to W&B
             if i < 21:
-                if first_validate:
-                    segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
-                    segm_numpy = np.moveaxis(segm_numpy, 0, 2)
-                    wandb.log({f'segm: {i}': [wandb.Image(segm_numpy)]}, step=0)
-
                 np_sam1 = torch.squeeze(sam_output[0].cpu()).detach().numpy()
                 np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
                 np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
@@ -379,14 +370,14 @@ def validate(val_loader, model, criterion, epoch):
 
                 segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
                 segm_numpy = np.moveaxis(segm_numpy, 0, 2)
-                
+
                 plt.close('all')
                 fig, axs = plt.subplots(nrows=2, ncols=5, figsize=(12, 8))
                 plt.suptitle(f'epoch: {epoch}')
-                axs[1][1].imshow(segm_numpy)
-                axs[1][1].set_title('mask relative')
-                axs[0][1].imshow(segm_numpy, vmin=0., vmax=1.)
-                axs[0][1].set_title('mask absolute')
+                axs[1][0].imshow(segm_numpy)
+                axs[1][0].set_title('mask relative')
+                axs[0][0].imshow(segm_numpy, vmin=0., vmax=1.)
+                axs[0][0].set_title('mask absolute')
 
                 axs[1][1].imshow(np_sam1, cmap='gray')
                 axs[1][1].set_title('1 relative')
@@ -425,7 +416,6 @@ def validate(val_loader, model, criterion, epoch):
             if i != 0:
                 print_metrics()
     wandb_log_test(epoch, losses.avg)
-    first_validate = False
 
 
 def save_checkpoint(state, is_best, prefix):
