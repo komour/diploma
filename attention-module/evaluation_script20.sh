@@ -1,1 +1,1 @@
-python3 train20epoch.py --tags concurrent SAM-1-6-11-16 --run-name "20 epoch experiment, lr=1" --epochs 20 --lr 1 --cuda-device 2
+python3 train20epoch.py --tags concurrent SAM-1-6-11-16 --run-name "try to save summary" --epochs 2 --lr 1 --cuda-device 2
