@@ -764,6 +764,7 @@ def wandb_log_test(epoch, loss_avg):
 def save_summary():
     print("saving summary..")
     # train
+    print(f'avg_mAP: {avg_mAP_best}')
     wandb.summary["avg_f1"] = avg_f1_best
     wandb.summary["avg_mAP"] = avg_mAP_best
     wandb.summary["avg_recall"] = avg_recall_best
