@@ -764,16 +764,16 @@ def wandb_log_test(epoch, loss_avg):
 def save_summary():
     print("saving summary..")
     # train
-    wandbsummary["avg_f1"] = avg_f1_best
-    wandbsummary["avg_mAP"] = avg_mAP_best
-    wandbsummary["avg_recall"] = avg_recall_best
-    wandbsummary["avg_precision"] = avg_precision_best
+    wandb.summary["avg_f1"] = avg_f1_best
+    wandb.summary["avg_mAP"] = avg_mAP_best
+    wandb.summary["avg_recall"] = avg_recall_best
+    wandb.summary["avg_precision"] = avg_precision_best
 
-    wandbsummary["c1_mAP"] = c1_mAP_best
-    wandbsummary["c2_mAP"] = c2_mAP_best
-    wandbsummary["c3_mAP"] = c3_mAP_best
-    wandbsummary["c4_mAP"] = c4_mAP_best
-    wandbsummary["c5_mAP"] = c5_mAP_best
+    wandb.summary["c1_mAP"] = c1_mAP_best
+    wandb.summary["c2_mAP"] = c2_mAP_best
+    wandb.summary["c3_mAP"] = c3_mAP_best
+    wandb.summary["c4_mAP"] = c4_mAP_best
+    wandb.summary["c5_mAP"] = c5_mAP_best
 
     wandb.summary["c1_precision"] = c1_precision_best
     wandb.summary["c2_precision"] = c2_precision_best
@@ -822,7 +822,7 @@ def save_summary():
     wandb.summary["c3_f1_test"] = c3_f1_test_best
     wandb.summary["c4_f1_test"] = c4_f1_test_best
     wandb.summary["c5_f1_test"] = c5_f1_test_best
-    
+
 
 def print_metrics():
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
