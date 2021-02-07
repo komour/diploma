@@ -544,7 +544,7 @@ def wandb_log_train(epoch, loss_avg):
     if avg_mAP > avg_mAP_best:
         avg_mAP_best = avg_mAP
     if avg_recall > avg_recall_best:
-        avg_recall_best = avg_mAP_test_best
+        avg_recall_best = avg_recall
     if avg_precision > avg_precision_best:
         avg_precision_best = avg_precision
 
@@ -624,7 +624,7 @@ def wandb_log_test(epoch, loss_avg):
     if avg_mAP > avg_mAP_test_best:
         avg_mAP_test_best = avg_mAP
     if avg_recall > avg_recall_test_best:
-        avg_recall_test_best = avg_mAP_test_best
+        avg_recall_test_best = avg_recall
     if avg_precision > avg_precision_test_best:
         avg_precision_test_best = avg_precision
 
