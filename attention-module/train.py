@@ -284,12 +284,12 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # plt.show()
 
         # initial segm size = [1, 3, 224, 224]
-        # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
         # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
         # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
-        #
-        # processed_segm1 = maxpool_segm1(segm)
+
+        processed_segm1 = maxpool_segm1(segm)
         # processed_segm2 = maxpool_segm2(segm)
         # processed_segm3 = maxpool_segm3(segm)
         # processed_segm4 = maxpool_segm4(segm)
