@@ -285,13 +285,13 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # initial segm size = [1, 3, 224, 224]
         # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
         # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
         # processed_segm1 = maxpool_segm1(segm)
-        processed_segm2 = maxpool_segm2(segm)
-        # processed_segm3 = maxpool_segm3(segm)
+        # processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
         # processed_segm4 = maxpool_segm4(segm)
 
         loss0 = criterion(output, target)
@@ -301,12 +301,12 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # loss3 = criterion(sam_output[2], processed_segm1)
         # loss4 = criterion(sam_output[3], processed_segm2)
         # loss5 = criterion(sam_output[4], processed_segm2)
-        loss6 = criterion(sam_output[5], processed_segm2)
+        # loss6 = criterion(sam_output[5], processed_segm2)
         # loss7 = criterion(sam_output[6], processed_segm2)
         # loss8 = criterion(sam_output[7], processed_segm3)
         # loss9 = criterion(sam_output[8], processed_segm3)
         # loss10 = criterion(sam_output[9], processed_segm3)
-        # loss11 = criterion(sam_output[10], processed_segm3)
+        loss11 = criterion(sam_output[10], processed_segm3)
         # loss12 = criterion(sam_output[11], processed_segm3)
         # loss13 = criterion(sam_output[12], processed_segm3)
         # loss14 = criterion(sam_output[13], processed_segm4)
@@ -314,7 +314,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # loss16 = criterion(sam_output[15], processed_segm4)
         #
         # loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
-        loss_comb = loss0 + loss6
+        loss_comb = loss0 + loss11
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
