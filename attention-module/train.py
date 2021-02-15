@@ -28,6 +28,8 @@ from custom_dataset import DatasetISIC2018
 
 import wandb
 
+from collections import OrderedDict
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Training')
@@ -180,9 +182,11 @@ def main():
 
     if is_server:
         model = model.cuda(args.cuda_device)
-        model = torch.nn.DataParallel(model, device_ids=list(range(4)))
+
+    # create dummy layer to init weights in the state_dict
     dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
     torch.nn.init.xavier_uniform(dummy_fc.weight)
+
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -191,7 +195,14 @@ def main():
             state_dict = checkpoint['state_dict']
             state_dict['module.fc.weight'] = dummy_fc.weight
             state_dict['module.fc.bias'] = dummy_fc.bias
-            model.load_state_dict(state_dict)
+
+            # remove `module.` prefix because we don't use torch.nn.DataParallel
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                name = k[7:]  # remove `module.`
+                new_state_dict[name] = v
+
+            model.load_state_dict(new_state_dict)
             if 'optimizer' in checkpoint:
                 optimizer.load_state_dict(checkpoint['optimizer'])
             print(f"=> loaded checkpoint '{args.resume}'")
