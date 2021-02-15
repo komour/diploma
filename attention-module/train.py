@@ -180,13 +180,18 @@ def main():
 
     if is_server:
         model = model.cuda(args.cuda_device)
-
+        model = torch.nn.DataParallel(model, device_ids=list(range(4)))
+    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
+    torch.nn.init.xavier_uniform(dummy_fc.weight)
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
             print(f"=> loading checkpoint '{args.resume}'")
             checkpoint = torch.load(args.resume)
-            model.load_state_dict(checkpoint['state_dict'])
+            state_dict = checkpoint['state_dict']
+            state_dict['module.fc.weight'] = dummy_fc.weight
+            state_dict['module.fc.bias'] = dummy_fc.bias
+            model.load_state_dict(state_dict)
             if 'optimizer' in checkpoint:
                 optimizer.load_state_dict(checkpoint['optimizer'])
             print(f"=> loaded checkpoint '{args.resume}'")
