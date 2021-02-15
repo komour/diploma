@@ -185,7 +185,7 @@ def main():
 
     # create dummy layer to init weights in the state_dict
     dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
-    torch.nn.init.xavier_uniform(dummy_fc.weight)
+    torch.nn.init.xavier_uniform_(dummy_fc.weight)
 
     # optionally resume from a checkpoint
     if args.resume:

@@ -1,10 +1,7 @@
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 1000" --lr 1000 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 100" --lr 100 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 10" --lr 10 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 1" --lr 1 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 0.1" --lr 0.1 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 0.01" --lr 0.01 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 1e-3" --lr 1e-3 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 1e-4" --lr 1e-4 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 1e-5" --lr 1e-5 --cuda-device 2 &&
-python3 train.py --tags concurrent SAM-16 --run-name "SAM-16, lr = 1e-6" --lr 1e-6 --cuda-device 2
+python3 train.py --tags concurrent baseline checkpoint --run-name "checkpoint-baseline, lr = 1" --lr 1 --cuda-device 3 &&
+python3 train.py --tags concurrent baseline checkpoint --run-name "checkpoint-baseline, lr = 0.1" --lr 0.1 --cuda-device 3 &&
+python3 train.py --tags concurrent baseline checkpoint --run-name "checkpoint-baseline, lr = 0.01" --lr 0.01 --cuda-device 3 &&
+python3 train.py --tags concurrent baseline checkpoint --run-name "checkpoint-baseline, lr = 1e-3" --lr 1e-3 --cuda-device 3 &&
+python3 train.py --tags concurrent baseline checkpoint --run-name "checkpoint-baseline, lr = 1e-4" --lr 1e-4 --cuda-device 3 &&
+python3 train.py --tags concurrent baseline checkpoint --run-name "checkpoint-baseline, lr = 1e-5" --lr 1e-5 --cuda-device 3 &&
+python3 train.py --tags concurrent baseline checkpoint --run-name "checkpoint-baseline, lr = 1e-6" --lr 1e-6 --cuda-device 3
