@@ -180,6 +180,19 @@ def main():
 
     if is_server:
         model = model.cuda(args.cuda_device)
+
+    # optionally resume from a checkpoint
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print(f"=> loading checkpoint '{args.resume}'")
+            checkpoint = torch.load(args.resume)
+            model.load_state_dict(checkpoint['state_dict'])
+            if 'optimizer' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer'])
+            print(f"=> loaded checkpoint '{args.resume}'")
+        else:
+            print(f"=> no checkpoint found at '{args.resume}'")
+
     if is_server:
         wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
     # print("model")

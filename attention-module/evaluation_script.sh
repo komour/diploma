@@ -1,1 +1,1 @@
-python3 train.py --tags concurrent baseline --run-name "baseline, lr = 1" --lr 1 --cuda-device 2
+python3 train.py --tags concurrent baseline checkpoint --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "checkpoint-baseline, lr = 1" --lr 1 --cuda-device 3
