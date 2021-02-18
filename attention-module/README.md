@@ -3,4 +3,4 @@
 
 [All launches logs via W&B](https://wandb.ai/komour)
 
-[ReNet + CBAM architecture](https://miro.com/app/board/o9J_laaEDS4=/)
+[ResNet + CBAM architecture](https://miro.com/app/board/o9J_laaEDS4=/)

@@ -28,8 +28,6 @@ from custom_dataset import DatasetISIC2018
 
 import wandb
 
-from collections import OrderedDict
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Training')
@@ -80,10 +78,6 @@ c4_predicted = []
 
 c5_expected = []
 c5_predicted = []
-
-
-args = parser.parse_args()
-is_server = args.is_server == 1
 
 avg_f1_best = 0
 avg_f1_test_best = 0
@@ -138,6 +132,9 @@ c4_recall_test_best = 0
 c5_recall_best = 0
 c5_recall_test_best = 0
 
+args = parser.parse_args()
+is_server = args.is_server == 1
+
 
 def main():
     if is_server:
@@ -178,37 +175,10 @@ def main():
         evaluate=args.evaluate
     )
     if is_server:
-        wandb.init(config=config, project="vol.3", name=args.run_name, tags=args.tags)
+        wandb.init(config=config, project="vol.2", name=args.run_name, tags=args.tags)
 
     if is_server:
         model = model.cuda(args.cuda_device)
-
-    # create dummy layer to init weights in the state_dict
-    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
-    torch.nn.init.xavier_uniform_(dummy_fc.weight)
-
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume)
-            state_dict = checkpoint['state_dict']
-            state_dict['module.fc.weight'] = dummy_fc.weight
-            state_dict['module.fc.bias'] = dummy_fc.bias
-
-            # remove `module.` prefix because we don't use torch.nn.DataParallel
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                name = k[7:]  # remove `module.`
-                new_state_dict[name] = v
-
-            model.load_state_dict(new_state_dict)
-            if 'optimizer' in checkpoint:
-                optimizer.load_state_dict(checkpoint['optimizer'])
-            print(f"=> loaded checkpoint '{args.resume}'")
-        else:
-            print(f"=> no checkpoint found at '{args.resume}'")
-
     if is_server:
         wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
     # print("model")
@@ -239,7 +209,7 @@ def main():
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=args.batch_size, shuffle=False,
+        batch_size=1, shuffle=False,
         num_workers=args.workers, pin_memory=True
     )
     if args.evaluate:
@@ -326,24 +296,12 @@ def train(train_loader, model, criterion, optimizer, epoch):
         loss0 = criterion(output, target)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
-        # loss2 = criterion(sam_output[1], processed_segm1)
-        # loss3 = criterion(sam_output[2], processed_segm1)
-        # loss4 = criterion(sam_output[3], processed_segm2)
-        # loss5 = criterion(sam_output[4], processed_segm2)
         # loss6 = criterion(sam_output[5], processed_segm2)
-        # loss7 = criterion(sam_output[6], processed_segm2)
-        # loss8 = criterion(sam_output[7], processed_segm3)
-        # loss9 = criterion(sam_output[8], processed_segm3)
-        # loss10 = criterion(sam_output[9], processed_segm3)
         # loss11 = criterion(sam_output[10], processed_segm3)
-        # loss12 = criterion(sam_output[11], processed_segm3)
-        # loss13 = criterion(sam_output[12], processed_segm3)
-        # loss14 = criterion(sam_output[13], processed_segm4)
-        # loss15 = criterion(sam_output[14], processed_segm4)
         # loss16 = criterion(sam_output[15], processed_segm4)
-        #
-        # loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
+
         loss_comb = loss0
+
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
@@ -374,11 +332,11 @@ def validate(val_loader, model, criterion, epoch):
     losses = AverageMeter()
     # switch to evaluate mode
     model.eval()
-
     end = time.time()
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
+        segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
@@ -387,6 +345,45 @@ def validate(val_loader, model, criterion, epoch):
         with torch.no_grad():
             output, sam_output = model(input_img)
             loss = criterion(output, target)
+
+            # log 20 SAM outputs to W&B
+            if i < 21:
+                np_sam1 = torch.squeeze(sam_output[0].cpu()).detach().numpy()
+                np_sam6 = torch.squeeze(sam_output[5].cpu()).detach().numpy()
+                np_sam11 = torch.squeeze(sam_output[10].cpu()).detach().numpy()
+                np_sam16 = torch.squeeze(sam_output[15].cpu()).detach().numpy()
+
+                segm_numpy = torch.squeeze(segm.cpu()).detach().numpy()
+                segm_numpy = np.moveaxis(segm_numpy, 0, 2)
+
+                plt.close('all')
+                fig, axs = plt.subplots(nrows=2, ncols=5, figsize=(12, 8))
+                plt.suptitle(f'epoch: {epoch}')
+                axs[1][0].imshow(segm_numpy)
+                axs[1][0].set_title('mask relative')
+                axs[0][0].imshow(segm_numpy, vmin=0., vmax=1.)
+                axs[0][0].set_title('mask absolute')
+
+                axs[1][1].imshow(np_sam1, cmap='gray')
+                axs[1][1].set_title('1 relative')
+                axs[0][1].imshow(np_sam1, vmin=0., vmax=1., cmap='gray')
+                axs[0][1].set_title('1 absolute')
+
+                axs[1][2].imshow(np_sam6, cmap='gray')
+                axs[1][2].set_title('6 relative')
+                axs[0][2].imshow(np_sam6, vmin=0., vmax=1., cmap='gray')
+                axs[0][2].set_title('6 absolute')
+
+                axs[1][3].imshow(np_sam11, cmap='gray')
+                axs[1][3].set_title('11 relative')
+                axs[0][3].imshow(np_sam11, vmin=0., vmax=1., cmap='gray')
+                axs[0][3].set_title('11 absolute')
+
+                axs[1][4].imshow(np_sam16, cmap='gray')
+                axs[1][4].set_title('16 relative')
+                axs[0][4].imshow(np_sam16, vmin=0., vmax=1., cmap='gray')
+                axs[0][4].set_title('16 absolute')
+                wandb.log({f'image: {i}': fig}, step=epoch)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -562,7 +559,6 @@ def wandb_log_train(epoch, loss_avg):
     global c1_recall_best, c2_recall_best, c3_recall_best, c4_recall_best, c5_recall_best
     global c1_precision_best, c2_precision_best, c3_precision_best, c4_precision_best, c5_precision_best
     global avg_f1_best, avg_mAP_best, avg_recall_best, avg_precision_best
-
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
