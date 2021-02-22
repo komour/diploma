@@ -313,19 +313,19 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # plt.show()
 
         # initial segm size = [1, 3, 224, 224]
-        # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
         # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
         # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
-        # processed_segm1 = maxpool_segm1(segm)
+        processed_segm1 = maxpool_segm1(segm)
         # processed_segm2 = maxpool_segm2(segm)
         # processed_segm3 = maxpool_segm3(segm)
         # processed_segm4 = maxpool_segm4(segm)
 
         loss0 = criterion(output, target)
 
-        # loss1 = criterion(sam_output[0], processed_segm1)
+        loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
         # loss3 = criterion(sam_output[2], processed_segm1)
         # loss4 = criterion(sam_output[3], processed_segm2)
@@ -343,7 +343,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # loss16 = criterion(sam_output[15], processed_segm4)
         #
         # loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
-        loss_comb = loss0
+        loss_comb = loss0 + loss1
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
