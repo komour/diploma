@@ -862,6 +862,8 @@ def CB_loss(labels, logits, samples_per_cls=None, no_of_classes=5, loss_type='fo
     labels_one_hot = labels
 
     weights = torch.Tensor(weights).float()
+    if is_server:
+        weights = weights.cuda(args.cuda_device)
     weights = weights.unsqueeze(0)
     weights = weights.repeat(labels_one_hot.shape[0], 1) * labels_one_hot
     weights = weights.sum(1)
