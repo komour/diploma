@@ -858,7 +858,8 @@ def CB_loss(labels, logits, samples_per_cls=None, no_of_classes=5, loss_type='fo
     weights = (1.0 - beta) / np.array(effective_num)
     weights = weights / np.sum(weights) * no_of_classes
 
-    labels_one_hot = F.one_hot(labels, no_of_classes).float()
+    # labels_one_hot = F.one_hot(labels, no_of_classes).float()
+    labels_one_hot = labels
 
     weights = torch.Tensor(weights).float()
     weights = weights.unsqueeze(0)
