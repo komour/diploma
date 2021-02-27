@@ -1,13 +1,6 @@
 import os
 
 
-def label_to_tensor(label):
-    label_list = []
-    for c in label[:-1]:
-        label_list.append(int(c))
-    return torch.Tensor(label_list)
-
-
 def main():
     root_dir = 'data/'
     train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
@@ -28,6 +21,7 @@ def main():
     pos_weight = [-1, -1, -1, -1, -1]
     for i in range(5):
         pos_weight[i] = negative[i] / positive[i]
+    print(positive, negative)
     print(pos_weight)
 
 

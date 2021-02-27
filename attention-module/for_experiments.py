@@ -54,7 +54,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    print(torch.__version__)
+    # main()
     # image = torch.zeros(1, 3, 224, 224)
     # maxpool = nn.MaxPool3d(kernel_size=(3, 4, 4))
     # desired = torch.zeros(1, 1, 56, 56)
