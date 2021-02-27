@@ -162,9 +162,9 @@ def main():
     pos_weight_train = torch.Tensor(
         [[3.04040404040404, 3.456824512534819, 13.414414414414415, 0.7241379310344828, 18.51219512195122]])
     if is_server:
-        criterion = nn.BCEWithLogitsLoss(pos_weight=dummy_weights).cuda(args.cuda_device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
     else:
-        criterion = nn.BCEWithLogitsLoss(pos_weight=dummy_weights)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     config = dict(
@@ -352,6 +352,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
+        # losses.update(loss_comb.item(), input_img.size(0))
         losses.update(loss_comb.item(), input_img.size(0))
 
         # compute gradient and do SGD step
@@ -821,7 +822,6 @@ def focal_loss(labels, logits, alpha, gamma):
       fl: A float32 scalar representing normalized total loss.
     """
     BCLoss = F.binary_cross_entropy_with_logits(input=logits, target=labels, reduction="none")
-
     if gamma == 0.0:
         modulator = 1.0
     else:
@@ -837,7 +837,7 @@ def focal_loss(labels, logits, alpha, gamma):
     return fl
 
 
-def CB_loss(labels, logits, samples_per_cls=None, no_of_classes=5, loss_type='focal', beta=0.9999, gamma=1.):
+def CB_loss(labels, logits, samples_per_cls=None, no_of_classes=5, loss_type='sigmoid', beta=0.9999, gamma=1.):
     """Compute the Class Balanced Loss between `logits` and the ground truth `labels`.
     Class Balanced Loss: ((1-beta)/(1-beta^n))*Loss(labels, logits)
     where Loss is one of the standard losses used for Neural Networks.
@@ -873,7 +873,7 @@ def CB_loss(labels, logits, samples_per_cls=None, no_of_classes=5, loss_type='fo
     if loss_type == "focal":
         cb_loss = focal_loss(labels_one_hot, logits, weights, gamma)
     elif loss_type == "sigmoid":
-        cb_loss = F.binary_cross_entropy_with_logits(input=logits, target=labels_one_hot, weights=weights)
+        cb_loss = F.binary_cross_entropy_with_logits(input=logits, target=labels_one_hot, pos_weight=weights)
     elif loss_type == "softmax":
         pred = logits.softmax(dim=1)
         cb_loss = F.binary_cross_entropy(input=pred, target=labels_one_hot, weight=weights)
