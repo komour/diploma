@@ -182,7 +182,7 @@ def main():
         evaluate=args.evaluate
     )
     if is_server:
-        wandb.init(config=config, project="vol.3", name=args.run_name, tags=args.tags)
+        wandb.init(config=config, project="vol.4", name=args.run_name, tags=args.tags)
 
     if is_server:
         model = model.cuda(args.cuda_device)
@@ -327,8 +327,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # processed_segm3 = maxpool_segm3(segm)
         # processed_segm4 = maxpool_segm4(segm)
 
-        # loss0 = criterion(output, target)
-        loss0 = CB_loss(target, output)
+        loss0 = criterion(output, target)
+        # loss0 = CB_loss(target, output)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
@@ -364,7 +364,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        # step -- number of examples seen
         if i % args.print_freq == 0:
             print(f'\nEpoch: [{epoch}][{i}/{len(train_loader)}]\t'
                   f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -392,8 +391,8 @@ def validate(val_loader, model, criterion, epoch):
         # compute output
         with torch.no_grad():
             output, sam_output = model(input_img)
-            # loss = criterion(output, target)
-            loss = CB_loss(target, output)
+            loss = criterion(output, target)
+            # loss = CB_loss(target, output)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -443,19 +442,19 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 def write_expected_predicted(target, output):
-    t = target[0]
-    c1_expected.append(t[0])
-    c2_expected.append(t[1])
-    c3_expected.append(t[2])
-    c4_expected.append(t[3])
-    c5_expected.append(t[4])
+    for t in target:
+        c1_expected.append(t[0])
+        c2_expected.append(t[1])
+        c3_expected.append(t[2])
+        c4_expected.append(t[3])
+        c5_expected.append(t[4])
 
-    o = output[0]
-    c1_predicted.append(o[0])
-    c2_predicted.append(o[1])
-    c3_predicted.append(o[2])
-    c4_predicted.append(o[3])
-    c5_predicted.append(o[4])
+    for o in output:
+        c1_predicted.append(o[0])
+        c2_predicted.append(o[1])
+        c3_predicted.append(o[2])
+        c4_predicted.append(o[3])
+        c5_predicted.append(o[4])
 
 
 def clear_expected_predicted():
