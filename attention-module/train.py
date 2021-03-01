@@ -269,6 +269,7 @@ def main():
         num_workers=args.workers, pin_memory=True, sampler=train_sampler
     )
 
+    wandb.run.summary['recall/c5_trn'] = 1
     for epoch in range(args.start_epoch, args.epochs):
         # adjust_learning_rate(optimizer, epoch)
 
@@ -728,10 +729,10 @@ def wandb_log_val(epoch, loss_avg):
 def save_summary():
     print("saving summary..")
     # train
-    wandb.run.summary["f1/avg_trn'"] = avg_f1_best
-    wandb.run.summary["mAP/avg_trn'"] = avg_mAP_best
-    wandb.run.summary["recall/avg_trn'"] = avg_recall_best
-    wandb.run.summary["prec/avg_trn'"] = avg_prec_best
+    wandb.run.summary["f1/avg_trn"] = avg_f1_best
+    wandb.run.summary["mAP/avg_trn"] = avg_mAP_best
+    wandb.run.summary["recall/avg_trn"] = avg_recall_best
+    wandb.run.summary["prec/avg_trn"] = avg_prec_best
 
     wandb.run.summary["mAP/с1_trn"] = c1_mAP_best
     wandb.run.summary["mAP/с2_trn"] = c2_mAP_best
@@ -762,10 +763,10 @@ def save_summary():
     print(f'f1/c5_trn = {c5_f1_best}')
 
     # val
-    wandb.run.summary["f1/avg_val'"] = avg_f1_val_best
-    wandb.run.summary["mAP/avg_val'"] = avg_mAP_val_best
-    wandb.run.summary["recall/avg_val'"] = avg_recall_val_best
-    wandb.run.summary["prec/avg_val'"] = avg_prec_val_best
+    wandb.run.summary["f1/avg_val"] = avg_f1_val_best
+    wandb.run.summary["mAP/avg_val"] = avg_mAP_val_best
+    wandb.run.summary["recall/avg_val"] = avg_recall_val_best
+    wandb.run.summary["prec/avg_val"] = avg_prec_val_best
 
     wandb.run.summary["mAP/c1_val"] = c1_mAP_val_best
     wandb.run.summary["mAP/c2_val"] = c2_mAP_val_best
