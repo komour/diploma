@@ -139,10 +139,13 @@ c5_recall_best = 0
 c5_recall_val_best = 0
 
 
+run = None
+
+
 def main():
     if is_server:
         wandb.login()
-    global args
+    global args, run
     args = parser.parse_args()
     print("args", args)
     torch.manual_seed(args.seed)
@@ -180,7 +183,7 @@ def main():
         evaluate=args.evaluate
     )
     if is_server:
-        wandb.init(config=config, project="vol.4", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.4", name=args.run_name, tags=args.tags)
 
     if is_server:
         model = model.cuda(args.cuda_device)
@@ -269,7 +272,6 @@ def main():
         num_workers=args.workers, pin_memory=True, sampler=train_sampler
     )
 
-    wandb.run.summary['recall/c5_trn'] = 1
     for epoch in range(args.start_epoch, args.epochs):
         # adjust_learning_rate(optimizer, epoch)
 
@@ -281,6 +283,7 @@ def main():
         clear_expected_predicted()
         validate(val_loader, model, criterion, epoch)
     save_summary()
+    run.finish()
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -729,68 +732,68 @@ def wandb_log_val(epoch, loss_avg):
 def save_summary():
     print("saving summary..")
     # train
-    wandb.run.summary["f1/avg_trn"] = avg_f1_best
-    wandb.run.summary["mAP/avg_trn"] = avg_mAP_best
-    wandb.run.summary["recall/avg_trn"] = avg_recall_best
-    wandb.run.summary["prec/avg_trn"] = avg_prec_best
+    run.summary["f1/avg_trn"] = avg_f1_best
+    run.summary["mAP/avg_trn"] = avg_mAP_best
+    run.summary["recall/avg_trn"] = avg_recall_best
+    run.summary["prec/avg_trn"] = avg_prec_best
 
-    wandb.run.summary["mAP/с1_trn"] = c1_mAP_best
-    wandb.run.summary["mAP/с2_trn"] = c2_mAP_best
-    wandb.run.summary["mAP/с3_trn"] = c3_mAP_best
-    wandb.run.summary["mAP/с4_trn"] = c4_mAP_best
-    wandb.run.summary["mAP/с5_trn"] = c5_mAP_best
+    run.summary["mAP/с1_trn"] = c1_mAP_best
+    run.summary["mAP/с2_trn"] = c2_mAP_best
+    run.summary["mAP/с3_trn"] = c3_mAP_best
+    run.summary["mAP/с4_trn"] = c4_mAP_best
+    run.summary["mAP/с5_trn"] = c5_mAP_best
     print(f'mAP/с5_trn = {c5_mAP_best}')
 
-    wandb.run.summary["prec/c1_trn"] = c1_prec_best
-    wandb.run.summary["prec/c2_trn"] = c2_prec_best
-    wandb.run.summary["prec/c3_trn"] = c3_prec_best
-    wandb.run.summary["prec/c4_trn"] = c4_prec_best
-    wandb.run.summary["prec/c5_trn"] = c5_prec_best
+    run.summary["prec/c1_trn"] = c1_prec_best
+    run.summary["prec/c2_trn"] = c2_prec_best
+    run.summary["prec/c3_trn"] = c3_prec_best
+    run.summary["prec/c4_trn"] = c4_prec_best
+    run.summary["prec/c5_trn"] = c5_prec_best
     print(f'prec/c5_trn = {c5_prec_best}')
 
-    wandb.run.summary["recall/c1_trn"] = c1_recall_best
-    wandb.run.summary["recall/c2_trn"] = c2_recall_best
-    wandb.run.summary["recall/c3_trn"] = c3_recall_best
-    wandb.run.summary["recall/c4_trn"] = c4_recall_best
-    wandb.run.summary["recall/c5_trn"] = c5_recall_best
+    run.summary["recall/c1_trn"] = c1_recall_best
+    run.summary["recall/c2_trn"] = c2_recall_best
+    run.summary["recall/c3_trn"] = c3_recall_best
+    run.summary["recall/c4_trn"] = c4_recall_best
+    run.summary["recall/c5_trn"] = c5_recall_best
     print(f'recall/c5_trn = {c5_recall_best}')
 
-    wandb.run.summary["f1/c1_trn"] = c1_f1_best
-    wandb.run.summary["f1/c2_trn"] = c2_f1_best
-    wandb.run.summary["f1/c3_trn"] = c3_f1_best
-    wandb.run.summary["f1/c4_trn"] = c4_f1_best
-    wandb.run.summary["f1/c5_trn"] = c5_f1_best
+    run.summary["f1/c1_trn"] = c1_f1_best
+    run.summary["f1/c2_trn"] = c2_f1_best
+    run.summary["f1/c3_trn"] = c3_f1_best
+    run.summary["f1/c4_trn"] = c4_f1_best
+    run.summary["f1/c5_trn"] = c5_f1_best
     print(f'f1/c5_trn = {c5_f1_best}')
 
     # val
-    wandb.run.summary["f1/avg_val"] = avg_f1_val_best
-    wandb.run.summary["mAP/avg_val"] = avg_mAP_val_best
-    wandb.run.summary["recall/avg_val"] = avg_recall_val_best
-    wandb.run.summary["prec/avg_val"] = avg_prec_val_best
+    run.summary["f1/avg_val"] = avg_f1_val_best
+    run.summary["mAP/avg_val"] = avg_mAP_val_best
+    run.summary["recall/avg_val"] = avg_recall_val_best
+    run.summary["prec/avg_val"] = avg_prec_val_best
 
-    wandb.run.summary["mAP/c1_val"] = c1_mAP_val_best
-    wandb.run.summary["mAP/c2_val"] = c2_mAP_val_best
-    wandb.run.summary["mAP/c3_val"] = c3_mAP_val_best
-    wandb.run.summary["mAP/c4_val"] = c4_mAP_val_best
-    wandb.run.summary["mAP/c5_val"] = c5_mAP_val_best
+    run.summary["mAP/c1_val"] = c1_mAP_val_best
+    run.summary["mAP/c2_val"] = c2_mAP_val_best
+    run.summary["mAP/c3_val"] = c3_mAP_val_best
+    run.summary["mAP/c4_val"] = c4_mAP_val_best
+    run.summary["mAP/c5_val"] = c5_mAP_val_best
 
-    wandb.run.summary["prec/c1_val"] = c1_prec_val_best
-    wandb.run.summary["prec/c2_val"] = c2_prec_val_best
-    wandb.run.summary["prec/c3_val"] = c3_prec_val_best
-    wandb.run.summary["prec/c4_val"] = c4_prec_val_best
-    wandb.run.summary["prec/c5_val"] = c5_prec_val_best
+    run.summary["prec/c1_val"] = c1_prec_val_best
+    run.summary["prec/c2_val"] = c2_prec_val_best
+    run.summary["prec/c3_val"] = c3_prec_val_best
+    run.summary["prec/c4_val"] = c4_prec_val_best
+    run.summary["prec/c5_val"] = c5_prec_val_best
 
-    wandb.run.summary["recall/c1_val"] = c1_recall_val_best
-    wandb.run.summary["recall/c2_val"] = c2_recall_val_best
-    wandb.run.summary["recall/c3_val"] = c3_recall_val_best
-    wandb.run.summary["recall/c4_val"] = c4_recall_val_best
-    wandb.run.summary["recall/c5_val"] = c5_recall_val_best
+    run.summary["recall/c1_val"] = c1_recall_val_best
+    run.summary["recall/c2_val"] = c2_recall_val_best
+    run.summary["recall/c3_val"] = c3_recall_val_best
+    run.summary["recall/c4_val"] = c4_recall_val_best
+    run.summary["recall/c5_val"] = c5_recall_val_best
 
-    wandb.run.summary["f1/c1_val"] = c1_f1_val_best
-    wandb.run.summary["f1/c2_val"] = c2_f1_val_best
-    wandb.run.summary["f1/c3_val"] = c3_f1_val_best
-    wandb.run.summary["f1/c4_val"] = c4_f1_val_best
-    wandb.run.summary["f1/c5_val"] = c5_f1_val_best
+    run.summary["f1/c1_val"] = c1_f1_val_best
+    run.summary["f1/c2_val"] = c2_f1_val_best
+    run.summary["f1/c3_val"] = c3_f1_val_best
+    run.summary["f1/c4_val"] = c4_f1_val_best
+    run.summary["f1/c5_val"] = c5_f1_val_best
 
 
 def print_metrics():
