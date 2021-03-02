@@ -735,7 +735,7 @@ def save_summary():
     run.summary["f1/avg_trn'"] = avg_f1_best
     run.summary["mAP/avg_trn'"] = avg_mAP_best
     run.summary["recall/avg_trn'"] = avg_recall_best
-    # run.summary["prec/avg_trn'"] = avg_prec_best
+    run.summary["prec/avg_trn'"] = avg_prec_best
 
     run.summary["mAP/с1_trn'"] = c1_mAP_best
     run.summary["mAP/с2_trn'"] = c2_mAP_best
