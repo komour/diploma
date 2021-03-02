@@ -160,12 +160,12 @@ def main():
         return
 
     # define loss function (criterion) and optimizer
-    # pos_weight_train = torch.Tensor(
-    #     [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
+    pos_weight_train = torch.Tensor(
+        [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
     if is_server:
-        criterion = nn.BCEWithLogitsLoss().cuda(args.cuda_device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
     else:
-        criterion = nn.BCEWithLogitsLoss()
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     config = dict(
