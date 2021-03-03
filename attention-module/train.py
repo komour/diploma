@@ -62,6 +62,7 @@ parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
+parser.add_argument('--number', type=int, default=0, help='number of run in the run pool')
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -297,11 +298,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        # segm = dictionary['segm']
+        segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-            # segm = segm.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -320,18 +321,21 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # plt.show()
 
         # initial segm size = [1, 3, 224, 224]
-        # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
-        # processed_segm1 = maxpool_segm1(segm)
-        # processed_segm2 = maxpool_segm2(segm)
-        # processed_segm3 = maxpool_segm3(segm)
-        # processed_segm4 = maxpool_segm4(segm)
+        processed_segm1 = maxpool_segm1(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
 
         loss0 = criterion(output, target)
-        # loss0 = CB_loss(target, output)
+        loss1 = nn.BCEWithLogitsLoss(sam_output[0], processed_segm1)
+        loss4 = nn.BCEWithLogitsLoss(sam_output[3], processed_segm2)
+        loss8 = nn.BCEWithLogitsLoss(sam_output[7], processed_segm3)
+        loss14 = nn.BCEWithLogitsLoss(sam_output[8], processed_segm4)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
@@ -352,6 +356,16 @@ def train(train_loader, model, criterion, optimizer, epoch):
         #
         # loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
         loss_comb = loss0
+        if args.number == 0:
+            loss_comb += loss1
+        elif args.number == 1:
+            loss_comb += loss4
+        elif args.number == 2:
+            loss_comb += loss8
+        elif args.number == 3:
+            loss_comb += loss14
+        else:
+            loss_comb += loss1 + loss4 + loss8 + loss14
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
@@ -563,6 +577,7 @@ def count_f1():
 
 
 def wandb_log_train(epoch, loss_avg):
+    print(len(c1_predicted))
     if not is_server:
         return
 
