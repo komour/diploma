@@ -337,7 +337,7 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         loss1 = sam_criterion(sam_output[0], processed_segm1)
         loss4 = sam_criterion(sam_output[3], processed_segm2)
         loss8 = sam_criterion(sam_output[7], processed_segm3)
-        loss14 = sam_criterion(sam_output[8], processed_segm4)
+        loss14 = sam_criterion(sam_output[13], processed_segm4)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
