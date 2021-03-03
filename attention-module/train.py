@@ -165,8 +165,10 @@ def main():
         [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
     if is_server:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
+        sam_criterion = nn.BCEWithLogitsLoss().cuda(args.cuda_device)
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
+        sam_criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     config = dict(
@@ -278,7 +280,7 @@ def main():
 
         # train for one epoch
         clear_expected_predicted()
-        train(train_loader, model, criterion, optimizer, epoch)
+        train(train_loader, model, criterion, sam_criterion, optimizer, epoch)
 
         # evaluate on validation set
         clear_expected_predicted()
@@ -287,7 +289,7 @@ def main():
     run.finish()
 
 
-def train(train_loader, model, criterion, optimizer, epoch):
+def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -332,10 +334,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
         processed_segm4 = maxpool_segm4(segm)
 
         loss0 = criterion(output, target)
-        loss1 = nn.BCEWithLogitsLoss(sam_output[0], processed_segm1)
-        loss4 = nn.BCEWithLogitsLoss(sam_output[3], processed_segm2)
-        loss8 = nn.BCEWithLogitsLoss(sam_output[7], processed_segm3)
-        loss14 = nn.BCEWithLogitsLoss(sam_output[8], processed_segm4)
+        loss1 = sam_criterion(sam_output[0], processed_segm1)
+        loss4 = sam_criterion(sam_output[3], processed_segm2)
+        loss8 = sam_criterion(sam_output[7], processed_segm3)
+        loss14 = sam_criterion(sam_output[8], processed_segm4)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
