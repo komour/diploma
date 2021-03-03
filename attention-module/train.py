@@ -16,6 +16,7 @@ import torchvision.models as models
 from MODELS.model_resnet import *
 from PIL import ImageFile
 import numpy as np
+import torch.nn.functional as F
 
 from sklearn.metrics import average_precision_score
 from sklearn.metrics import precision_score
@@ -61,6 +62,7 @@ parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
+parser.add_argument('--number', type=int, default=0, help='number of run in the run pool')
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -81,68 +83,70 @@ c4_predicted = []
 c5_expected = []
 c5_predicted = []
 
-
 args = parser.parse_args()
 is_server = args.is_server == 1
 
 avg_f1_best = 0
-avg_f1_test_best = 0
+avg_f1_val_best = 0
 avg_mAP_best = 0
-avg_mAP_test_best = 0
-avg_precision_best = 0
-avg_precision_test_best = 0
+avg_mAP_val_best = 0
+avg_prec_best = 0
+avg_prec_val_best = 0
 avg_recall_best = 0
-avg_recall_test_best = 0
+avg_recall_val_best = 0
 
 c1_f1_best = 0
-c1_f1_test_best = 0
+c1_f1_val_best = 0
 c2_f1_best = 0
-c2_f1_test_best = 0
+c2_f1_val_best = 0
 c3_f1_best = 0
-c3_f1_test_best = 0
+c3_f1_val_best = 0
 c4_f1_best = 0
-c4_f1_test_best = 0
+c4_f1_val_best = 0
 c5_f1_best = 0
-c5_f1_test_best = 0
+c5_f1_val_best = 0
 
 c1_mAP_best = 0
-c1_mAP_test_best = 0
+c1_mAP_val_best = 0
 c2_mAP_best = 0
-c2_mAP_test_best = 0
+c2_mAP_val_best = 0
 c3_mAP_best = 0
-c3_mAP_test_best = 0
+c3_mAP_val_best = 0
 c4_mAP_best = 0
-c4_mAP_test_best = 0
+c4_mAP_val_best = 0
 c5_mAP_best = 0
-c5_mAP_test_best = 0
+c5_mAP_val_best = 0
 
-c1_precision_best = 0
-c1_precision_test_best = 0
-c2_precision_best = 0
-c2_precision_test_best = 0
-c3_precision_best = 0
-c3_precision_test_best = 0
-c4_precision_best = 0
-c4_precision_test_best = 0
-c5_precision_best = 0
-c5_precision_test_best = 0
+c1_prec_best = 0
+c1_prec_val_best = 0
+c2_prec_best = 0
+c2_prec_val_best = 0
+c3_prec_best = 0
+c3_prec_val_best = 0
+c4_prec_best = 0
+c4_prec_val_best = 0
+c5_prec_best = 0
+c5_prec_val_best = 0
 
 c1_recall_best = 0
-c1_recall_test_best = 0
+c1_recall_val_best = 0
 c2_recall_best = 0
-c2_recall_test_best = 0
+c2_recall_val_best = 0
 c3_recall_best = 0
-c3_recall_test_best = 0
+c3_recall_val_best = 0
 c4_recall_best = 0
-c4_recall_test_best = 0
+c4_recall_val_best = 0
 c5_recall_best = 0
-c5_recall_test_best = 0
+c5_recall_val_best = 0
+
+
+run = None
 
 
 def main():
     if is_server:
         wandb.login()
-    global args
+    global args, run
     args = parser.parse_args()
     print("args", args)
     torch.manual_seed(args.seed)
@@ -157,10 +161,14 @@ def main():
         return
 
     # define loss function (criterion) and optimizer
+    pos_weight_train = torch.Tensor(
+        [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
     if is_server:
-        criterion = nn.BCEWithLogitsLoss().cuda(args.cuda_device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
+        sam_criterion = nn.BCEWithLogitsLoss().cuda(args.cuda_device)
     else:
-        criterion = nn.BCEWithLogitsLoss()
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
+        sam_criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     config = dict(
@@ -178,7 +186,7 @@ def main():
         evaluate=args.evaluate
     )
     if is_server:
-        wandb.init(config=config, project="vol.3", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.4", name=args.run_name, tags=args.tags)
 
     if is_server:
         model = model.cuda(args.cuda_device)
@@ -208,6 +216,7 @@ def main():
             print(f"=> loaded checkpoint '{args.resume}'")
         else:
             print(f"=> no checkpoint found at '{args.resume}'")
+            return -1
 
     if is_server:
         wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
@@ -271,15 +280,16 @@ def main():
 
         # train for one epoch
         clear_expected_predicted()
-        train(train_loader, model, criterion, optimizer, epoch)
+        train(train_loader, model, criterion, sam_criterion, optimizer, epoch)
 
         # evaluate on validation set
         clear_expected_predicted()
         validate(val_loader, model, criterion, epoch)
     save_summary()
+    run.finish()
 
 
-def train(train_loader, model, criterion, optimizer, epoch):
+def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -313,17 +323,21 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # plt.show()
 
         # initial segm size = [1, 3, 224, 224]
-        # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
-        # processed_segm1 = maxpool_segm1(segm)
-        # processed_segm2 = maxpool_segm2(segm)
-        # processed_segm3 = maxpool_segm3(segm)
-        # processed_segm4 = maxpool_segm4(segm)
+        processed_segm1 = maxpool_segm1(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
 
         loss0 = criterion(output, target)
+        loss1 = sam_criterion(sam_output[0], processed_segm1)
+        loss4 = sam_criterion(sam_output[3], processed_segm2)
+        loss8 = sam_criterion(sam_output[7], processed_segm3)
+        loss14 = sam_criterion(sam_output[13], processed_segm4)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
@@ -344,9 +358,20 @@ def train(train_loader, model, criterion, optimizer, epoch):
         #
         # loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
         loss_comb = loss0
+        if args.number == 0:
+            loss_comb += loss1
+        elif args.number == 1:
+            loss_comb += loss4
+        elif args.number == 2:
+            loss_comb += loss8
+        elif args.number == 3:
+            loss_comb += loss14
+        else:
+            loss_comb += loss1 + loss4 + loss8 + loss14
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
+        # losses.update(loss_comb.item(), input_img.size(0))
         losses.update(loss_comb.item(), input_img.size(0))
 
         # compute gradient and do SGD step
@@ -358,7 +383,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        # step -- number of examples seen
         if i % args.print_freq == 0:
             print(f'\nEpoch: [{epoch}][{i}/{len(train_loader)}]\t'
                   f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -387,6 +411,7 @@ def validate(val_loader, model, criterion, epoch):
         with torch.no_grad():
             output, sam_output = model(input_img)
             loss = criterion(output, target)
+            # loss = CB_loss(target, output)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -403,7 +428,7 @@ def validate(val_loader, model, criterion, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i != 0:
                 print_metrics()
-    wandb_log_test(epoch, losses.avg)
+    wandb_log_val(epoch, losses.avg)
 
 
 class AverageMeter(object):
@@ -436,19 +461,19 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 def write_expected_predicted(target, output):
-    t = target[0]
-    c1_expected.append(t[0])
-    c2_expected.append(t[1])
-    c3_expected.append(t[2])
-    c4_expected.append(t[3])
-    c5_expected.append(t[4])
+    for t in target:
+        c1_expected.append(t[0])
+        c2_expected.append(t[1])
+        c3_expected.append(t[2])
+        c4_expected.append(t[3])
+        c5_expected.append(t[4])
 
-    o = output[0]
-    c1_predicted.append(o[0])
-    c2_predicted.append(o[1])
-    c3_predicted.append(o[2])
-    c4_predicted.append(o[3])
-    c5_predicted.append(o[4])
+    for o in output:
+        c1_predicted.append(o[0])
+        c2_predicted.append(o[1])
+        c3_predicted.append(o[2])
+        c4_predicted.append(o[3])
+        c5_predicted.append(o[4])
 
 
 def clear_expected_predicted():
@@ -500,13 +525,13 @@ def count_precision():
     c4_exp = np.asarray(c4_expected).astype(float)
     c5_exp = np.asarray(c5_expected).astype(float)
 
-    c1_precision = precision_score(c1_exp, c1_pred, average="binary")
-    c2_precision = precision_score(c2_exp, c2_pred, average="binary")
-    c3_precision = precision_score(c3_exp, c3_pred, average="binary")
-    c4_precision = precision_score(c4_exp, c4_pred, average="binary")
-    c5_precision = precision_score(c5_exp, c5_pred, average="binary")
-    avg_precision = (c1_precision + c2_precision + c3_precision + c4_precision + c5_precision) / 5
-    return c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision
+    c1_prec = precision_score(c1_exp, c1_pred, average="binary")
+    c2_prec = precision_score(c2_exp, c2_pred, average="binary")
+    c3_prec = precision_score(c3_exp, c3_pred, average="binary")
+    c4_prec = precision_score(c4_exp, c4_pred, average="binary")
+    c5_prec = precision_score(c5_exp, c5_pred, average="binary")
+    avg_prec = (c1_prec + c2_prec + c3_prec + c4_prec + c5_prec) / 5
+    return c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec
 
 
 def count_recall():
@@ -554,17 +579,18 @@ def count_f1():
 
 
 def wandb_log_train(epoch, loss_avg):
+    print(len(c1_predicted))
     if not is_server:
         return
 
     global c1_f1_best, c2_f1_best, c3_f1_best, c4_f1_best, c5_f1_best
     global c1_mAP_best, c2_mAP_best, c3_mAP_best, c4_mAP_best, c5_mAP_best
     global c1_recall_best, c2_recall_best, c3_recall_best, c4_recall_best, c5_recall_best
-    global c1_precision_best, c2_precision_best, c3_precision_best, c4_precision_best, c5_precision_best
-    global avg_f1_best, avg_mAP_best, avg_recall_best, avg_precision_best
+    global c1_prec_best, c2_prec_best, c3_prec_best, c4_prec_best, c5_prec_best
+    global avg_f1_best, avg_mAP_best, avg_recall_best, avg_prec_best
 
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-    c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
+    c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
@@ -574,8 +600,8 @@ def wandb_log_train(epoch, loss_avg):
         avg_mAP_best = avg_mAP
     if avg_recall > avg_recall_best:
         avg_recall_best = avg_recall
-    if avg_precision > avg_precision_best:
-        avg_precision_best = avg_precision
+    if avg_prec > avg_prec_best:
+        avg_prec_best = avg_prec
 
     if c1_mAP > c1_mAP_best:
         c1_mAP_best = c1_mAP
@@ -588,16 +614,16 @@ def wandb_log_train(epoch, loss_avg):
     if c5_mAP > c5_mAP_best:
         c5_mAP_best = c5_mAP
 
-    if c1_precision > c1_precision_best:
-        c1_precision_best = c1_precision
-    if c2_precision > c2_precision_best:
-        c2_precision_best = c2_precision
-    if c3_precision > c3_precision_best:
-        c3_precision_best = c3_precision
-    if c4_precision > c4_precision_best:
-        c4_precision_best = c4_precision
-    if c5_precision > c5_precision_best:
-        c5_precision_best = c5_precision
+    if c1_prec > c1_prec_best:
+        c1_prec_best = c1_prec
+    if c2_prec > c2_prec_best:
+        c2_prec_best = c2_prec
+    if c3_prec > c3_prec_best:
+        c3_prec_best = c3_prec
+    if c4_prec > c4_prec_best:
+        c4_prec_best = c4_prec
+    if c5_prec > c5_prec_best:
+        c5_prec_best = c5_prec
 
     if c1_recall > c1_recall_best:
         c1_recall_best = c1_recall
@@ -621,98 +647,101 @@ def wandb_log_train(epoch, loss_avg):
     if c5_f1 > c5_f1_best:
         c5_f1_best = c5_f1
 
-    wandb.log({"loss_avg": loss_avg,
-               "c1_mAP": c1_mAP, "c2_mAP": c2_mAP, "c3_mAP": c3_mAP, "c4_mAP": c4_mAP, "c5_mAP": c5_mAP,
-               "avg_mAP": avg_mAP,
-               "c1_precision": c1_precision, "c2_precision": c2_precision, "c3_precision": c3_precision,
-               "c4_precision": c4_precision, "c5_precision": c5_precision, "avg_precision": avg_precision,
-               "c1_recall": c1_recall, "c2_recall": c2_recall, "c3_recall": c3_recall, "c4_recall": c4_recall,
-               "c5_recall": c5_recall, "avg_recall": avg_recall,
-               "c1_f1": c1_f1, "c2_f1": c2_f1, "c3_f1": c3_f1, "c4_f1": c4_f1, "c5_f1": c5_f1, "avg_f1": avg_f1
+    wandb.log({"loss_avg_trn": loss_avg,
+               "mAP/с1_trn": c1_mAP, "mAP/с2_trn": c2_mAP, "mAP/с3_trn": c3_mAP, "mAP/с4_trn": c4_mAP,
+               "mAP/с5_trn": c5_mAP,
+               "mAP/avg_trn": avg_mAP,
+               "prec/c1_trn": c1_prec, "prec/c2_trn": c2_prec, "prec/c3_trn": c3_prec,
+               "prec/c4_trn": c4_prec, "prec/c5_trn": c5_prec, "prec/avg_trn": avg_prec,
+               "recall/c1_trn": c1_recall, "recall/c2_trn": c2_recall, "recall/c3_trn": c3_recall,
+               "recall/c4_trn": c4_recall,
+               "recall/c5_trn": c5_recall, "recall/avg_trn": avg_recall,
+               "f1/c1_trn": c1_f1, "f1/c2_trn": c2_f1, "f1/c3_trn": c3_f1, "f1/c4_trn": c4_f1, "f1/c5_trn": c5_f1,
+               "f1/avg_trn": avg_f1
                },
               step=epoch)
 
 
-def wandb_log_test(epoch, loss_avg):
+def wandb_log_val(epoch, loss_avg):
     if not is_server:
         return
 
-    global c1_f1_test_best, c2_f1_test_best, c3_f1_test_best, c4_f1_test_best, c5_f1_test_best
-    global c1_mAP_test_best, c2_mAP_test_best, c3_mAP_test_best, c4_mAP_test_best, c5_mAP_test_best
-    global c1_recall_test_best, c2_recall_test_best, c3_recall_test_best, c4_recall_test_best, c5_recall_test_best
-    global c1_precision_test_best, c2_precision_test_best, c3_precision_test_best, c4_precision_test_best, c5_precision_test_best
-    global avg_f1_test_best, avg_mAP_test_best, avg_recall_test_best, avg_precision_test_best
+    global c1_f1_val_best, c2_f1_val_best, c3_f1_val_best, c4_f1_val_best, c5_f1_val_best
+    global c1_mAP_val_best, c2_mAP_val_best, c3_mAP_val_best, c4_mAP_val_best, c5_mAP_val_best
+    global c1_recall_val_best, c2_recall_val_best, c3_recall_val_best, c4_recall_val_best, c5_recall_val_best
+    global c1_prec_val_best, c2_prec_val_best, c3_prec_val_best, c4_prec_val_best, c5_prec_val_best
+    global avg_f1_val_best, avg_mAP_val_best, avg_recall_val_best, avg_prec_val_best
 
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-    c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
+    c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
 
-    if avg_f1 > avg_f1_test_best:
-        avg_f1_test_best = avg_f1
-    if avg_mAP > avg_mAP_test_best:
-        avg_mAP_test_best = avg_mAP
-    if avg_recall > avg_recall_test_best:
-        avg_recall_test_best = avg_recall
-    if avg_precision > avg_precision_test_best:
-        avg_precision_test_best = avg_precision
+    if avg_f1 > avg_f1_val_best:
+        avg_f1_val_best = avg_f1
+    if avg_mAP > avg_mAP_val_best:
+        avg_mAP_val_best = avg_mAP
+    if avg_recall > avg_recall_val_best:
+        avg_recall_val_best = avg_recall
+    if avg_prec > avg_prec_val_best:
+        avg_prec_val_best = avg_prec
 
-    if c1_mAP > c1_mAP_test_best:
-        c1_mAP_test_best = c1_mAP
-    if c2_mAP > c2_mAP_test_best:
-        c2_mAP_test_best = c2_mAP
-    if c3_mAP > c3_mAP_test_best:
-        c3_mAP_test_best = c3_mAP
-    if c4_mAP > c4_mAP_test_best:
-        c4_mAP_test_best = c4_mAP
-    if c5_mAP > c5_mAP_test_best:
-        c5_mAP_test_best = c5_mAP
+    if c1_mAP > c1_mAP_val_best:
+        c1_mAP_val_best = c1_mAP
+    if c2_mAP > c2_mAP_val_best:
+        c2_mAP_val_best = c2_mAP
+    if c3_mAP > c3_mAP_val_best:
+        c3_mAP_val_best = c3_mAP
+    if c4_mAP > c4_mAP_val_best:
+        c4_mAP_val_best = c4_mAP
+    if c5_mAP > c5_mAP_val_best:
+        c5_mAP_val_best = c5_mAP
 
-    if c1_precision > c1_precision_test_best:
-        c1_precision_test_best = c1_precision
-    if c2_precision > c2_precision_test_best:
-        c2_precision_test_best = c2_precision
-    if c3_precision > c3_precision_test_best:
-        c3_precision_test_best = c3_precision
-    if c4_precision > c4_precision_test_best:
-        c4_precision_test_best = c4_precision
-    if c5_precision > c5_precision_test_best:
-        c5_precision_test_best = c5_precision
+    if c1_prec > c1_prec_val_best:
+        c1_prec_val_best = c1_prec
+    if c2_prec > c2_prec_val_best:
+        c2_prec_val_best = c2_prec
+    if c3_prec > c3_prec_val_best:
+        c3_prec_val_best = c3_prec
+    if c4_prec > c4_prec_val_best:
+        c4_prec_val_best = c4_prec
+    if c5_prec > c5_prec_val_best:
+        c5_prec_val_best = c5_prec
 
-    if c1_recall > c1_recall_test_best:
-        c1_recall_test_best = c1_recall
-    if c2_recall > c2_recall_test_best:
-        c2_recall_test_best = c2_recall
-    if c3_recall > c3_recall_test_best:
-        c3_recall_test_best = c3_recall
-    if c4_recall > c4_recall_test_best:
-        c4_recall_test_best = c4_recall
-    if c5_recall > c5_recall_test_best:
-        c5_recall_test_best = c5_recall
+    if c1_recall > c1_recall_val_best:
+        c1_recall_val_best = c1_recall
+    if c2_recall > c2_recall_val_best:
+        c2_recall_val_best = c2_recall
+    if c3_recall > c3_recall_val_best:
+        c3_recall_val_best = c3_recall
+    if c4_recall > c4_recall_val_best:
+        c4_recall_val_best = c4_recall
+    if c5_recall > c5_recall_val_best:
+        c5_recall_val_best = c5_recall
 
-    if c1_f1 > c1_f1_test_best:
-        c1_f1_test_best = c1_f1
-    if c2_f1 > c2_f1_test_best:
-        c2_f1_test_best = c2_f1
-    if c3_f1 > c3_f1_test_best:
-        c3_f1_test_best = c3_f1
-    if c4_f1 > c4_f1_test_best:
-        c4_f1_test_best = c4_f1
-    if c5_f1 > c5_f1_test_best:
-        c5_f1_test_best = c5_f1
+    if c1_f1 > c1_f1_val_best:
+        c1_f1_val_best = c1_f1
+    if c2_f1 > c2_f1_val_best:
+        c2_f1_val_best = c2_f1
+    if c3_f1 > c3_f1_val_best:
+        c3_f1_val_best = c3_f1
+    if c4_f1 > c4_f1_val_best:
+        c4_f1_val_best = c4_f1
+    if c5_f1 > c5_f1_val_best:
+        c5_f1_val_best = c5_f1
 
-    wandb.log({"loss_avg_test": loss_avg,
-               "c1_mAP_test": c1_mAP, "c2_mAP_test": c2_mAP, "c3_mAP_test": c3_mAP, "c4_mAP_test": c4_mAP,
-               "c5_mAP_test": c5_mAP,
-               "avg_mAP_test": avg_mAP,
-               "c1_precision_test": c1_precision, "c2_precision_test": c2_precision, "c3_precision_test": c3_precision,
-               "c4_precision_test": c4_precision, "c5_precision_test": c5_precision,
-               "avg_precision_test": avg_precision,
-               "c1_recall_test": c1_recall, "c2_recall_test": c2_recall, "c3_recall_test": c3_recall,
-               "c4_recall_test": c4_recall,
-               "c5_recall_test": c5_recall, "avg_recall_test": avg_recall,
-               "c1_f1_test": c1_f1, "c2_f1_test": c2_f1, "c3_f1_test": c3_f1, "c4_f1_test": c4_f1, "c5_f1_test": c5_f1,
-               "avg_f1_test": avg_f1
+    wandb.log({"loss_avg_val": loss_avg,
+               "mAP/c1_val": c1_mAP, "mAP/c2_val": c2_mAP, "mAP/c3_val": c3_mAP, "mAP/c4_val": c4_mAP,
+               "mAP/c5_val": c5_mAP,
+               "mAP/avg_val": avg_mAP,
+               "prec/c1_val": c1_prec, "prec/c2_val": c2_prec, "prec/c3_val": c3_prec,
+               "prec/c4_val": c4_prec, "prec/c5_val": c5_prec,
+               "prec/avg_val": avg_prec,
+               "recall/c1_val": c1_recall, "recall/c2_val": c2_recall, "recall/c3_val": c3_recall,
+               "recall/c4_val": c4_recall,
+               "recall/c5_val": c5_recall, "recall/avg_val": avg_recall,
+               "f1/c1_val": c1_f1, "f1/c2_val": c2_f1, "f1/c3_val": c3_f1, "f1/c4_val": c4_f1, "f1/c5_val": c5_f1,
+               "f1/avg_val": avg_f1
                },
               step=epoch)
 
@@ -720,73 +749,77 @@ def wandb_log_test(epoch, loss_avg):
 def save_summary():
     print("saving summary..")
     # train
-    wandb.run.summary["avg_f1'"] = avg_f1_best
-    wandb.run.summary["avg_mAP'"] = avg_mAP_best
-    wandb.run.summary["avg_recall'"] = avg_recall_best
-    wandb.run.summary["avg_precision'"] = avg_precision_best
+    run.summary["f1/avg_trn'"] = avg_f1_best
+    run.summary["mAP/avg_trn'"] = avg_mAP_best
+    run.summary["recall/avg_trn'"] = avg_recall_best
+    run.summary["prec/avg_trn'"] = avg_prec_best
 
-    wandb.run.summary["mAP_с1"] = c1_mAP_best
-    wandb.run.summary["mAP_с2"] = c2_mAP_best
-    wandb.run.summary["mAP_с3"] = c3_mAP_best
-    wandb.run.summary["mAP_с4"] = c4_mAP_best
-    wandb.run.summary["mAP_с5"] = c5_mAP_best
+    run.summary["mAP/с1_trn'"] = c1_mAP_best
+    run.summary["mAP/с2_trn'"] = c2_mAP_best
+    run.summary["mAP/с3_trn'"] = c3_mAP_best
+    run.summary["mAP/с4_trn'"] = c4_mAP_best
+    run.summary["mAP/с5_trn'"] = c5_mAP_best
+    # print(f'mAP/с5_trn = {c5_mAP_best}')
 
-    wandb.run.summary["precision_c1"] = c1_precision_best
-    wandb.run.summary["precision_c2"] = c2_precision_best
-    wandb.run.summary["precision_c3"] = c3_precision_best
-    wandb.run.summary["precision_c4"] = c4_precision_best
-    wandb.run.summary["precision_c5"] = c5_precision_best
+    run.summary["prec/c1_trn'"] = c1_prec_best
+    run.summary["prec/c2_trn'"] = c2_prec_best
+    run.summary["prec/c3_trn'"] = c3_prec_best
+    run.summary["prec/c4_trn'"] = c4_prec_best
+    run.summary["prec/c5_trn'"] = c5_prec_best
+    # print(f'prec/c5_trn = {c5_prec_best}')
 
-    wandb.run.summary["recall_c1"] = c1_recall_best
-    wandb.run.summary["recall_c2"] = c2_recall_best
-    wandb.run.summary["recall_c3"] = c3_recall_best
-    wandb.run.summary["recall_c4"] = c4_recall_best
-    wandb.run.summary["recall_c5"] = c5_recall_best
+    run.summary["recall/c1_trn'"] = c1_recall_best
+    run.summary["recall/c2_trn'"] = c2_recall_best
+    run.summary["recall/c3_trn'"] = c3_recall_best
+    run.summary["recall/c4_trn'"] = c4_recall_best
+    run.summary["recall/c5_trn'"] = c5_recall_best
+    # print(f'recall/c5_trn = {c5_recall_best}')
 
-    wandb.run.summary["f1_c1"] = c1_f1_best
-    wandb.run.summary["f1_c2"] = c2_f1_best
-    wandb.run.summary["f1_c3"] = c3_f1_best
-    wandb.run.summary["f1_c4"] = c4_f1_best
-    wandb.run.summary["f1_c5"] = c5_f1_best
+    run.summary["f1/c1_trn'"] = c1_f1_best
+    run.summary["f1/c2_trn'"] = c2_f1_best
+    run.summary["f1/c3_trn'"] = c3_f1_best
+    run.summary["f1/c4_trn'"] = c4_f1_best
+    run.summary["f1/c5_trn'"] = c5_f1_best
+    # print(f'f1/c5_trn = {c5_f1_best}')
 
-    # test
-    wandb.run.summary["avg_f1_test'"] = avg_f1_test_best
-    wandb.run.summary["avg_mAP_test'"] = avg_mAP_test_best
-    wandb.run.summary["avg_recall_test'"] = avg_recall_test_best
-    wandb.run.summary["avg_precision_test'"] = avg_precision_test_best
+    # val
+    run.summary["f1/avg_val'"] = avg_f1_val_best
+    run.summary["mAP/avg_val'"] = avg_mAP_val_best
+    run.summary["recall/avg_val'"] = avg_recall_val_best
+    run.summary["prec/avg_val'"] = avg_prec_val_best
 
-    wandb.run.summary["mAP_test_c1"] = c1_mAP_test_best
-    wandb.run.summary["mAP_test_c2"] = c2_mAP_test_best
-    wandb.run.summary["mAP_test_c3"] = c3_mAP_test_best
-    wandb.run.summary["mAP_test_c4"] = c4_mAP_test_best
-    wandb.run.summary["mAP_test_c5"] = c5_mAP_test_best
+    run.summary["mAP/c1_val'"] = c1_mAP_val_best
+    run.summary["mAP/c2_val'"] = c2_mAP_val_best
+    run.summary["mAP/c3_val'"] = c3_mAP_val_best
+    run.summary["mAP/c4_val'"] = c4_mAP_val_best
+    run.summary["mAP/c5_val'"] = c5_mAP_val_best
 
-    wandb.run.summary["precision_test_c1"] = c1_precision_test_best
-    wandb.run.summary["precision_test_c2"] = c2_precision_test_best
-    wandb.run.summary["precision_test_c3"] = c3_precision_test_best
-    wandb.run.summary["precision_test_c4"] = c4_precision_test_best
-    wandb.run.summary["precision_test_c5"] = c5_precision_test_best
+    run.summary["prec/c1_val'"] = c1_prec_val_best
+    run.summary["prec/c2_val'"] = c2_prec_val_best
+    run.summary["prec/c3_val'"] = c3_prec_val_best
+    run.summary["prec/c4_val'"] = c4_prec_val_best
+    run.summary["prec/c5_val'"] = c5_prec_val_best
 
-    wandb.run.summary["recall_test_c1"] = c1_recall_test_best
-    wandb.run.summary["recall_test_c2"] = c2_recall_test_best
-    wandb.run.summary["recall_test_c3"] = c3_recall_test_best
-    wandb.run.summary["recall_test_c4"] = c4_recall_test_best
-    wandb.run.summary["recall_test_c5"] = c5_recall_test_best
+    run.summary["recall/c1_val'"] = c1_recall_val_best
+    run.summary["recall/c2_val'"] = c2_recall_val_best
+    run.summary["recall/c3_val'"] = c3_recall_val_best
+    run.summary["recall/c4_val'"] = c4_recall_val_best
+    run.summary["recall/c5_val'"] = c5_recall_val_best
 
-    wandb.run.summary["f1_test_c1"] = c1_f1_test_best
-    wandb.run.summary["f1_test_c2"] = c2_f1_test_best
-    wandb.run.summary["f1_test_c3"] = c3_f1_test_best
-    wandb.run.summary["f1_test_c4"] = c4_f1_test_best
-    wandb.run.summary["f1_test_c5"] = c5_f1_test_best
+    run.summary["f1/c1_val'"] = c1_f1_val_best
+    run.summary["f1/c2_val'"] = c2_f1_val_best
+    run.summary["f1/c3_val'"] = c3_f1_val_best
+    run.summary["f1/c4_val'"] = c4_f1_val_best
+    run.summary["f1/c5_val'"] = c5_f1_val_best
 
 
 def print_metrics():
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-    c1_precision, c2_precision, c3_precision, c4_precision, c5_precision, avg_precision = count_precision()
+    c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
     c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
     print(f'mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
-          f'precision {c1_precision:.3f} {c2_precision:.3f} {c3_precision:.3f} {c4_precision:.3f} {c5_precision:.3f} ({avg_precision:.3f})\n'
+          f'precision {c1_prec:.3f} {c2_prec:.3f} {c3_prec:.3f} {c4_prec:.3f} {c5_prec:.3f} ({avg_prec:.3f})\n'
           f'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
           f'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f})\n'
           )
@@ -798,6 +831,80 @@ def measure_accuracy(output, target):
     activated_output = sigmoid(output)
     activated_output = (activated_output > th).float()
     write_expected_predicted(target, activated_output)
+
+
+def focal_loss(labels, logits, alpha, gamma):
+    """Compute the focal loss between `logits` and the ground truth `labels`.
+    Focal loss = -alpha_t * (1-pt)^gamma * log(pt)
+    where pt is the probability of being classified to the true class.
+    pt = p (if true class), otherwise pt = 1 - p. p = sigmoid(logit).
+    Args:
+      labels: A float tensor of size [batch, num_classes].
+      logits: A float tensor of size [batch, num_classes].
+      alpha: A float tensor of size [batch_size]
+        specifying per-example weight for balanced cross entropy.
+      gamma: A float scalar modulating loss from hard and easy examples.
+    Returns:
+      fl: A float32 scalar representing normalized total loss.
+    """
+    BCLoss = F.binary_cross_entropy_with_logits(input=logits, target=labels, reduction="none")
+    if gamma == 0.0:
+        modulator = 1.0
+    else:
+        modulator = torch.exp(-gamma * labels * logits - gamma * torch.log(1 +
+                                                                           torch.exp(-1.0 * logits)))
+
+    loss = modulator * BCLoss
+
+    weighted_loss = alpha * loss
+    fl = torch.sum(weighted_loss)
+
+    fl /= torch.sum(labels)
+    return fl
+
+
+def CB_loss(labels, logits, samples_per_cls=None, no_of_classes=5, loss_type='sigmoid', beta=0.9999, gamma=1.):
+    """Compute the Class Balanced Loss between `logits` and the ground truth `labels`.
+    Class Balanced Loss: ((1-beta)/(1-beta^n))*Loss(labels, logits)
+    where Loss is one of the standard losses used for Neural Networks.
+    Args:
+      labels: A int tensor of size [batch].
+      logits: A float tensor of size [batch, no_of_classes].
+      samples_per_cls: A python list of size [no_of_classes].
+      no_of_classes: total number of classes. int
+      loss_type: string. One of "sigmoid", "focal", "softmax".
+      beta: float. Hyperparameter for Class balanced loss.
+      gamma: float. Hyperparameter for Focal loss.
+    Returns:
+      cb_loss: A float tensor representing class balanced loss
+    """
+    if samples_per_cls is None:
+        samples_per_cls = [396, 359, 111, 928, 82]  # train
+    effective_num = 1.0 - np.power(beta, samples_per_cls)
+    weights = (1.0 - beta) / np.array(effective_num)
+    weights = weights / np.sum(weights) * no_of_classes
+
+    # labels_one_hot = F.one_hot(labels, no_of_classes).float()
+    labels_one_hot = labels
+
+    weights = torch.Tensor(weights).float()
+    if is_server:
+        weights = weights.cuda(args.cuda_device)
+    weights = weights.unsqueeze(0)
+    weights = weights.repeat(labels_one_hot.shape[0], 1) * labels_one_hot
+    weights = weights.sum(1)
+    weights = weights.unsqueeze(1)
+    weights = weights.repeat(1, no_of_classes)
+
+    cb_loss = None
+    if loss_type == "focal":
+        cb_loss = focal_loss(labels_one_hot, logits, weights, gamma)
+    elif loss_type == "sigmoid":
+        cb_loss = F.binary_cross_entropy_with_logits(input=logits, target=labels_one_hot, pos_weight=weights)
+    elif loss_type == "softmax":
+        pred = logits.softmax(dim=1)
+        cb_loss = F.binary_cross_entropy(input=pred, target=labels_one_hot, weight=weights)
+    return cb_loss
 
 
 if __name__ == '__main__':
