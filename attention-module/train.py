@@ -370,7 +370,7 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         elif args.number == 4:
             loss_comb += loss14
             print("SAM-14")
-        else:
+        elif args.number == 5:
             loss_comb += loss1 + loss4 + loss8 + loss14
             print("SAM-1-4-8-14")
         # measure accuracy and record loss
