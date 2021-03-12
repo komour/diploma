@@ -168,7 +168,7 @@ def main():
         sam_criterion = nn.BCELoss().cuda(args.cuda_device)
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
-        sam_criterion = nn.BCEWithLogitsLoss()
+        sam_criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     config = dict(
@@ -334,10 +334,10 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         processed_segm4 = maxpool_segm4(segm)
 
         loss0 = criterion(output, target)
-        loss1 = sam_criterion((sam_output[0] > 0.5).float(), processed_segm1)
-        loss4 = sam_criterion((sam_output[3] > 0.5).float(), processed_segm2)
-        loss8 = sam_criterion((sam_output[7] > 0.5).float(), processed_segm3)
-        loss14 = sam_criterion((sam_output[13] > 0.5).float(), processed_segm4)
+        loss1 = sam_criterion(sam_output[0], processed_segm1)
+        loss4 = sam_criterion(sam_output[3], processed_segm2)
+        loss8 = sam_criterion(sam_output[7], processed_segm3)
+        loss14 = sam_criterion(sam_output[13], processed_segm4)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
@@ -358,16 +358,21 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         #
         # loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
         loss_comb = loss0
-        if args.number == 0:
+        if args.number == 1:
             loss_comb += loss1
-        elif args.number == 1:
-            loss_comb += loss4
+            print("SAM-1")
         elif args.number == 2:
-            loss_comb += loss8
+            loss_comb += loss4
+            print("SAM-4")
         elif args.number == 3:
+            loss_comb += loss8
+            print("SAM-8")
+        elif args.number == 4:
             loss_comb += loss14
+            print("SAM-14")
         else:
             loss_comb += loss1 + loss4 + loss8 + loss14
+            print("SAM-1-4-8-14")
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
