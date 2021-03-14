@@ -165,10 +165,10 @@ def main():
         [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
     if is_server:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
-        sam_criterion = nn.BCEWithLogitsLoss().cuda(args.cuda_device)
+        sam_criterion = nn.BCELoss(reduction='none').cuda(args.cuda_device)
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
-        sam_criterion = nn.BCEWithLogitsLoss()
+        sam_criterion = nn.BCELoss(reduction='none')
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     config = dict(
@@ -333,11 +333,16 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         processed_segm3 = maxpool_segm3(segm)
         processed_segm4 = maxpool_segm4(segm)
 
+        processed_segm1_invert = (processed_segm1 + 1) % 2
+        processed_segm2_invert = (processed_segm2 + 1) % 2
+        processed_segm3_invert = (processed_segm3 + 1) % 2
+        processed_segm4_invert = (processed_segm4 + 1) % 2
+
         loss0 = criterion(output, target)
-        loss1 = sam_criterion(sam_output[0], processed_segm1)
-        loss4 = sam_criterion(sam_output[3], processed_segm2)
-        loss8 = sam_criterion(sam_output[7], processed_segm3)
-        loss14 = sam_criterion(sam_output[13], processed_segm4)
+        loss1 = torch.mean(sam_criterion(sam_output[0], processed_segm1) * processed_segm1_invert)
+        loss4 = torch.mean(sam_criterion(sam_output[3], processed_segm2) * processed_segm2_invert)
+        loss8 = torch.mean(sam_criterion(sam_output[7], processed_segm3) * processed_segm3_invert)
+        loss14 = torch.mean(sam_criterion(sam_output[13], processed_segm4) * processed_segm4_invert)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
@@ -358,16 +363,21 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         #
         # loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
         loss_comb = loss0
-        if args.number == 0:
+        if args.number == 1:
             loss_comb += loss1
-        elif args.number == 1:
-            loss_comb += loss4
+            print("SAM-1")
         elif args.number == 2:
-            loss_comb += loss8
+            loss_comb += loss4
+            print("SAM-4")
         elif args.number == 3:
+            loss_comb += loss8
+            print("SAM-8")
+        elif args.number == 4:
             loss_comb += loss14
-        else:
+            print("SAM-14")
+        elif args.number == 5:
             loss_comb += loss1 + loss4 + loss8 + loss14
+            print("SAM-1-4-8-14")
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
@@ -579,7 +589,6 @@ def count_f1():
 
 
 def wandb_log_train(epoch, loss_avg):
-    print(len(c1_predicted))
     if not is_server:
         return
 
