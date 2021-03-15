@@ -418,6 +418,7 @@ def validate(val_loader, model, criterion, epoch):
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
 
         maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
