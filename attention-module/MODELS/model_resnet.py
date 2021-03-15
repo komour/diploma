@@ -131,30 +131,30 @@ class ResNet(nn.Module):
         else:
             self.bam1, self.bam2, self.bam3 = None, None, None
 
-        self.layerList1 = self._make_layer(block, 64, layers[0], att_type=att_type)
-        self.layerList2 = self._make_layer(block, 128, layers[1], stride=2, att_type=att_type)
-        self.layerList3 = self._make_layer(block, 256, layers[2], stride=2, att_type=att_type)
-        self.layerList4 = self._make_layer(block, 512, layers[3], stride=2, att_type=att_type)
+        self.layer1 = self._make_layer(block, 64, layers[0], att_type=att_type)
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, att_type=att_type)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2, att_type=att_type)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2, att_type=att_type)
 
-        self.l0 = self.layerList1[0]
-        self.l1 = self.layerList1[1]
-        self.l2 = self.layerList1[2]
-
-        self.l3 = self.layerList2[0]
-        self.l4 = self.layerList2[1]
-        self.l5 = self.layerList2[2]
-        self.l6 = self.layerList2[3]
-
-        self.l7 = self.layerList3[0]
-        self.l8 = self.layerList3[1]
-        self.l9 = self.layerList3[2]
-        self.l10 = self.layerList3[3]
-        self.l11 = self.layerList3[4]
-        self.l12 = self.layerList3[5]
-
-        self.l13 = self.layerList4[0]
-        self.l14 = self.layerList4[1]
-        self.l15 = self.layerList4[2]
+        # self.l0 = self.layerList1[0]
+        # self.l1 = self.layerList1[1]
+        # self.l2 = self.layerList1[2]
+        #
+        # self.l3 = self.layerList2[0]
+        # self.l4 = self.layerList2[1]
+        # self.l5 = self.layerList2[2]
+        # self.l6 = self.layerList2[3]
+        #
+        # self.l7 = self.layerList3[0]
+        # self.l8 = self.layerList3[1]
+        # self.l9 = self.layerList3[2]
+        # self.l10 = self.layerList3[3]
+        # self.l11 = self.layerList3[4]
+        # self.l12 = self.layerList3[5]
+        #
+        # self.l13 = self.layerList4[0]
+        # self.l14 = self.layerList4[1]
+        # self.l15 = self.layerList4[2]
 
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
@@ -185,8 +185,8 @@ class ResNet(nn.Module):
         for i in range(1, blocks):
             layers.append(block(self.inplanes, planes, num=i, use_cbam=att_type == 'CBAM', first_launch=False))
 
-        # return nn.Sequential(*layers)
-        return layers
+        return nn.Sequential(*layers)
+        # return layers
 
     def forward(self, x, segm):
         sam_output = []
@@ -196,49 +196,49 @@ class ResNet(nn.Module):
         if self.network_type == "ImageNet":  # true
             x = self.maxpool(x)
 
-        x, sam0 = self.l0(x, segm[0])
+        x, sam0 = self.layer1[0](x, segm[0])
         sam_output.append(sam0)
-        x, sam1 = self.l1(x, segm[0])
+        x, sam1 = self.layer1[1](x, segm[0])
         sam_output.append(sam1)
-        x, sam2 = self.l2(x, segm[0])
+        x, sam2 = self.layer1[2](x, segm[0])
         sam_output.append(sam2)
 
         if self.bam1 is not None:  # false
             x, _ = self.bam1(x)
 
-        x, sam3 = self.l3(x, segm[1])
+        x, sam3 = self.layer2[0](x, segm[1])
         sam_output.append(sam3)
-        x, sam4 = self.l4(x, segm[1])
+        x, sam4 = self.layer2[1](x, segm[1])
         sam_output.append(sam4)
-        x, sam5 = self.l5(x, segm[1])
+        x, sam5 = self.layer2[2](x, segm[1])
         sam_output.append(sam5)
-        x, sam6 = self.l6(x, segm[1])
+        x, sam6 = self.layer2[3](x, segm[1])
         sam_output.append(sam6)
 
         if self.bam2 is not None:  # false
             x, _ = self.bam2(x)
 
-        x, sam7 = self.l7(x, segm[2])
+        x, sam7 = self.layer3[0](x, segm[2])
         sam_output.append(sam7)
-        x, sam8 = self.l8(x, segm[2])
+        x, sam8 = self.layer3[1](x, segm[2])
         sam_output.append(sam8)
-        x, sam9 = self.l9(x, segm[2])
+        x, sam9 = self.layer3[2](x, segm[2])
         sam_output.append(sam9)
-        x, sam10 = self.l10(x, segm[2])
+        x, sam10 = self.layer3[3](x, segm[2])
         sam_output.append(sam10)
-        x, sam11 = self.l11(x, segm[2])
+        x, sam11 = self.layer3[4](x, segm[2])
         sam_output.append(sam11)
-        x, sam12 = self.l12(x, segm[2])
+        x, sam12 = self.layer3[5](x, segm[2])
         sam_output.append(sam12)
 
         if self.bam3 is not None:  # false
             x, _ = self.bam3(x)
 
-        x, sam13 = self.l13(x, segm[3])
+        x, sam13 = self.layer4[0](x, segm[3])
         sam_output.append(sam13)
-        x, sam14 = self.l14(x, segm[3])
+        x, sam14 = self.layer4[1](x, segm[3])
         sam_output.append(sam14)
-        x, sam15 = self.l15(x, segm[3])
+        x, sam15 = self.layer4[2](x, segm[3])
         sam_output.append(sam15)
 
         if self.network_type == "ImageNet":
