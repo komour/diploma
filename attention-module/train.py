@@ -414,13 +414,24 @@ def validate(val_loader, model, criterion, epoch):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
+        segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
 
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+
+        processed_segm1 = maxpool_segm1(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
+
         # compute output
         with torch.no_grad():
-            output, sam_output = model(input_img)
+            output, sam_output = model(input_img, [processed_segm1, processed_segm2, processed_segm3, processed_segm4])
             loss = criterion(output, target)
             # loss = CB_loss(target, output)
 
