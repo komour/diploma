@@ -1,10 +1,6 @@
-python3 train.py --tags concurrent duplicate SAM-1-4-8-14 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "SAM-1-4-8-14, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 5 &&
-python3 train.py --tags concurrent duplicate SAM-1-4-8-14 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "SAM-1-4-8-14, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 5 &&
-python3 train.py --tags concurrent duplicate SAM-1-4-8-14 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "SAM-1-4-8-14, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 5 &&
-python3 train.py --tags concurrent duplicate SAM-1-4-8-14 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "SAM-1-4-8-14, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 5 &&
-python3 train.py --tags concurrent baseline weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "baseline 1000 epoch, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 0 --epochs 1000 &&
-python3 train.py --tags concurrent outer-loss SAM-1 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "-SAM-1, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 1 &&
-python3 train.py --tags concurrent outer-loss SAM-4 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-4, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 2 &&
-python3 train.py --tags concurrent outer-loss SAM-8 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-8, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 3 &&
-python3 train.py --tags concurrent outer-loss SAM-14 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-14, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 4 &&
-python3 train.py --tags concurrent outer-loss SAM-1-4-8-14 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-1-4-8-14, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 5
+python3 train.py --tags duplicate concurrent baseline weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "baseline, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 0 &&
+python3 train.py --tags duplicate concurrent outer-loss SAM-1 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-1, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 1 &&
+python3 train.py --tags duplicate concurrent outer-loss SAM-4 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-4, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 2 &&
+python3 train.py --tags duplicate concurrent outer-loss SAM-8 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-8, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 3 &&
+python3 train.py --tags duplicate concurrent outer-loss SAM-14 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-14, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 4 &&
+python3 train.py --tags duplicate concurrent outer-loss SAM-1-4-8-14 weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "outer-SAM-1-4-8-14, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 5
