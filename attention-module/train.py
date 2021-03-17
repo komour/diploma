@@ -139,7 +139,6 @@ c4_recall_val_best = 0
 c5_recall_best = 0
 c5_recall_val_best = 0
 
-
 run = None
 
 
@@ -201,19 +200,23 @@ def main():
             print(f"=> loading checkpoint '{args.resume}'")
             checkpoint = torch.load(args.resume)
             state_dict = checkpoint['state_dict']
+
             state_dict['module.fc.weight'] = dummy_fc.weight
             state_dict['module.fc.bias'] = dummy_fc.bias
 
             # remove `module.` prefix because we don't use torch.nn.DataParallel
+
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
                 name = k[7:]  # remove `module.`
                 new_state_dict[name] = v
 
             model.load_state_dict(new_state_dict)
+            # model.load_state_dict(state_dict)
             if 'optimizer' in checkpoint:
                 optimizer.load_state_dict(checkpoint['optimizer'])
             print(f"=> loaded checkpoint '{args.resume}'")
+            # print(f"epoch = {checkpoint['epoch']}")
         else:
             print(f"=> no checkpoint found at '{args.resume}'")
             return -1
@@ -281,10 +284,33 @@ def main():
         # train for one epoch
         clear_expected_predicted()
         train(train_loader, model, criterion, sam_criterion, optimizer, epoch)
+        wandb_log_train(epoch, losses.avg)
 
         # evaluate on validation set
         clear_expected_predicted()
         validate(val_loader, model, criterion, epoch)
+
+        if args.number == 1:
+            prefix = "outer-SAM-1"
+        elif args.number == 2:
+            prefix = "outer-SAM-4"
+        elif args.number == 3:
+            prefix = "outer-SAM-8"
+        elif args.number == 4:
+            prefix = "outer-SAM-14"
+        elif args.number == 5:
+            prefix = "outer-SAM-1-4-8-14"
+        else:
+            prefix = "baseline"
+        c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+        if avg_f1 > avg_f1_val_best:
+            save_checkpoint({
+                'epoch': epoch,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            }, prefix)
+        wandb_log_val(epoch, losses.avg)
+
     save_summary()
     run.finish()
 
@@ -332,8 +358,8 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         processed_segm4 = maxpool_segm4(segm)
 
         # compute output
-        output, sam_output = model(input_img, [processed_segm1, processed_segm2, processed_segm3, processed_segm4])
-
+        output, sam_output = model(input_img)
+        print(len(sam_output))
         processed_segm1_invert = (processed_segm1 + 1) % 2
         processed_segm2_invert = (processed_segm2 + 1) % 2
         processed_segm3_invert = (processed_segm3 + 1) % 2
@@ -382,7 +408,6 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
-        # losses.update(loss_comb.item(), input_img.size(0))
         losses.update(loss_comb.item(), input_img.size(0))
 
         # compute gradient and do SGD step
@@ -401,7 +426,6 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i > 0:
                 print_metrics()
-    wandb_log_train(epoch, losses.avg)
 
 
 def validate(val_loader, model, criterion, epoch):
@@ -414,31 +438,30 @@ def validate(val_loader, model, criterion, epoch):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        segm = dictionary['segm']
+        # segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-            segm = segm.cuda(args.cuda_device)
+            # segm = segm.cuda(args.cuda_device)
 
-        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
-
-        processed_segm1 = maxpool_segm1(segm)
-        processed_segm2 = maxpool_segm2(segm)
-        processed_segm3 = maxpool_segm3(segm)
-        processed_segm4 = maxpool_segm4(segm)
+        # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+        #
+        # processed_segm1 = maxpool_segm1(segm)
+        # processed_segm2 = maxpool_segm2(segm)
+        # processed_segm3 = maxpool_segm3(segm)
+        # processed_segm4 = maxpool_segm4(segm)
 
         # compute output
         with torch.no_grad():
-            output, sam_output = model(input_img, [processed_segm1, processed_segm2, processed_segm3, processed_segm4])
+            output, _ = model(input_img)
             loss = criterion(output, target)
             # loss = CB_loss(target, output)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
-        # losses.update(loss.data[0], input.size(0))
         losses.update(loss.item(), input_img.size(0))
 
         # measure elapsed time
@@ -451,7 +474,6 @@ def validate(val_loader, model, criterion, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i != 0:
                 print_metrics()
-    wandb_log_val(epoch, losses.avg)
 
 
 class AverageMeter(object):
@@ -855,78 +877,11 @@ def measure_accuracy(output, target):
     write_expected_predicted(target, activated_output)
 
 
-def focal_loss(labels, logits, alpha, gamma):
-    """Compute the focal loss between `logits` and the ground truth `labels`.
-    Focal loss = -alpha_t * (1-pt)^gamma * log(pt)
-    where pt is the probability of being classified to the true class.
-    pt = p (if true class), otherwise pt = 1 - p. p = sigmoid(logit).
-    Args:
-      labels: A float tensor of size [batch, num_classes].
-      logits: A float tensor of size [batch, num_classes].
-      alpha: A float tensor of size [batch_size]
-        specifying per-example weight for balanced cross entropy.
-      gamma: A float scalar modulating loss from hard and easy examples.
-    Returns:
-      fl: A float32 scalar representing normalized total loss.
-    """
-    BCLoss = F.binary_cross_entropy_with_logits(input=logits, target=labels, reduction="none")
-    if gamma == 0.0:
-        modulator = 1.0
-    else:
-        modulator = torch.exp(-gamma * labels * logits - gamma * torch.log(1 +
-                                                                           torch.exp(-1.0 * logits)))
-
-    loss = modulator * BCLoss
-
-    weighted_loss = alpha * loss
-    fl = torch.sum(weighted_loss)
-
-    fl /= torch.sum(labels)
-    return fl
-
-
-def CB_loss(labels, logits, samples_per_cls=None, no_of_classes=5, loss_type='sigmoid', beta=0.9999, gamma=1.):
-    """Compute the Class Balanced Loss between `logits` and the ground truth `labels`.
-    Class Balanced Loss: ((1-beta)/(1-beta^n))*Loss(labels, logits)
-    where Loss is one of the standard losses used for Neural Networks.
-    Args:
-      labels: A int tensor of size [batch].
-      logits: A float tensor of size [batch, no_of_classes].
-      samples_per_cls: A python list of size [no_of_classes].
-      no_of_classes: total number of classes. int
-      loss_type: string. One of "sigmoid", "focal", "softmax".
-      beta: float. Hyperparameter for Class balanced loss.
-      gamma: float. Hyperparameter for Focal loss.
-    Returns:
-      cb_loss: A float tensor representing class balanced loss
-    """
-    if samples_per_cls is None:
-        samples_per_cls = [396, 359, 111, 928, 82]  # train
-    effective_num = 1.0 - np.power(beta, samples_per_cls)
-    weights = (1.0 - beta) / np.array(effective_num)
-    weights = weights / np.sum(weights) * no_of_classes
-
-    # labels_one_hot = F.one_hot(labels, no_of_classes).float()
-    labels_one_hot = labels
-
-    weights = torch.Tensor(weights).float()
-    if is_server:
-        weights = weights.cuda(args.cuda_device)
-    weights = weights.unsqueeze(0)
-    weights = weights.repeat(labels_one_hot.shape[0], 1) * labels_one_hot
-    weights = weights.sum(1)
-    weights = weights.unsqueeze(1)
-    weights = weights.repeat(1, no_of_classes)
-
-    cb_loss = None
-    if loss_type == "focal":
-        cb_loss = focal_loss(labels_one_hot, logits, weights, gamma)
-    elif loss_type == "sigmoid":
-        cb_loss = F.binary_cross_entropy_with_logits(input=logits, target=labels_one_hot, pos_weight=weights)
-    elif loss_type == "softmax":
-        pred = logits.softmax(dim=1)
-        cb_loss = F.binary_cross_entropy(input=pred, target=labels_one_hot, weight=weights)
-    return cb_loss
+def save_checkpoint(state, prefix):
+    filename = f'./checkpoints/{prefix}_checkpoint.pth'
+    torch.save(state, filename)
+    # if is_best:
+    #     shutil.copyfile(filename, './checkpoints/%s_model_best.pth.tar' % prefix)
 
 
 if __name__ == '__main__':

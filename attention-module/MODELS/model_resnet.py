@@ -71,13 +71,13 @@ class Bottleneck(nn.Module):
         else:
             self.cbam = None
 
-    def forward(self, x, segm):
-        # if not self.first_launch:
-            # x = x_init[0]
-            # sam_output_list = x_init[1]
-        # else:
-            # x = x_init
-            # sam_output_list = []
+    def forward(self, x_init):
+        if not self.first_launch:
+            x = x_init[0]
+            sam_output_list = x_init[1]
+        else:
+            x = x_init
+            sam_output_list = []
 
         residual = x
         if self.downsample is not None:
@@ -96,11 +96,11 @@ class Bottleneck(nn.Module):
 
         sam_output = None
         if self.cbam is not None:
-            out, sam_output = self.cbam(out, segm)
+            out, sam_output = self.cbam(out)
         out += residual
         out = self.relu(out)
-        # sam_output_list.append(sam_output)
-        return out, sam_output
+        sam_output_list.append(sam_output)
+        return out, sam_output_list
 
 
 class ResNet(nn.Module):
@@ -188,7 +188,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
         # return layers
 
-    def forward(self, x, segm):
+    def forward(self, x):
         sam_output = []
         x = self.conv1(x)
         x = self.bn1(x)
@@ -196,50 +196,57 @@ class ResNet(nn.Module):
         if self.network_type == "ImageNet":  # true
             x = self.maxpool(x)
 
-        x, sam0 = self.layer1[0](x, segm[0])
-        sam_output.append(sam0)
-        x, sam1 = self.layer1[1](x, segm[0])
-        sam_output.append(sam1)
-        x, sam2 = self.layer1[2](x, segm[0])
-        sam_output.append(sam2)
+        # x, sam0 = self.layer1[0](x, segm[0])
+        # sam_output.append(sam0)
+        # x, sam1 = self.layer1[1](x, segm[0])
+        # sam_output.append(sam1)
+        # x, sam2 = self.layer1[2](x, segm[0])
+        # sam_output.append(sam2)
+        x, sam1 = self.layer1(x)
 
         if self.bam1 is not None:  # false
             x, _ = self.bam1(x)
 
-        x, sam3 = self.layer2[0](x, segm[1])
-        sam_output.append(sam3)
-        x, sam4 = self.layer2[1](x, segm[1])
-        sam_output.append(sam4)
-        x, sam5 = self.layer2[2](x, segm[1])
-        sam_output.append(sam5)
-        x, sam6 = self.layer2[3](x, segm[1])
-        sam_output.append(sam6)
+        # x, sam3 = self.layer2[0](x, segm[1])
+        # sam_output.append(sam3)
+        # x, sam4 = self.layer2[1](x, segm[1])
+        # sam_output.append(sam4)
+        # x, sam5 = self.layer2[2](x, segm[1])
+        # sam_output.append(sam5)
+        # x, sam6 = self.layer2[3](x, segm[1])
+        # sam_output.append(sam6)
+
+        x, sam2 = self.layer2(x)
 
         if self.bam2 is not None:  # false
             x, _ = self.bam2(x)
 
-        x, sam7 = self.layer3[0](x, segm[2])
-        sam_output.append(sam7)
-        x, sam8 = self.layer3[1](x, segm[2])
-        sam_output.append(sam8)
-        x, sam9 = self.layer3[2](x, segm[2])
-        sam_output.append(sam9)
-        x, sam10 = self.layer3[3](x, segm[2])
-        sam_output.append(sam10)
-        x, sam11 = self.layer3[4](x, segm[2])
-        sam_output.append(sam11)
-        x, sam12 = self.layer3[5](x, segm[2])
-        sam_output.append(sam12)
+        # x, sam7 = self.layer3[0](x, segm[2])
+        # sam_output.append(sam7)
+        # x, sam8 = self.layer3[1](x, segm[2])
+        # sam_output.append(sam8)
+        # x, sam9 = self.layer3[2](x, segm[2])
+        # sam_output.append(sam9)
+        # x, sam10 = self.layer3[3](x, segm[2])
+        # sam_output.append(sam10)
+        # x, sam11 = self.layer3[4](x, segm[2])
+        # sam_output.append(sam11)
+        # x, sam12 = self.layer3[5](x, segm[2])
+        # sam_output.append(sam12)
+
+        x, sam3 = self.layer3(x)
 
         if self.bam3 is not None:  # false
             x, _ = self.bam3(x)
 
-        x, sam13 = self.layer4[0](x, segm[3])
-        sam_output.append(sam13)
-        x, sam14 = self.layer4[1](x, segm[3])
-        sam_output.append(sam14)
-        x, sam15 = self.layer4[2](x, segm[3])
-        sam_output.append(sam15)
+        # x, sam13 = self.layer4[0](x, segm[3])
+        # sam_output.append(sam13)
+        # x, sam14 = self.layer4[1](x, segm[3])
+        # sam_output.append(sam14)
+        # x, sam15 = self.layer4[2](x, segm[3])
+        # sam_output.append(sam15)
+
+        x, sam4 = self.layer4(x)
 
         if self.network_type == "ImageNet":
             x = self.avgpool(x)
@@ -248,10 +255,10 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
-        # sam_output += sam1
-        # sam_output += sam2
-        # sam_output += sam3
-        # sam_output += sam4
+        sam_output += sam1
+        sam_output += sam2
+        sam_output += sam3
+        sam_output += sam4
         return x, sam_output
 
 
