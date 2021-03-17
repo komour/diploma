@@ -284,32 +284,10 @@ def main():
         # train for one epoch
         clear_expected_predicted()
         train(train_loader, model, criterion, sam_criterion, optimizer, epoch)
-        wandb_log_train(epoch, losses.avg)
 
         # evaluate on validation set
         clear_expected_predicted()
         validate(val_loader, model, criterion, epoch)
-
-        if args.number == 1:
-            prefix = "outer-SAM-1"
-        elif args.number == 2:
-            prefix = "outer-SAM-4"
-        elif args.number == 3:
-            prefix = "outer-SAM-8"
-        elif args.number == 4:
-            prefix = "outer-SAM-14"
-        elif args.number == 5:
-            prefix = "outer-SAM-1-4-8-14"
-        else:
-            prefix = "baseline"
-        c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-        if avg_f1 > avg_f1_val_best:
-            save_checkpoint({
-                'epoch': epoch,
-                'state_dict': model.state_dict(),
-                'optimizer': optimizer.state_dict()
-            }, prefix)
-        wandb_log_val(epoch, losses.avg)
 
     save_summary()
     run.finish()
@@ -359,7 +337,6 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
 
         # compute output
         output, sam_output = model(input_img)
-        print(len(sam_output))
         processed_segm1_invert = (processed_segm1 + 1) % 2
         processed_segm2_invert = (processed_segm2 + 1) % 2
         processed_segm3_invert = (processed_segm3 + 1) % 2
@@ -426,6 +403,7 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i > 0:
                 print_metrics()
+    wandb_log_train(epoch, losses.avg)
 
 
 def validate(val_loader, model, criterion, epoch):
@@ -474,6 +452,26 @@ def validate(val_loader, model, criterion, epoch):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i != 0:
                 print_metrics()
+    if args.number == 1:
+        prefix = "outer-SAM-1"
+    elif args.number == 2:
+        prefix = "outer-SAM-4"
+    elif args.number == 3:
+        prefix = "outer-SAM-8"
+    elif args.number == 4:
+        prefix = "outer-SAM-14"
+    elif args.number == 5:
+        prefix = "outer-SAM-1-4-8-14"
+    else:
+        prefix = "baseline"
+    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    if avg_f1 > avg_f1_val_best:
+        save_checkpoint({
+            'epoch': epoch,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }, prefix)
+    wandb_log_val(epoch, losses.avg)
 
 
 class AverageMeter(object):
