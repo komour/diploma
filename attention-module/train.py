@@ -287,7 +287,7 @@ def main():
 
         # evaluate on validation set
         clear_expected_predicted()
-        validate(val_loader, model, criterion, epoch)
+        validate(val_loader, model, criterion, epoch, optimizer)
 
     save_summary()
     run.finish()
@@ -406,7 +406,7 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
     wandb_log_train(epoch, losses.avg)
 
 
-def validate(val_loader, model, criterion, epoch):
+def validate(val_loader, model, criterion, epoch, optimizer):
     batch_time = AverageMeter()
     losses = AverageMeter()
     # switch to evaluate mode
