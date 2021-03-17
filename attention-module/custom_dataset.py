@@ -84,6 +84,7 @@ class DatasetISIC2018(Dataset):
             segm = TF.resized_crop(segm, i, j, h, w, size, Image.NEAREST)
         if self.transform:
             img = self.transform(img)
+            segm = self.transform(segm)
         img = self.to_tensor(img)
         img = self.normalize(img)
         segm = self.to_tensor(segm)

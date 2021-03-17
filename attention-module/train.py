@@ -309,8 +309,6 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        # compute output
-        output, sam_output = model(input_img)
         # sam_output shapes:
         # [1, 1, 56, 56]x3 , [1, 1, 28, 28]x4 [1, 1, 14, 14]x6 , [1, 1, 7, 7]x3
 
@@ -332,6 +330,9 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         processed_segm2 = maxpool_segm2(segm)
         processed_segm3 = maxpool_segm3(segm)
         processed_segm4 = maxpool_segm4(segm)
+
+        # compute output
+        output, sam_output = model(input_img, [processed_segm1, processed_segm2, processed_segm3, processed_segm4])
 
         processed_segm1_invert = (processed_segm1 + 1) % 2
         processed_segm2_invert = (processed_segm2 + 1) % 2
@@ -413,13 +414,25 @@ def validate(val_loader, model, criterion, epoch):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
+        segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
+
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+
+        processed_segm1 = maxpool_segm1(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
 
         # compute output
         with torch.no_grad():
-            output, sam_output = model(input_img)
+            output, sam_output = model(input_img, [processed_segm1, processed_segm2, processed_segm3, processed_segm4])
             loss = criterion(output, target)
             # loss = CB_loss(target, output)
 
