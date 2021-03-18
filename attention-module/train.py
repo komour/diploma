@@ -164,10 +164,12 @@ def main():
         [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
     if is_server:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
-        sam_criterion = nn.BCELoss(reduction='none').cuda(args.cuda_device)
+        # sam_criterion = nn.BCELoss(reduction='none').cuda(args.cuda_device)
+        sam_criterion = nn.BCELoss().cuda(args.cuda_device)
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
-        sam_criterion = nn.BCELoss(reduction='none')
+        # sam_criterion = nn.BCELoss(reduction='none')
+        sam_criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     config = dict(
@@ -337,16 +339,22 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
 
         # compute output
         output, sam_output = model(input_img)
-        processed_segm1_invert = (processed_segm1 + 1) % 2
-        processed_segm2_invert = (processed_segm2 + 1) % 2
-        processed_segm3_invert = (processed_segm3 + 1) % 2
-        processed_segm4_invert = (processed_segm4 + 1) % 2
+        # processed_segm1_invert = (processed_segm1 + 1) % 2
+        # processed_segm2_invert = (processed_segm2 + 1) % 2
+        # processed_segm3_invert = (processed_segm3 + 1) % 2
+        # processed_segm4_invert = (processed_segm4 + 1) % 2
+
+        # loss0 = criterion(output, target)
+        # loss1 = torch.mean(sam_criterion(sam_output[0], processed_segm1) * processed_segm1_invert)
+        # loss4 = torch.mean(sam_criterion(sam_output[3], processed_segm2) * processed_segm2_invert)
+        # loss8 = torch.mean(sam_criterion(sam_output[7], processed_segm3) * processed_segm3_invert)
+        # loss14 = torch.mean(sam_criterion(sam_output[13], processed_segm4) * processed_segm4_invert)
 
         loss0 = criterion(output, target)
-        loss1 = torch.mean(sam_criterion(sam_output[0], processed_segm1) * processed_segm1_invert)
-        loss4 = torch.mean(sam_criterion(sam_output[3], processed_segm2) * processed_segm2_invert)
-        loss8 = torch.mean(sam_criterion(sam_output[7], processed_segm3) * processed_segm3_invert)
-        loss14 = torch.mean(sam_criterion(sam_output[13], processed_segm4) * processed_segm4_invert)
+        loss1 = sam_criterion(sam_output[0], processed_segm1)
+        loss4 = sam_criterion(sam_output[3], processed_segm2)
+        loss8 = sam_criterion(sam_output[7], processed_segm3)
+        loss14 = sam_criterion(sam_output[13], processed_segm4)
 
         # loss1 = criterion(sam_output[0], processed_segm1)
         # loss2 = criterion(sam_output[1], processed_segm1)
@@ -453,15 +461,15 @@ def validate(val_loader, model, criterion, epoch, optimizer):
             if i != 0:
                 print_metrics()
     if args.number == 1:
-        prefix = "outer-SAM-1"
+        prefix = "SAM-1"
     elif args.number == 2:
-        prefix = "outer-SAM-4"
+        prefix = "SAM-4"
     elif args.number == 3:
-        prefix = "outer-SAM-8"
+        prefix = "SAM-8"
     elif args.number == 4:
-        prefix = "outer-SAM-14"
+        prefix = "SAM-14"
     elif args.number == 5:
-        prefix = "outer-SAM-1-4-8-14"
+        prefix = "SAM-1-4-8-14"
     else:
         prefix = "baseline"
     c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
