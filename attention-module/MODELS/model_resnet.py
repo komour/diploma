@@ -72,6 +72,7 @@ class Bottleneck(nn.Module):
             self.cbam = None
 
     def forward(self, x_init):
+    # def forward(self, x):
         if not self.first_launch:
             x = x_init[0]
             sam_output_list = x_init[1]
@@ -97,6 +98,7 @@ class Bottleneck(nn.Module):
         sam_output = None
         if self.cbam is not None:
             out, sam_output = self.cbam(out)
+            # out = self.cbam(out)
         out += residual
         out = self.relu(out)
         sam_output_list.append(sam_output)
@@ -202,6 +204,8 @@ class ResNet(nn.Module):
         # sam_output.append(sam1)
         # x, sam2 = self.layer1[2](x, segm[0])
         # sam_output.append(sam2)
+
+        # x = self.layer1(x)
         x, sam1 = self.layer1(x)
 
         if self.bam1 is not None:  # false
@@ -216,6 +220,7 @@ class ResNet(nn.Module):
         # x, sam6 = self.layer2[3](x, segm[1])
         # sam_output.append(sam6)
 
+        # x = self.layer2(x)
         x, sam2 = self.layer2(x)
 
         if self.bam2 is not None:  # false
@@ -235,6 +240,7 @@ class ResNet(nn.Module):
         # sam_output.append(sam12)
 
         x, sam3 = self.layer3(x)
+        # x = self.layer3(x)
 
         if self.bam3 is not None:  # false
             x, _ = self.bam3(x)
@@ -246,6 +252,7 @@ class ResNet(nn.Module):
         # x, sam15 = self.layer4[2](x, segm[3])
         # sam_output.append(sam15)
 
+        # x = self.layer4(x)
         x, sam4 = self.layer4(x)
 
         if self.network_type == "ImageNet":

@@ -107,5 +107,6 @@ class CBAM(nn.Module):
     def forward(self, x):
         x_out = self.ChannelGate(x)
         if not self.no_spatial:
+            # x_out = self.SpatialGate(x_out)
             x_out, scale = self.SpatialGate(x_out)
         return x_out, scale
