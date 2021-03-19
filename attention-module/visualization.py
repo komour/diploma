@@ -94,7 +94,7 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_pref
     axs[0][5].set_title('SAM-14 absolute')
     plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
     if is_server:
-        wandb.log({f'{train_or_val}': fig})
+        wandb.log({f'{train_or_val}/{img_name}': fig})
 
 
 def main():
