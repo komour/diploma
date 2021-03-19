@@ -1,1 +1,1 @@
-python3 train.py --tags concurrent baseline weighted --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "Mask instead SAM, 1000 epoch baseline" --lr 1e-4 --cuda-device 3 --number 0 --epochs 1000
+python3 visualization.py --resume "checkpoints/baseline_checkpoint.pth" --vis-prefix "baseline" --is-server 1 --run-name "vis-baseline" --tags baseline visualization
