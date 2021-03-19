@@ -8,6 +8,7 @@ from torchvision import models, transforms
 import os
 from gradcam.utils import visualize_cam
 from gradcam import GradCAM, GradCAMpp
+import wandb
 
 from MODELS.model_resnet import *
 from custom_dataset import DatasetISIC2018
@@ -20,10 +21,17 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--vis-prefix', type=str, default='dummy-prefix',
                     help='prefix to save plots e.g. "baseline" or "SAM-1"')
+parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
+parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
+parser.add_argument("--tags", nargs='+', default=['default-tag'])
+
+args = parser.parse_args()
+is_server = args.is_server == 1
 
 
 # make and save Grad-CAM plot (original image, mask, Grad-CAM, Grad-CAM++)
 def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_prefix, train_or_val):
+    global is_server
     # get Grad-CAM results and prepare them to show on the plot
     target_layer = model.layer4
     gradcam = GradCAM(model, target_layer=target_layer)
@@ -83,13 +91,18 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_pref
     axs[1][5].set_title('SAM-14 relative')
     axs[0][5].imshow(sam14_show, vmin=0., vmax=1., cmap='gray')
     axs[0][5].set_title('SAM-14 absolute')
-
     plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
+    if is_server:
+        wandb.log({f'{train_or_val}': fig})
 
 
 def main():
-    args = parser.parse_args()
-    print("args", args)
+    global args, is_server
+    if is_server:
+        wandb.login()
+    if is_server:
+        wandb.init(config=config, project="vol.4", name=args.run_name, tags=args.tags)
+
     # define constants
     # vis_prefix = 'baseline'
     CLASS_AMOUNT = 5
@@ -103,6 +116,8 @@ def main():
 
     # define the model
     model = ResidualNet('ImageNet', DEPTH, CLASS_AMOUNT, 'CBAM')
+    if is_server:
+        model = model.cuda(args.cuda_device)
 
     # load the checkpoint
     if os.path.isfile(args.resume):
