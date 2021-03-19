@@ -1,1 +1,1 @@
-python3 visualization.py --resume "checkpoints/baseline_checkpoint.pth" --vis-prefix "baseline" --is-server 1 --run-name "vis-baseline" --tags baseline visualization
+python3 visualization.py --cuda-device 3 --resume "checkpoints/baseline_checkpoint.pth" --vis-prefix "baseline" --is-server 1 --run-name "vis-baseline" --tags baseline visualization

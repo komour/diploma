@@ -23,6 +23,8 @@ parser.add_argument('--vis-prefix', type=str, default='dummy-prefix',
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
+parser.add_argument('--cuda-device', type=int, default=0)
+
 
 args = parser.parse_args()
 is_server = args.is_server == 1
@@ -104,7 +106,7 @@ def main():
         vis_prefix=args.vis_prefix,
         resume=args.resume,
     )
-    
+
     if is_server:
         wandb.init(config=config, project="vol.4", name=args.run_name, tags=args.tags)
 
