@@ -257,7 +257,7 @@ def main():
         num_workers=args.workers, pin_memory=True
     )
     if args.evaluate:
-        validate(val_loader, model, criterion, 0)
+        validate(val_loader, model, criterion, 0, optimizer)
         return
 
     train_dataset = DatasetISIC2018(
