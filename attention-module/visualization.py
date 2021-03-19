@@ -182,6 +182,9 @@ def main():
         img_name = dictionary['name'][0]
         no_norm_image = dictionary['no_norm_image']
         segm = dictionary['segm']
+        if is_server:
+            input_img = input_img.cuda(args.cuda_device)
+
         make_plot_and_save(input_img, img_name, no_norm_image, segm, model, args.vis_prefix, 'train')
         break
 
@@ -190,6 +193,9 @@ def main():
         img_name = dictionary['name'][0]
         no_norm_image = dictionary['no_norm_image']
         segm = dictionary['segm']
+        if is_server:
+            input_img = input_img.cuda(args.cuda_device)
+
         make_plot_and_save(input_img, img_name, no_norm_image, segm, model, args.vis_prefix, 'val')
         break
 
