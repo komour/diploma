@@ -1,0 +1,149 @@
+import torch
+import argparse
+import cv2
+import numpy as np
+import torch
+from torch.autograd import Function
+from torchvision import models, transforms
+import os
+from gradcam.utils import visualize_cam
+from gradcam import GradCAM, GradCAMpp
+
+from MODELS.model_resnet import *
+from custom_dataset import DatasetISIC2018
+
+from torchvision.utils import make_grid, save_image
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Visualization')
+parser.add_argument('--resume', default='', type=str, metavar='PATH',
+                    help='path to latest checkpoint (default: none)')
+parser.add_argument('--vis-prefix', type=str, default='dummy-prefix',
+                    help='prefix to save plots e.g. "baseline" or "SAM-1"')
+
+
+# make and save Grad-CAM plot (original image, mask, Grad-CAM, Grad-CAM++)
+def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_prefix, train_or_val):
+    # get Grad-CAM results and prepare them to show on the plot
+    target_layer = model.layer4
+    gradcam = GradCAM(model, target_layer=target_layer)
+    gradcam_pp = GradCAMpp(model, target_layer=target_layer)
+
+    mask, _ = gradcam(input_img)
+    heatmap, result = visualize_cam(mask, no_norm_image)
+
+    result_show = np.moveaxis(torch.squeeze(result).detach().numpy(), 0, -1)
+
+    mask_pp, _ = gradcam_pp(input_img)
+    heatmap_pp, result_pp = visualize_cam(mask_pp, no_norm_image)
+
+    result_pp_show = np.moveaxis(torch.squeeze(result_pp).detach().numpy(), 0, -1)
+
+    # prepare mask and original image to show on the plot
+    segm_show = torch.squeeze(segm.cpu()).detach().numpy()
+    segm_show = np.moveaxis(segm_show, 0, 2)
+    input_show = np.moveaxis(torch.squeeze(no_norm_image).detach().numpy(), 0, -1)
+
+    # draw and save the plot
+    plt.close('all')
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(12, 8))
+    plt.suptitle(f'{train_or_val}-Image: {img_name}')
+    axs[1][0].imshow(segm_show)
+    axs[1][0].set_title('Mask')
+    axs[0][0].imshow(input_show)
+    axs[0][0].set_title('Original Image')
+
+    axs[0][1].imshow(result_show)
+    axs[0][1].set_title('Grad-CAM')
+    axs[1][1].imshow(result_pp_show)
+    axs[1][1].set_title('Grad-CAM++')
+
+    plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
+
+
+def main():
+    args = parser.parse_args()
+    print("args", args)
+    # define constants
+    # vis_prefix = 'baseline'
+    CLASS_AMOUNT = 5
+    DEPTH = 50
+    root_dir = 'data/'
+    # resume = "checkpoints/baseline_checkpoint.pth"
+    traindir = os.path.join(root_dir, 'train')
+    train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
+    valdir = os.path.join(root_dir, 'val')
+    val_labels = os.path.join(root_dir, 'val', 'images_onehot_val.txt')
+
+    # define the model
+    model = ResidualNet('ImageNet', DEPTH, CLASS_AMOUNT, 'CBAM')
+
+    # load the checkpoint
+    if os.path.isfile(args.resume):
+        print(f"=> loading checkpoint '{args.resume}'")
+        checkpoint = torch.load(args.resume, map_location=torch.device('cpu'))
+        state_dict = checkpoint['state_dict']
+
+        model.load_state_dict(state_dict)
+        print(f"=> loaded checkpoint '{args.resume}'")
+        print(f"epoch = {checkpoint['epoch']}")
+    else:
+        print(f"=> no checkpoint found at '{args.resume}'")
+        return -1
+
+    # define datasets and data loaders
+    train_dataset = DatasetISIC2018(
+        train_labels,
+        traindir,
+        False,  # perform flips
+        True  # perform random resized crop with size = 224
+    )
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=1, shuffle=False,
+        pin_memory=True
+    )
+
+    size0 = 224
+    val_dataset = DatasetISIC2018(
+        val_labels,
+        valdir,
+        False,
+        False,
+        transforms.CenterCrop(size0)
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=1, shuffle=False,
+        pin_memory=True
+    )
+
+    # create directories to save plots
+    if not os.path.exists(f'vis/{args.vis_prefix}'):
+        os.mkdir(f'vis/{args.vis_prefix}')
+
+    if not os.path.exists(f'vis/{args.vis_prefix}/train'):
+        os.mkdir(f'vis/{args.vis_prefix}/train')
+
+    if not os.path.exists(f'vis/{args.vis_prefix}/val'):
+        os.mkdir(f'vis/{args.vis_prefix}/val')
+
+    for i, dictionary in enumerate(train_loader):
+        input_img = dictionary['image']
+        img_name = dictionary['name'][0]
+        no_norm_image = dictionary['no_norm_image']
+        segm = dictionary['segm']
+        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, args.vis_prefix, 'train')
+        break
+
+    for i, dictionary in enumerate(val_loader):
+        input_img = dictionary['image']
+        img_name = dictionary['name'][0]
+        no_norm_image = dictionary['no_norm_image']
+        segm = dictionary['segm']
+        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, args.vis_prefix, 'val')
+        break
+
+
+if __name__ == '__main__':
+    main()
