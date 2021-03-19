@@ -28,8 +28,8 @@ def visualize_cam(mask, img, alpha=1.0):
     b, g, r = heatmap.split(1)
     heatmap = torch.cat([r, g, b]) * alpha
 
-    # result = heatmap+img.cpu()
-    result = heatmap + img
+    result = heatmap+img.cpu()
+    # result = heatmap + img
     result = result.div(result.max()).squeeze()
 
     return heatmap, result
