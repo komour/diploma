@@ -99,6 +99,12 @@ def main():
     global args, is_server
     if is_server:
         wandb.login()
+
+    config = dict(
+        vis_prefix=args.vis_prefix,
+        resume=args.resume,
+    )
+    
     if is_server:
         wandb.init(config=config, project="vol.4", name=args.run_name, tags=args.tags)
 
