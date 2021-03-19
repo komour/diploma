@@ -62,7 +62,7 @@ class GradCAM:
     def forward(self, input, class_idx=None, retain_graph=False):
         b, c, h, w = input.size()
 
-        logit, sam = self.model_arch(input)
+        logit, sam_output = self.model_arch(input)
         # logit = self.model_arch(input)
         if class_idx is None:
             score = logit[:, logit.max(1)[-1]].squeeze()
@@ -86,7 +86,7 @@ class GradCAM:
         saliency_map_min, saliency_map_max = saliency_map.min(), saliency_map.max()
         saliency_map = (saliency_map - saliency_map_min).div(saliency_map_max - saliency_map_min).data
 
-        return saliency_map, logit
+        return saliency_map, logit, sam_output
 
     def __call__(self, input, class_idx=None, retain_graph=False):
         return self.forward(input, class_idx, retain_graph)

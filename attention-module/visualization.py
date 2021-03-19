@@ -29,7 +29,13 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_pref
     gradcam = GradCAM(model, target_layer=target_layer)
     gradcam_pp = GradCAMpp(model, target_layer=target_layer)
 
-    mask, _ = gradcam(input_img)
+    mask, _, sam_output = gradcam(input_img)
+
+    sam1_show = torch.squeeze(sam_output[0].cpu()).detach().numpy()
+    sam4_show = torch.squeeze(sam_output[3].cpu()).detach().numpy()
+    sam8_show = torch.squeeze(sam_output[7].cpu()).detach().numpy()
+    sam14_show = torch.squeeze(sam_output[13].cpu()).detach().numpy()
+
     heatmap, result = visualize_cam(mask, no_norm_image)
 
     result_show = np.moveaxis(torch.squeeze(result).detach().numpy(), 0, -1)
@@ -46,7 +52,7 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_pref
 
     # draw and save the plot
     plt.close('all')
-    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(12, 8))
+    fig, axs = plt.subplots(nrows=2, ncols=6, figsize=(24, 9))
     plt.suptitle(f'{train_or_val}-Image: {img_name}')
     axs[1][0].imshow(segm_show)
     axs[1][0].set_title('Mask')
@@ -57,6 +63,26 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_pref
     axs[0][1].set_title('Grad-CAM')
     axs[1][1].imshow(result_pp_show)
     axs[1][1].set_title('Grad-CAM++')
+
+    axs[1][2].imshow(sam1_show, cmap='gray')
+    axs[1][2].set_title('SAM-1 relative')
+    axs[0][2].imshow(sam1_show, vmin=0., vmax=1., cmap='gray')
+    axs[0][2].set_title('SAM-1 absolute')
+
+    axs[1][3].imshow(sam4_show, cmap='gray')
+    axs[1][3].set_title('SAM-4 relative')
+    axs[0][3].imshow(sam4_show, vmin=0., vmax=1., cmap='gray')
+    axs[0][3].set_title('SAM-4 absolute')
+
+    axs[1][4].imshow(sam8_show, cmap='gray')
+    axs[1][4].set_title('SAM-8 relative')
+    axs[0][4].imshow(sam8_show, vmin=0., vmax=1., cmap='gray')
+    axs[0][4].set_title('SAM-8 absolute')
+
+    axs[1][5].imshow(sam14_show, cmap='gray')
+    axs[1][5].set_title('SAM-14 relative')
+    axs[0][5].imshow(sam14_show, vmin=0., vmax=1., cmap='gray')
+    axs[0][5].set_title('SAM-14 absolute')
 
     plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
 
@@ -92,11 +118,13 @@ def main():
         return -1
 
     # define datasets and data loaders
+    size0 = 224
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
         False,  # perform flips
-        True  # perform random resized crop with size = 224
+        False,  # perform random resized crop with size = 224
+        transforms.CenterCrop(size0)
     )
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -104,7 +132,6 @@ def main():
         pin_memory=True
     )
 
-    size0 = 224
     val_dataset = DatasetISIC2018(
         val_labels,
         valdir,
