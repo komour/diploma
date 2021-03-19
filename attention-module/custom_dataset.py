@@ -75,21 +75,27 @@ class DatasetISIC2018(Dataset):
                 img = TF.vflip(img)
                 segm = TF.vflip(segm)
         if self.perform_crop:
-            scale = (0.08, 1.0)
-            ratio = (3. / 4., 4. / 3.)
+            scale = (0.08, 1.0)  # for conda
+            # scale = [0.08, 1.0]  # for pip
+            ratio = (3. / 4., 4. / 3.)  # for conda
+            # ratio = [3. / 4., 4. / 3.]  # for pip
             i, j, h, w = transforms.RandomResizedCrop.get_params(img, scale, ratio)
             size0 = 224
-            size = (size0, size0)
-            img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)
-            segm = TF.resized_crop(segm, i, j, h, w, size, Image.NEAREST)
+            # size = (size0, size0)  # for conda
+            size = [size0, size0]  # for pip
+            img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)  # for conda
+            # img = TF.resized_crop(img, i, j, h, w, size, TF.InterpolationMode.BILINEAR)  # for pip
+            segm = TF.resized_crop(segm, i, j, h, w, size, Image.NEAREST)  # for conda
+            # segm = TF.resized_crop(segm, i, j, h, w, size, TF.InterpolationMode.NEAREST)  # for pip
         if self.transform:
             img = self.transform(img)
             segm = self.transform(segm)
         img = self.to_tensor(img)
+        no_norm_image = img.detach().clone()
         img = self.normalize(img)
         segm = self.to_tensor(segm)
         label = label_to_tensor(self.image_to_onehot[self.image_names[idx]])
-        return {'image': img, 'label': label, 'segm': segm}
+        return {'image': img, 'label': label, 'segm': segm, 'name': self.image_names[idx], 'no_norm_image': no_norm_image}
 
     def __len__(self):
         return len(self.image_to_onehot)
