@@ -14,6 +14,7 @@ from custom_dataset import DatasetISIC2018
 
 from torchvision.utils import make_grid, save_image
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Visualization')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
@@ -138,7 +139,7 @@ def main():
     # else:
     #     print(f"=> no checkpoint found at '{args.resume}'")
     #     return -1
-    
+
     # create dummy layer to init weights in the state_dict
     dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
     torch.nn.init.xavier_uniform_(dummy_fc.weight)
