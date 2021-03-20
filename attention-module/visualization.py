@@ -138,6 +138,10 @@ def main():
     # else:
     #     print(f"=> no checkpoint found at '{args.resume}'")
     #     return -1
+    
+    # create dummy layer to init weights in the state_dict
+    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
+    torch.nn.init.xavier_uniform_(dummy_fc.weight)
 
     # optionally resume from a checkpoint
     if args.resume:
