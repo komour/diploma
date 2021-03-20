@@ -128,48 +128,17 @@ def main():
         model = model.cuda(args.cuda_device)
 
     # # load the checkpoint
-    # if os.path.isfile(args.resume):
-    #     print(f"=> loading checkpoint '{args.resume}'")
-    #     checkpoint = torch.load(args.resume, map_location=torch.device('cpu'))
-    #     state_dict = checkpoint['state_dict']
-    #
-    #     model.load_state_dict(state_dict)
-    #     print(f"=> loaded checkpoint '{args.resume}'")
-    #     print(f"epoch = {checkpoint['epoch']}")
-    # else:
-    #     print(f"=> no checkpoint found at '{args.resume}'")
-    #     return -1
+    if os.path.isfile(args.resume):
+        print(f"=> loading checkpoint '{args.resume}'")
+        checkpoint = torch.load(args.resume, map_location=torch.device('cpu'))
+        state_dict = checkpoint['state_dict']
 
-    # create dummy layer to init weights in the state_dict
-    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
-    torch.nn.init.xavier_uniform_(dummy_fc.weight)
-
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume)
-            state_dict = checkpoint['state_dict']
-
-            state_dict['module.fc.weight'] = dummy_fc.weight
-            state_dict['module.fc.bias'] = dummy_fc.bias
-
-            # remove `module.` prefix because we don't use torch.nn.DataParallel
-
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                name = k[7:]  # remove `module.`
-                new_state_dict[name] = v
-
-            model.load_state_dict(new_state_dict)
-            # model.load_state_dict(state_dict)
-            if 'optimizer' in checkpoint:
-                optimizer.load_state_dict(checkpoint['optimizer'])
-            print(f"=> loaded checkpoint '{args.resume}'")
-            # print(f"epoch = {checkpoint['epoch']}")
-        else:
-            print(f"=> no checkpoint found at '{args.resume}'")
-            return -1
+        model.load_state_dict(state_dict)
+        print(f"=> loaded checkpoint '{args.resume}'")
+        print(f"epoch = {checkpoint['epoch']}")
+    else:
+        print(f"=> no checkpoint found at '{args.resume}'")
+        return -1
 
     # define datasets and data loaders
     size0 = 224
