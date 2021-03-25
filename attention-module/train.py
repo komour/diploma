@@ -351,45 +351,45 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         # loss14 = torch.mean(sam_criterion(sam_output[13], processed_segm4) * processed_segm4_invert)
 
         loss0 = criterion(output, target)
-        loss1 = sam_criterion(sam_output[0], processed_segm1)
-        loss4 = sam_criterion(sam_output[3], processed_segm2)
-        loss8 = sam_criterion(sam_output[7], processed_segm3)
-        loss14 = sam_criterion(sam_output[13], processed_segm4)
+        # loss1 = sam_criterion(sam_output[0], processed_segm1)
+        # loss4 = sam_criterion(sam_output[3], processed_segm2)
+        # loss8 = sam_criterion(sam_output[7], processed_segm3)
+        # loss14 = sam_criterion(sam_output[13], processed_segm4)
 
-        # loss1 = criterion(sam_output[0], processed_segm1)
-        # loss2 = criterion(sam_output[1], processed_segm1)
-        # loss3 = criterion(sam_output[2], processed_segm1)
-        # loss4 = criterion(sam_output[3], processed_segm2)
-        # loss5 = criterion(sam_output[4], processed_segm2)
-        # loss6 = criterion(sam_output[5], processed_segm2)
-        # loss7 = criterion(sam_output[6], processed_segm2)
-        # loss8 = criterion(sam_output[7], processed_segm3)
-        # loss9 = criterion(sam_output[8], processed_segm3)
-        # loss10 = criterion(sam_output[9], processed_segm3)
-        # loss11 = criterion(sam_output[10], processed_segm3)
-        # loss12 = criterion(sam_output[11], processed_segm3)
-        # loss13 = criterion(sam_output[12], processed_segm3)
-        # loss14 = criterion(sam_output[13], processed_segm4)
-        # loss15 = criterion(sam_output[14], processed_segm4)
-        # loss16 = criterion(sam_output[15], processed_segm4)
+        loss1 = sam_criterion(sam_output[0], processed_segm1)
+        loss2 = sam_criterion(sam_output[1], processed_segm1)
+        loss3 = sam_criterion(sam_output[2], processed_segm1)
+        loss4 = sam_criterion(sam_output[3], processed_segm2)
+        loss5 = sam_criterion(sam_output[4], processed_segm2)
+        loss6 = sam_criterion(sam_output[5], processed_segm2)
+        loss7 = sam_criterion(sam_output[6], processed_segm2)
+        loss8 = sam_criterion(sam_output[7], processed_segm3)
+        loss9 = sam_criterion(sam_output[8], processed_segm3)
+        loss10 = sam_criterion(sam_output[9], processed_segm3)
+        loss11 = sam_criterion(sam_output[10], processed_segm3)
+        loss12 = sam_criterion(sam_output[11], processed_segm3)
+        loss13 = sam_criterion(sam_output[12], processed_segm3)
+        loss14 = sam_criterion(sam_output[13], processed_segm4)
+        loss15 = sam_criterion(sam_output[14], processed_segm4)
+        loss16 = sam_criterion(sam_output[15], processed_segm4)
         #
-        # loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
-        loss_comb = loss0
-        if args.number == 1:
-            loss_comb += loss1
-            print("SAM-1")
-        elif args.number == 2:
-            loss_comb += loss4
-            print("SAM-4")
-        elif args.number == 3:
-            loss_comb += loss8
-            print("SAM-8")
-        elif args.number == 4:
-            loss_comb += loss14
-            print("SAM-14")
-        elif args.number == 5:
-            loss_comb += loss1 + loss4 + loss8 + loss14
-            print("SAM-1-4-8-14")
+        loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
+        # loss_comb = loss0
+        # if args.number == 1:
+        #     loss_comb += loss1
+        #     print("SAM-1")
+        # elif args.number == 2:
+        #     loss_comb += loss4
+        #     print("SAM-4")
+        # elif args.number == 3:
+        #     loss_comb += loss8
+        #     print("SAM-8")
+        # elif args.number == 4:
+        #     loss_comb += loss14
+        #     print("SAM-14")
+        # elif args.number == 5:
+        #     loss_comb += loss1 + loss4 + loss8 + loss14
+        #     print("SAM-1-4-8-14")
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
