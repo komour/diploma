@@ -373,7 +373,7 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         loss15 = sam_criterion(sam_output[14], processed_segm4)
         loss16 = sam_criterion(sam_output[15], processed_segm4)
         #
-        loss_comb = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8 + loss9 + loss10 + loss11 + loss12 + loss13 + loss14 + loss15 + loss16
+        loss_comb = loss0 * loss1 * loss2 * loss3 * loss4 * loss5 * loss6 * loss7 * loss8 * loss9 * loss10 * loss11 * loss12 * loss13 * loss14 * loss15 * loss16
         # loss_comb = loss0
         # if args.number == 1:
         #     loss_comb += loss1
