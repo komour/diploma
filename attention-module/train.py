@@ -460,25 +460,25 @@ def validate(val_loader, model, criterion, epoch, optimizer):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i != 0:
                 print_metrics()
-    if args.number == 1:
-        prefix = "SAM-1"
-    elif args.number == 2:
-        prefix = "SAM-4"
-    elif args.number == 3:
-        prefix = "SAM-8"
-    elif args.number == 4:
-        prefix = "SAM-14"
-    elif args.number == 5:
-        prefix = "SAM-1-4-8-14"
-    else:
-        prefix = "baseline"
-    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-    if avg_f1 > avg_f1_val_best:
-        save_checkpoint({
-            'epoch': epoch,
-            'state_dict': model.state_dict(),
-            'optimizer': optimizer.state_dict()
-        }, prefix)
+    # if args.number == 1:
+    #     prefix = "SAM-1"
+    # elif args.number == 2:
+    #     prefix = "SAM-4"
+    # elif args.number == 3:
+    #     prefix = "SAM-8"
+    # elif args.number == 4:
+    #     prefix = "SAM-14"
+    # elif args.number == 5:
+    #     prefix = "SAM-1-4-8-14"
+    # else:
+    #     prefix = "baseline"
+    # c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    # if avg_f1 > avg_f1_val_best:
+    #     save_checkpoint({
+    #         'epoch': epoch,
+    #         'state_dict': model.state_dict(),
+    #         'optimizer': optimizer.state_dict()
+    #     }, prefix)
     wandb_log_val(epoch, losses.avg)
 
 
