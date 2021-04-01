@@ -115,7 +115,7 @@ class ResNet(nn.Module):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.network_type = network_type
-        # different model config between ImageNet and CIFAR 
+        # different model config between ImageNet and CIFAR
         if network_type == "ImageNet":
             self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -136,6 +136,7 @@ class ResNet(nn.Module):
         self.layer1 = self._make_layer(block, 64, layers[0], att_type=att_type)
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2, att_type=att_type)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2, att_type=att_type)
+        self.cbam_after_layer3 = CBAM(1024, 16)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2, att_type=att_type)
 
         # self.l0 = self.layerList1[0]
@@ -245,6 +246,8 @@ class ResNet(nn.Module):
         if self.bam3 is not None:  # false
             x, _ = self.bam3(x)
 
+        x, sam_add = self.cbam_after_layer3(x)
+
         # x, sam13 = self.layer4[0](x, segm[3])
         # sam_output.append(sam13)
         # x, sam14 = self.layer4[1](x, segm[3])
@@ -266,7 +269,7 @@ class ResNet(nn.Module):
         sam_output += sam2
         sam_output += sam3
         sam_output += sam4
-        return x, sam_output
+        return x, sam_output, sam_add
 
 
 # att_type = CBAM
