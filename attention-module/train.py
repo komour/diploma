@@ -459,7 +459,7 @@ def validate(val_loader, model, criterion, epoch, optimizer):
 
         # compute output
         with torch.no_grad():
-            output, _ = model(input_img)
+            output, _, _ = model(input_img)
             loss = criterion(output, target)
             # loss = CB_loss(target, output)
 
