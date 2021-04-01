@@ -172,18 +172,22 @@ def main():
         sam_criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
-    if os.path.isfile(args.resume):
-        print(f"=> loading checkpoint '{args.resume}'")
-        checkpoint = torch.load(args.resume)
-        state_dict = checkpoint['state_dict']
+    start_epoch = 0
 
-        model.load_state_dict(state_dict)
-        print(f"=> loaded checkpoint '{args.resume}'")
-        print(f"epoch = {checkpoint['epoch']}")
-        start_epoch = checkpoint['epoch']
-    else:
-        print(f"=> no checkpoint found at '{args.resume}'")
-        return -1
+    # # code to load my own checkpoints:
+    # if args.resume:
+    #     if os.path.isfile(args.resume):
+    #         print(f"=> loading checkpoint '{args.resume}'")
+    #         checkpoint = torch.load(args.resume)
+    #         state_dict = checkpoint['state_dict']
+    #
+    #         model.load_state_dict(state_dict)
+    #         print(f"=> loaded checkpoint '{args.resume}'")
+    #         print(f"epoch = {checkpoint['epoch']}")
+    #         start_epoch = checkpoint['epoch']
+    #     else:
+    #         print(f"=> no checkpoint found at '{args.resume}'")
+    #         return -1
 
     config = dict(
         architecture=f"{args.arch}{args.depth}",
@@ -206,35 +210,44 @@ def main():
         model = model.cuda(args.cuda_device)
 
     # code to load imagenet checkpoint:
-    # # create dummy layer to init weights in the state_dict
-    # dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
-    # torch.nn.init.xavier_uniform_(dummy_fc.weight)
-    # # optionally resume from a checkpoint
-    # if args.resume:
-    #     if os.path.isfile(args.resume):
-    #         print(f"=> loading checkpoint '{args.resume}'")
-    #         checkpoint = torch.load(args.resume)
-    #         state_dict = checkpoint['state_dict']
-    #
-    #         state_dict['module.fc.weight'] = dummy_fc.weight
-    #         state_dict['module.fc.bias'] = dummy_fc.bias
-    #
-    #         # remove `module.` prefix because we don't use torch.nn.DataParallel
-    #
-    #         new_state_dict = OrderedDict()
-    #         for k, v in state_dict.items():
-    #             name = k[7:]  # remove `module.`
-    #             new_state_dict[name] = v
-    #
-    #         model.load_state_dict(new_state_dict)
-    #         # model.load_state_dict(state_dict)
-    #         if 'optimizer' in checkpoint:
-    #             optimizer.load_state_dict(checkpoint['optimizer'])
-    #         print(f"=> loaded checkpoint '{args.resume}'")
-    #         # print(f"epoch = {checkpoint['epoch']}")
-    #     else:
-    #         print(f"=> no checkpoint found at '{args.resume}'")
-    #         return -1
+    # create dummy layer to init weights in the state_dict
+    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
+    torch.nn.init.xavier_uniform_(dummy_fc.weight)
+    # optionally resume from a checkpoint
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print(f"=> loading checkpoint '{args.resume}'")
+            checkpoint = torch.load(args.resume, map_location=torch.device('cpu'))
+            state_dict = checkpoint['state_dict']
+
+            state_dict['module.fc.weight'] = dummy_fc.weight
+            state_dict['module.fc.bias'] = dummy_fc.bias
+
+            # remove `module.` prefix because we don't use torch.nn.DataParallel
+
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                name = k[7:]  # remove `module.`
+                new_state_dict[name] = v
+            #  load weights to the new added cbam module from the nearest cbam module in checkpoint
+            new_state_dict["cbam_after_layer3.ChannelGate.mlp.1.weight"] = new_state_dict['layer3.5.cbam.ChannelGate.mlp.1.weight']
+            new_state_dict["cbam_after_layer3.ChannelGate.mlp.1.bias"] = new_state_dict['layer3.5.cbam.ChannelGate.mlp.1.bias']
+            new_state_dict["cbam_after_layer3.ChannelGate.mlp.3.weight"] = new_state_dict['layer3.5.cbam.ChannelGate.mlp.3.weight']
+            new_state_dict["cbam_after_layer3.ChannelGate.mlp.3.bias"] = new_state_dict['layer3.5.cbam.ChannelGate.mlp.3.bias']
+            new_state_dict["cbam_after_layer3.SpatialGate.spatial.conv.weight"] = new_state_dict['layer3.5.cbam.SpatialGate.spatial.conv.weight']
+            new_state_dict["cbam_after_layer3.SpatialGate.spatial.bn.weight"] = new_state_dict['layer3.5.cbam.SpatialGate.spatial.bn.weight']
+            new_state_dict["cbam_after_layer3.SpatialGate.spatial.bn.bias"] = new_state_dict['layer3.5.cbam.SpatialGate.spatial.bn.bias']
+            new_state_dict["cbam_after_layer3.SpatialGate.spatial.bn.running_mean"] = new_state_dict['layer3.5.cbam.SpatialGate.spatial.bn.running_mean']
+            new_state_dict["cbam_after_layer3.SpatialGate.spatial.bn.running_var"] = new_state_dict['layer3.5.cbam.SpatialGate.spatial.bn.running_var']
+            model.load_state_dict(new_state_dict)
+            # model.load_state_dict(state_dict)
+            if 'optimizer' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer'])
+            print(f"=> loaded checkpoint '{args.resume}'")
+            # print(f"epoch = {checkpoint['epoch']}")
+        else:
+            print(f"=> no checkpoint found at '{args.resume}'")
+            return -1
 
     if is_server:
         wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
@@ -342,19 +355,19 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         # initial segm size = [1, 3, 224, 224]
         # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
         # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
         #
         # processed_segm1 = maxpool_segm1(segm)
         # processed_segm2 = maxpool_segm2(segm)
-        # processed_segm3 = maxpool_segm3(segm)
+        processed_segm3 = maxpool_segm3(segm)
         # processed_segm4 = maxpool_segm4(segm)
 
         # compute output
-        output, sam_output = model(input_img)
+        output, sam_output, sam_add = model(input_img)
         # processed_segm1_invert = (processed_segm1 + 1) % 2
         # processed_segm2_invert = (processed_segm2 + 1) % 2
-        # processed_segm3_invert = (processed_segm3 + 1) % 2
+        processed_segm3_invert = (processed_segm3 + 1) % 2
         # processed_segm4_invert = (processed_segm4 + 1) % 2
 
         # loss0 = criterion(output, target)
@@ -362,12 +375,14 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         # loss4 = torch.mean(sam_criterion(sam_output[3], processed_segm2) * processed_segm2_invert)
         # loss8 = torch.mean(sam_criterion(sam_output[7], processed_segm3) * processed_segm3_invert)
         # loss14 = torch.mean(sam_criterion(sam_output[13], processed_segm4) * processed_segm4_invert)
+        loss_added_cbam_outer = torch.mean(sam_criterion(sam_add, processed_segm3) * processed_segm3_invert)
 
         loss0 = criterion(output, target)
         # loss1 = sam_criterion(sam_output[0], processed_segm1)
         # loss4 = sam_criterion(sam_output[3], processed_segm2)
         # loss8 = sam_criterion(sam_output[7], processed_segm3)
         # loss14 = sam_criterion(sam_output[13], processed_segm4)
+        loss_added_cbam = sam_criterion(sam_add, processed_segm3)
 
         # loss1 = sam_criterion(sam_output[0], processed_segm1)
         # loss2 = sam_criterion(sam_output[1], processed_segm1)
@@ -387,22 +402,11 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         # loss16 = sam_criterion(sam_output[15], processed_segm4)
         #
         loss_comb = loss0
-        # loss_comb = loss0
-        # if args.number == 1:
-        #     loss_comb += loss1
-        #     print("SAM-1")
-        # elif args.number == 2:
-        #     loss_comb += loss4
-        #     print("SAM-4")
-        # elif args.number == 3:
-        #     loss_comb += loss8
-        #     print("SAM-8")
-        # elif args.number == 4:
-        #     loss_comb += loss14
-        #     print("SAM-14")
-        # elif args.number == 5:
-        #     loss_comb += loss1 + loss4 + loss8 + loss14
-        #     print("SAM-1-4-8-14")
+        if args.number == 1:
+            loss_comb += loss_added_cbam
+        elif args.number == 2:
+            loss_comb += loss_added_cbam_outer
+
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
@@ -473,13 +477,13 @@ def validate(val_loader, model, criterion, epoch, optimizer):
                   f'Loss {losses.val:.4f} ({losses.avg:.4f})')
             if i != 0:
                 print_metrics()
-    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-    if avg_f1 > avg_f1_val_best:
-        save_checkpoint({
-            'epoch': epoch,
-            'state_dict': model.state_dict(),
-            'optimizer': optimizer.state_dict()
-        }, args.run_name)
+    # c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    # if avg_f1 > avg_f1_val_best:
+    #     save_checkpoint({
+    #         'epoch': epoch,
+    #         'state_dict': model.state_dict(),
+    #         'optimizer': optimizer.state_dict()
+    #     }, args.run_name)
     wandb_log_val(epoch, losses.avg)
 
 
