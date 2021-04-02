@@ -1,4 +1,3 @@
-python3 train.py --number 0 --lr 1e-4 --cuda-device 3 --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --is-server 1 --run-name "extra-CBAM-4-baseline" --tags extra-cbam-4 concurrent baseline &&
 python3 train.py --number 1 --lr 1e-4 --cuda-device 3 --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --is-server 1 --run-name "extra-CBAM-4-loss" --tags extra-cbam-4 concurrent SAM-loss &&
 python3 train.py --number 2 --lr 1e-4 --cuda-device 3 --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --is-server 1 --run-name "extra-CBAM-4-outer" --tags extra-cbam-4 concurrent SAM-loss-outer &&
 python3 train.py --number 0 --lr 1e-5 --cuda-device 3 --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --is-server 1 --run-name "1e-5-extra-CBAM-4-baseline" --tags extra-cbam-4 concurrent baseline &&

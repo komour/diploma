@@ -217,7 +217,7 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume, map_location=torch.device('cpu'))
+            checkpoint = torch.load(args.resume)
             state_dict = checkpoint['state_dict']
 
             state_dict['module.fc.weight'] = dummy_fc.weight
