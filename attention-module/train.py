@@ -31,6 +31,11 @@ import wandb
 
 from collections import OrderedDict
 
+from gradcam.utils import visualize_cam
+from gradcam import GradCAM, GradCAMpp
+from MODELS.model_resnet import *
+from torchvision.utils import make_grid, save_image
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Training')
