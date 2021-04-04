@@ -11,6 +11,9 @@ val_labels = os.path.join('data', 'val', 'images_onehot_val.txt')
 traindir = os.path.join('data', 'train')
 train_labels = os.path.join('data', 'train', 'images_onehot_train.txt')
 
+train_vis_file = open('vis_train.txt')
+train_vis_image_names = train_vis_file.readlines()
+
 
 def main():
     size0 = 224
@@ -25,36 +28,42 @@ def main():
         val_dataset,
         batch_size=1, shuffle=False,
         num_workers=4, pin_memory=True)
-    for i, dictionary in enumerate(val_loader):
-        input_img = dictionary['image']
-        target = dictionary['label']
-        print(input_img.size())
+    # for i, dictionary in enumerate(val_loader):
+    #     input_img = dictionary['image']
+    #     target = dictionary['label']
+    #     print(input_img.size())
 
-    # train_dataset = DatasetISIC2018(
-    #     train_labels,
-    #     traindir,
-    #     True,  # perform flips
-    #     True  # perform random resized crop
-    # )
-    #
+    train_dataset = DatasetISIC2018(
+        train_labels,
+        traindir,
+        True,  # perform flips
+        True  # perform random resized crop
+    )
+
     # # test_dataset = DatasetISIC2018(
     # #     test_labels,
     # #     testdir,
     # #     False,
     # #     False,
     # # )
-    # train_sampler = None
+    train_sampler = None
     #
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset, batch_size=16, shuffle=(train_sampler is None),
-    #     num_workers=4, pin_memory=True, sampler=train_sampler)
-    # for i, dictionary in enumerate(train_loader):
-    #     input_img = dictionary['image']
-    #     print(input_img.size())
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=1, shuffle=(train_sampler is None),
+        num_workers=4, pin_memory=True, sampler=train_sampler)
+    for i, dictionary in enumerate(train_loader):
+        input_img = dictionary['image']
+        name = dictionary['name'][0]
+        print(f'{name}l 1')
+        return 0
 
 
 if __name__ == '__main__':
-    print(torch.__version__)
+    # print({train_vis_image_names[0]})
+    name = "ISIC_0012212"
+    if name+'\n' in train_vis_image_names:
+        print("YAAY")
+    # print(torch.__version__)
     # main()
     # image = torch.zeros(1, 3, 224, 224)
     # maxpool = nn.MaxPool3d(kernel_size=(3, 4, 4))

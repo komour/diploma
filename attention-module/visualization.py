@@ -1,7 +1,6 @@
 import torch
 import argparse
 import numpy as np
-import torch
 from torch.autograd import Function
 from torchvision import models, transforms
 import os
@@ -188,7 +187,7 @@ def main():
         segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
-        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, 'train', args.vis_prefix)
+        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, 'train', vis_prefix=args.vis_prefix)
 
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
@@ -197,7 +196,7 @@ def main():
         segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
-        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, 'val', args.vis_prefix)
+        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, 'val', vis_prefix=args.vis_prefix)
 
 
 if __name__ == '__main__':
