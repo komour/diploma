@@ -358,6 +358,7 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch
 
         #  decide whether to do visualization
         if epoch_number % 10 == 0 and img_name + '\n' in train_vis_image_names:
+            print('train-visualization')
             make_plot_and_save(input_img, img_name, dictionary['no_norm_image'], segm, model, 'train', epoch)
 
         # measure data loading time
@@ -472,7 +473,8 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
             segm = segm.cuda(args.cuda_device)
 
         #  decide whether to do visualization
-        if epoch_number % 10 == 0 and img_name in val_vis_image_names:
+        if epoch_number % 10 == 0 and img_name + '\n' in val_vis_image_names:
+            print('val-visualization')
             make_plot_and_save(input_img, img_name, dictionary['no_norm_image'], segm, model, 'val', epoch)
 
         # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
