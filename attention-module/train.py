@@ -344,22 +344,24 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch
     # switch to train mode
     model.train()
     end = time.time()
-    global train_vis_image_names
+
+    #  decide whether to save checkpoint
+    if epoch_number % 10 == 0:
+        checkpoint_dict = {
+            'epoch': epoch,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }
+        save_checkpoint_to_folder(checkpoint_dict, args.run_name, epoch_number / 10 + 1)
+
     for i, dictionary in enumerate(train_loader):
-        # for batch-size == 1
-        img_name = dictionary['name'][0]
         input_img = dictionary['image']
         target = dictionary['label']
-        segm = dictionary['segm']
+        # segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-            segm = segm.cuda(args.cuda_device)
-
-        #  decide whether to do visualization
-        if epoch_number % 10 == 0 and img_name + '\n' in train_vis_image_names:
-            print('train-visualization')
-            make_plot_and_save(input_img, img_name, dictionary['no_norm_image'], segm, model, 'train', epoch)
+            # segm = segm.cuda(args.cuda_device)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -465,17 +467,11 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        segm = dictionary['segm']
-        img_name = dictionary['name']
+        # segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-            segm = segm.cuda(args.cuda_device)
-
-        #  decide whether to do visualization
-        if epoch_number % 10 == 0 and img_name + '\n' in val_vis_image_names:
-            print('val-visualization')
-            make_plot_and_save(input_img, img_name, dictionary['no_norm_image'], segm, model, 'val', epoch)
+            # segm = segm.cuda(args.cuda_device)
 
         # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
@@ -918,82 +914,19 @@ def measure_accuracy(output, target):
     write_expected_predicted(target, activated_output)
 
 
-# make and save Grad-CAM plot (original image, mask, Grad-CAM, Grad-CAM++)
-def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or_val, epoch=None, vis_prefix=None):
-    global is_server
-    # get Grad-CAM results and prepare them to show on the plot
-    target_layer = model.layer4
-    gradcam = GradCAM(model, target_layer=target_layer)
-    gradcam_pp = GradCAMpp(model, target_layer=target_layer)
-
-    mask, _, sam_output = gradcam(input_img)
-
-    sam1_show = torch.squeeze(sam_output[0].cpu()).detach().numpy()
-    sam4_show = torch.squeeze(sam_output[3].cpu()).detach().numpy()
-    sam8_show = torch.squeeze(sam_output[7].cpu()).detach().numpy()
-    sam14_show = torch.squeeze(sam_output[13].cpu()).detach().numpy()
-
-    heatmap, result = visualize_cam(mask, no_norm_image)
-
-    result_show = np.moveaxis(torch.squeeze(result).detach().numpy(), 0, -1)
-
-    mask_pp, _ = gradcam_pp(input_img)
-    heatmap_pp, result_pp = visualize_cam(mask_pp, no_norm_image)
-
-    result_pp_show = np.moveaxis(torch.squeeze(result_pp).detach().numpy(), 0, -1)
-
-    # prepare mask and original image to show on the plot
-    segm_show = torch.squeeze(segm.cpu()).detach().numpy()
-    segm_show = np.moveaxis(segm_show, 0, 2)
-    input_show = np.moveaxis(torch.squeeze(no_norm_image).detach().numpy(), 0, -1)
-
-    # draw and save the plot
-    plt.close('all')
-    fig, axs = plt.subplots(nrows=2, ncols=6, figsize=(24, 9))
-    plt.suptitle(f'{train_or_val}-Image: {img_name}')
-    axs[1][0].imshow(segm_show)
-    axs[1][0].set_title('Mask')
-    axs[0][0].imshow(input_show)
-    axs[0][0].set_title('Original Image')
-
-    axs[0][1].imshow(result_show)
-    axs[0][1].set_title('Grad-CAM')
-    axs[1][1].imshow(result_pp_show)
-    axs[1][1].set_title('Grad-CAM++')
-
-    axs[1][2].imshow(sam1_show, cmap='gray')
-    axs[1][2].set_title('SAM-1 relative')
-    axs[0][2].imshow(sam1_show, vmin=0., vmax=1., cmap='gray')
-    axs[0][2].set_title('SAM-1 absolute')
-
-    axs[1][3].imshow(sam4_show, cmap='gray')
-    axs[1][3].set_title('SAM-4 relative')
-    axs[0][3].imshow(sam4_show, vmin=0., vmax=1., cmap='gray')
-    axs[0][3].set_title('SAM-4 absolute')
-
-    axs[1][4].imshow(sam8_show, cmap='gray')
-    axs[1][4].set_title('SAM-8 relative')
-    axs[0][4].imshow(sam8_show, vmin=0., vmax=1., cmap='gray')
-    axs[0][4].set_title('SAM-8 absolute')
-
-    axs[1][5].imshow(sam14_show, cmap='gray')
-    axs[1][5].set_title('SAM-14 relative')
-    axs[0][5].imshow(sam14_show, vmin=0., vmax=1., cmap='gray')
-    axs[0][5].set_title('SAM-14 absolute')
-    if vis_prefix is not None:
-        plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
-    if is_server:
-        if epoch is not None:
-            wandb.log({f'{train_or_val}/{img_name}': fig}, step=epoch)
-        else:
-            wandb.log({f'{train_or_val}/{img_name}': fig})
-
-
 def save_checkpoint(state, prefix):
     filename = f'./checkpoints/{prefix}_checkpoint.pth'
     torch.save(state, filename)
     # if is_best:
     #     shutil.copyfile(filename, './checkpoints/%s_model_best.pth.tar' % prefix)
+
+
+def save_checkpoint_to_folder(state, folder_name, checkpoint_number):
+    if not os.path.exists(f'./checkpoints/{folder_name}/'):
+        os.mkdir(f'./checkpoints/{folder_name}/')
+    filename = f'./checkpoints/{folder_name}/{int(checkpoint_number)}.pth'
+    torch.save(state, filename)
+    print("successfully saved checkpoint")
 
 
 if __name__ == '__main__':
