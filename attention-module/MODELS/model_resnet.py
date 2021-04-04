@@ -136,8 +136,8 @@ class ResNet(nn.Module):
         self.layer1 = self._make_layer(block, 64, layers[0], att_type=att_type)
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2, att_type=att_type)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2, att_type=att_type)
-        self.cbam_after_layer4 = CBAM(2048, 16)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2, att_type=att_type)
+        # self.cbam_after_layer4 = CBAM(2048, 16)
 
         # self.l0 = self.layerList1[0]
         # self.l1 = self.layerList1[1]
@@ -256,7 +256,7 @@ class ResNet(nn.Module):
         # x = self.layer4(x)
         x, sam4 = self.layer4(x)
 
-        x, sam_add = self.cbam_after_layer4(x)
+        # x, sam_add = self.cbam_after_layer4(x) #  added CBAM here
 
         if self.network_type == "ImageNet":
             x = self.avgpool(x)
@@ -269,7 +269,7 @@ class ResNet(nn.Module):
         sam_output += sam2
         sam_output += sam3
         sam_output += sam4
-        return x, sam_output, sam_add
+        return x, sam_output
 
 
 # att_type = CBAM
