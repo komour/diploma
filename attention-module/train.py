@@ -36,7 +36,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Training')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet')
 parser.add_argument('--depth', default=50, type=int, metavar='D', help='model depth')
-parser.add_argument('--workers', default=0, type=int, metavar='N',
+parser.add_argument('--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
@@ -184,7 +184,7 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume, map_location='cpu')
+            checkpoint = torch.load(args.resume)
             state_dict = checkpoint['state_dict']
 
             model.load_state_dict(state_dict)
@@ -343,7 +343,6 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch
     for i, dictionary in enumerate(train_loader):
         # for batch-size == 1
         img_name = dictionary['name'][0]
-        print(img_name)
         input_img = dictionary['image']
         target = dictionary['label']
         segm = dictionary['segm']
