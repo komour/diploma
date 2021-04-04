@@ -26,13 +26,12 @@ parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
 parser.add_argument('--cuda-device', type=int, default=0)
 
-
 args = parser.parse_args()
 is_server = args.is_server == 1
 
 
 # make and save Grad-CAM plot (original image, mask, Grad-CAM, Grad-CAM++)
-def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_prefix, train_or_val):
+def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or_val, epoch=None, vis_prefix=None):
     global is_server
     # get Grad-CAM results and prepare them to show on the plot
     target_layer = model.layer4
@@ -93,9 +92,13 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, vis_pref
     axs[1][5].set_title('SAM-14 relative')
     axs[0][5].imshow(sam14_show, vmin=0., vmax=1., cmap='gray')
     axs[0][5].set_title('SAM-14 absolute')
-    plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
+    if vis_prefix is not None:
+        plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
     if is_server:
-        wandb.log({f'{train_or_val}/{img_name}': fig})
+        if epoch is not None:
+            wandb.log({f'{train_or_val}/{img_name}': fig}, step=epoch)
+        else:
+            wandb.log({f'{train_or_val}/{img_name}': fig})
 
 
 def main():
@@ -185,7 +188,7 @@ def main():
         segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
-        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, args.vis_prefix, 'train')
+        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, 'train', args.vis_prefix)
 
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
@@ -194,7 +197,7 @@ def main():
         segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
-        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, args.vis_prefix, 'val')
+        make_plot_and_save(input_img, img_name, no_norm_image, segm, model, 'val', args.vis_prefix)
 
 
 if __name__ == '__main__':

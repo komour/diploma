@@ -36,13 +36,13 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Training')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet')
 parser.add_argument('--depth', default=50, type=int, metavar='D', help='model depth')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=16, type=int,
+parser.add_argument('--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
                     metavar='LR', help='initial learning rate')
@@ -141,6 +141,12 @@ c5_recall_val_best = 0
 
 run = None
 
+train_vis_file = open('vis_train.txt')
+train_vis_image_names = train_vis_file.readlines()
+
+val_vis_file = open('vis_val.txt')
+val_vis_image_names = val_vis_file.readlines()
+
 
 def main():
     if is_server:
@@ -174,20 +180,20 @@ def main():
 
     start_epoch = 0
 
-    # # code to load my own checkpoints:
-    # if args.resume:
-    #     if os.path.isfile(args.resume):
-    #         print(f"=> loading checkpoint '{args.resume}'")
-    #         checkpoint = torch.load(args.resume)
-    #         state_dict = checkpoint['state_dict']
-    #
-    #         model.load_state_dict(state_dict)
-    #         print(f"=> loaded checkpoint '{args.resume}'")
-    #         print(f"epoch = {checkpoint['epoch']}")
-    #         start_epoch = checkpoint['epoch']
-    #     else:
-    #         print(f"=> no checkpoint found at '{args.resume}'")
-    #         return -1
+    # code to load my own checkpoints:
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print(f"=> loading checkpoint '{args.resume}'")
+            checkpoint = torch.load(args.resume, map_location='cpu')
+            state_dict = checkpoint['state_dict']
+
+            model.load_state_dict(state_dict)
+            print(f"=> loaded checkpoint '{args.resume}'")
+            print(f"epoch = {checkpoint['epoch']}")
+            start_epoch = checkpoint['epoch']
+        else:
+            print(f"=> no checkpoint found at '{args.resume}'")
+            return -1
 
     config = dict(
         architecture=f"{args.arch}{args.depth}",
@@ -209,45 +215,45 @@ def main():
     if is_server:
         model = model.cuda(args.cuda_device)
 
-    # code to load imagenet checkpoint:
-    # create dummy layer to init weights in the state_dict
-    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
-    torch.nn.init.xavier_uniform_(dummy_fc.weight)
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume)
-            state_dict = checkpoint['state_dict']
-
-            state_dict['module.fc.weight'] = dummy_fc.weight
-            state_dict['module.fc.bias'] = dummy_fc.bias
-
-            # remove `module.` prefix because we don't use torch.nn.DataParallel
-
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                name = k[7:]  # remove `module.`
-                new_state_dict[name] = v
-            #  load weights to the new added cbam module from the nearest cbam module in checkpoint
-            new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.weight']
-            new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.bias']
-            new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.weight']
-            new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.bias']
-            new_state_dict["cbam_after_layer4.SpatialGate.spatial.conv.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.conv.weight']
-            new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.weight']
-            new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.bias"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.bias']
-            new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_mean"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_mean']
-            new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_var"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_var']
-            model.load_state_dict(new_state_dict)
-            # model.load_state_dict(state_dict)
-            if 'optimizer' in checkpoint:
-                optimizer.load_state_dict(checkpoint['optimizer'])
-            print(f"=> loaded checkpoint '{args.resume}'")
-            # print(f"epoch = {checkpoint['epoch']}")
-        else:
-            print(f"=> no checkpoint found at '{args.resume}'")
-            return -1
+    # # code to load imagenet checkpoint:
+    # # create dummy layer to init weights in the state_dict
+    # dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
+    # torch.nn.init.xavier_uniform_(dummy_fc.weight)
+    # # optionally resume from a checkpoint
+    # if args.resume:
+    #     if os.path.isfile(args.resume):
+    #         print(f"=> loading checkpoint '{args.resume}'")
+    #         checkpoint = torch.load(args.resume)
+    #         state_dict = checkpoint['state_dict']
+    #
+    #         state_dict['module.fc.weight'] = dummy_fc.weight
+    #         state_dict['module.fc.bias'] = dummy_fc.bias
+    #
+    #         # remove `module.` prefix because we don't use torch.nn.DataParallel
+    #
+    #         new_state_dict = OrderedDict()
+    #         for k, v in state_dict.items():
+    #             name = k[7:]  # remove `module.`
+    #             new_state_dict[name] = v
+    #         #  load weights to the new added cbam module from the nearest cbam module in checkpoint
+    #         new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.weight']
+    #         new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.bias']
+    #         new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.weight']
+    #         new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.bias']
+    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.conv.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.conv.weight']
+    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.weight']
+    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.bias"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.bias']
+    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_mean"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_mean']
+    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_var"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_var']
+    #         model.load_state_dict(new_state_dict)
+    #         # model.load_state_dict(state_dict)
+    #         if 'optimizer' in checkpoint:
+    #             optimizer.load_state_dict(checkpoint['optimizer'])
+    #         print(f"=> loaded checkpoint '{args.resume}'")
+    #         # print(f"epoch = {checkpoint['epoch']}")
+    #     else:
+    #         print(f"=> no checkpoint found at '{args.resume}'")
+    #         return -1
 
     if is_server:
         wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
@@ -306,22 +312,26 @@ def main():
         num_workers=args.workers, pin_memory=True, sampler=train_sampler
     )
 
+    # need to do visualization with loading from checkpoint (e.g. every 10 epochs)
+    epoch_number = 0
+
     for epoch in range(start_epoch, start_epoch + args.epochs):
         # adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
         clear_expected_predicted()
-        train(train_loader, model, criterion, sam_criterion, optimizer, epoch)
+        train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch_number)
 
         # evaluate on validation set
         clear_expected_predicted()
-        validate(val_loader, model, criterion, epoch, optimizer)
+        validate(val_loader, model, criterion, epoch, optimizer, epoch_number)
+        epoch_number += 1
 
     save_summary()
     run.finish()
 
 
-def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
+def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch_number):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -329,7 +339,11 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
     # switch to train mode
     model.train()
     end = time.time()
+    global train_vis_image_names
     for i, dictionary in enumerate(train_loader):
+        # for batch-size == 1
+        img_name = dictionary['name'][0]
+        print(img_name)
         input_img = dictionary['image']
         target = dictionary['label']
         segm = dictionary['segm']
@@ -337,6 +351,10 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
             segm = segm.cuda(args.cuda_device)
+
+        #  decide whether to do visualization
+        if epoch_number % 10 == 0 and img_name in train_vis_image_names:
+            make_plot_and_save(input_img, img_name, dictionary['no_norm_image'], segm, model, 'train', epoch)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -356,33 +374,33 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
         # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
         #
         # processed_segm1 = maxpool_segm1(segm)
         # processed_segm2 = maxpool_segm2(segm)
         # processed_segm3 = maxpool_segm3(segm)
-        processed_segm4 = maxpool_segm4(segm)
+        # processed_segm4 = maxpool_segm4(segm)
 
         # compute output
-        output, sam_output, sam_add = model(input_img)
+        output, sam_output = model(input_img)
         # processed_segm1_invert = (processed_segm1 + 1) % 2
         # processed_segm2_invert = (processed_segm2 + 1) % 2
         # processed_segm3_invert = (processed_segm3 + 1) % 2
-        processed_segm4_invert = (processed_segm4 + 1) % 2
+        # processed_segm4_invert = (processed_segm4 + 1) % 2
 
         # loss0 = criterion(output, target)
         # loss1 = torch.mean(sam_criterion(sam_output[0], processed_segm1) * processed_segm1_invert)
         # loss4 = torch.mean(sam_criterion(sam_output[3], processed_segm2) * processed_segm2_invert)
         # loss8 = torch.mean(sam_criterion(sam_output[7], processed_segm3) * processed_segm3_invert)
         # loss14 = torch.mean(sam_criterion(sam_output[13], processed_segm4) * processed_segm4_invert)
-        loss_added_cbam_outer = torch.mean(sam_criterion(sam_add, processed_segm4) * processed_segm4_invert)
+        # loss_added_cbam_outer = torch.mean(sam_criterion(sam_add, processed_segm4) * processed_segm4_invert)
 
         loss0 = criterion(output, target)
         # loss1 = sam_criterion(sam_output[0], processed_segm1)
         # loss4 = sam_criterion(sam_output[3], processed_segm2)
         # loss8 = sam_criterion(sam_output[7], processed_segm3)
         # loss14 = sam_criterion(sam_output[13], processed_segm4)
-        loss_added_cbam = sam_criterion(sam_add, processed_segm4)
+        # loss_added_cbam = sam_criterion(sam_add, processed_segm4)
 
         # loss1 = sam_criterion(sam_output[0], processed_segm1)
         # loss2 = sam_criterion(sam_output[1], processed_segm1)
@@ -402,10 +420,10 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
         # loss16 = sam_criterion(sam_output[15], processed_segm4)
         #
         loss_comb = loss0
-        if args.number == 1:
-            loss_comb += loss_added_cbam
-        elif args.number == 2:
-            loss_comb += loss_added_cbam_outer
+        # if args.number == 1:
+        #     loss_comb += loss_added_cbam
+        # elif args.number == 2:
+        #     loss_comb += loss_added_cbam_outer
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -431,21 +449,27 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch):
     wandb_log_train(epoch, losses.avg)
 
 
-def validate(val_loader, model, criterion, epoch, optimizer):
+def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     batch_time = AverageMeter()
     losses = AverageMeter()
     # switch to evaluate mode
     model.eval()
+    global val_vis_image_names
 
     end = time.time()
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        # segm = dictionary['segm']
+        segm = dictionary['segm']
+        img_name = dictionary['name']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-            # segm = segm.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
+
+        #  decide whether to do visualization
+        if epoch_number % 10 == 0 and img_name in val_vis_image_names:
+            make_plot_and_save(input_img, img_name, dictionary['no_norm_image'], segm, model, 'val', epoch)
 
         # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
@@ -459,7 +483,7 @@ def validate(val_loader, model, criterion, epoch, optimizer):
 
         # compute output
         with torch.no_grad():
-            output, _, _ = model(input_img)
+            output, _ = model(input_img)
             loss = criterion(output, target)
             # loss = CB_loss(target, output)
 
@@ -886,6 +910,77 @@ def measure_accuracy(output, target):
     activated_output = sigmoid(output)
     activated_output = (activated_output > th).float()
     write_expected_predicted(target, activated_output)
+
+
+# make and save Grad-CAM plot (original image, mask, Grad-CAM, Grad-CAM++)
+def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or_val, epoch=None, vis_prefix=None):
+    global is_server
+    # get Grad-CAM results and prepare them to show on the plot
+    target_layer = model.layer4
+    gradcam = GradCAM(model, target_layer=target_layer)
+    gradcam_pp = GradCAMpp(model, target_layer=target_layer)
+
+    mask, _, sam_output = gradcam(input_img)
+
+    sam1_show = torch.squeeze(sam_output[0].cpu()).detach().numpy()
+    sam4_show = torch.squeeze(sam_output[3].cpu()).detach().numpy()
+    sam8_show = torch.squeeze(sam_output[7].cpu()).detach().numpy()
+    sam14_show = torch.squeeze(sam_output[13].cpu()).detach().numpy()
+
+    heatmap, result = visualize_cam(mask, no_norm_image)
+
+    result_show = np.moveaxis(torch.squeeze(result).detach().numpy(), 0, -1)
+
+    mask_pp, _ = gradcam_pp(input_img)
+    heatmap_pp, result_pp = visualize_cam(mask_pp, no_norm_image)
+
+    result_pp_show = np.moveaxis(torch.squeeze(result_pp).detach().numpy(), 0, -1)
+
+    # prepare mask and original image to show on the plot
+    segm_show = torch.squeeze(segm.cpu()).detach().numpy()
+    segm_show = np.moveaxis(segm_show, 0, 2)
+    input_show = np.moveaxis(torch.squeeze(no_norm_image).detach().numpy(), 0, -1)
+
+    # draw and save the plot
+    plt.close('all')
+    fig, axs = plt.subplots(nrows=2, ncols=6, figsize=(24, 9))
+    plt.suptitle(f'{train_or_val}-Image: {img_name}')
+    axs[1][0].imshow(segm_show)
+    axs[1][0].set_title('Mask')
+    axs[0][0].imshow(input_show)
+    axs[0][0].set_title('Original Image')
+
+    axs[0][1].imshow(result_show)
+    axs[0][1].set_title('Grad-CAM')
+    axs[1][1].imshow(result_pp_show)
+    axs[1][1].set_title('Grad-CAM++')
+
+    axs[1][2].imshow(sam1_show, cmap='gray')
+    axs[1][2].set_title('SAM-1 relative')
+    axs[0][2].imshow(sam1_show, vmin=0., vmax=1., cmap='gray')
+    axs[0][2].set_title('SAM-1 absolute')
+
+    axs[1][3].imshow(sam4_show, cmap='gray')
+    axs[1][3].set_title('SAM-4 relative')
+    axs[0][3].imshow(sam4_show, vmin=0., vmax=1., cmap='gray')
+    axs[0][3].set_title('SAM-4 absolute')
+
+    axs[1][4].imshow(sam8_show, cmap='gray')
+    axs[1][4].set_title('SAM-8 relative')
+    axs[0][4].imshow(sam8_show, vmin=0., vmax=1., cmap='gray')
+    axs[0][4].set_title('SAM-8 absolute')
+
+    axs[1][5].imshow(sam14_show, cmap='gray')
+    axs[1][5].set_title('SAM-14 relative')
+    axs[0][5].imshow(sam14_show, vmin=0., vmax=1., cmap='gray')
+    axs[0][5].set_title('SAM-14 absolute')
+    if vis_prefix is not None:
+        plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
+    if is_server:
+        if epoch is not None:
+            wandb.log({f'{train_or_val}/{img_name}': fig}, step=epoch)
+        else:
+            wandb.log({f'{train_or_val}/{img_name}': fig})
 
 
 def save_checkpoint(state, prefix):
