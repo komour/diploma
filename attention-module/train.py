@@ -346,13 +346,13 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch
     end = time.time()
 
     #  decide whether to save checkpoint
-    if epoch_number % 10 == 0:
-        checkpoint_dict = {
-            'epoch': epoch,
-            'state_dict': model.state_dict(),
-            'optimizer': optimizer.state_dict()
-        }
-        save_checkpoint_to_folder(checkpoint_dict, args.run_name, epoch_number / 10 + 1)
+    # if epoch_number % 10 == 0:
+    #     checkpoint_dict = {
+    #         'epoch': epoch,
+    #         'state_dict': model.state_dict(),
+    #         'optimizer': optimizer.state_dict()
+    #     }
+    #     save_checkpoint_to_folder(checkpoint_dict, args.run_name, epoch_number / 10 + 1)
 
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
