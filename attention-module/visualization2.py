@@ -102,7 +102,6 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or
         plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
     if is_server:
         if epoch is not None:
-            print(epoch)
             wandb.log({f'{train_or_val}/{img_name}': fig}, step=epoch)
         else:
             wandb.log({f'{train_or_val}/{img_name}': fig})
@@ -180,11 +179,13 @@ def main():
         else:
             print(f"=> no checkpoint found at '{checkpoint_path}'")
             return -1
-
+        progress_counter = 0
         for i, dictionary in enumerate(train_loader):
-            img_name = dictionary['name'][0] + '\n'
-            if img_name not in train_vis_image_names:
+            img_name = dictionary['name'][0]
+            if img_name + '\n' not in train_vis_image_names:
                 continue
+            print(progress_counter)
+            progress_counter += 1
             input_img = dictionary['image']
             no_norm_image = dictionary['no_norm_image']
             segm = dictionary['segm']
@@ -193,9 +194,11 @@ def main():
             make_plot_and_save(input_img, img_name, no_norm_image, segm, model, 'train', epoch=epoch, vis_prefix=None)
 
         for i, dictionary in enumerate(val_loader):
-            img_name = dictionary['name'][0] + '\n'
-            if img_name not in val_vis_image_names:
+            img_name = dictionary['name'][0]
+            if img_name + '\n' not in val_vis_image_names:
                 continue
+            print(progress_counter)
+            progress_counter += 1
             input_img = dictionary['image']
             no_norm_image = dictionary['no_norm_image']
             segm = dictionary['segm']
