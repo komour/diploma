@@ -166,17 +166,18 @@ def main():
 
     for current_checkpoint in range(1, args.checkpoint_amount + 1):
         # # load the checkpoint
-        if os.path.isfile(f'checkpoints/{args.resume}/{current_checkpoint}.pth'):
-            print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume, map_location=torch.device('cpu'))
+        checkpoint_path = f'checkpoints/{args.resume}/{current_checkpoint}.pth'
+        if os.path.isfile(checkpoint_path):
+            print(f"=> loading checkpoint '{checkpoint_path}'")
+            checkpoint = torch.load(checkpoint_path)
             state_dict = checkpoint['state_dict']
 
             model.load_state_dict(state_dict)
-            print(f"=> loaded checkpoint '{args.resume}'")
+            print(f"=> loaded checkpoint '{checkpoint_path}'")
             print(f"epoch = {checkpoint['epoch']}")
             epoch = checkpoint['epoch']
         else:
-            print(f"=> no checkpoint found at '{args.resume}'")
+            print(f"=> no checkpoint found at '{checkpoint_path}'")
             return -1
 
         for i, dictionary in enumerate(train_loader):
