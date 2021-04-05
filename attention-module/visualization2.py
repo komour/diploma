@@ -182,7 +182,7 @@ def main():
 
         for i, dictionary in enumerate(train_loader):
             img_name = dictionary['name'][0] + '\n'
-            if img_name not in train_vis_file:
+            if img_name not in train_vis_image_names:
                 continue
             input_img = dictionary['image']
             no_norm_image = dictionary['no_norm_image']
@@ -193,7 +193,7 @@ def main():
 
         for i, dictionary in enumerate(val_loader):
             img_name = dictionary['name'][0] + '\n'
-            if img_name not in val_vis_file:
+            if img_name not in val_vis_image_names:
                 continue
             input_img = dictionary['image']
             no_norm_image = dictionary['no_norm_image']
