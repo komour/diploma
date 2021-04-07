@@ -40,8 +40,17 @@ class DatasetISIC2018(Dataset):
         self.image_names = []
         self.root_dir = root_dir
         self.to_tensor = transforms.ToTensor()
+
+        # DEFAULT_MEAN = [0.70843003, 0.58212194, 0.53605963]
+        # DEFAULT_STD = [0.15741858, 0.1656929, 0.18091279]
+
+        # DEFAULT_MEAN = [0.70318156, 0.5638717, 0.51286779]
+        # DEFAULT_STD = [0.08849113, 0.11114756, 0.12423524]
+        #
+        # self.normalize = transforms.Normalize(mean=DEFAULT_MEAN, std=DEFAULT_STD)
+
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
+                                              std=[0.229, 0.224, 0.225])
         self.pil_images = []
         self.pil_images_segm = []
 
@@ -95,7 +104,8 @@ class DatasetISIC2018(Dataset):
         img = self.normalize(img)
         segm = self.to_tensor(segm)
         label = label_to_tensor(self.image_to_onehot[self.image_names[idx]])
-        return {'image': img, 'label': label, 'segm': segm, 'name': self.image_names[idx], 'no_norm_image': no_norm_image}
+        return {'image': img, 'label': label, 'segm': segm, 'name': self.image_names[idx],
+                'no_norm_image': no_norm_image}
 
     def __len__(self):
         return len(self.image_to_onehot)
