@@ -18,7 +18,7 @@ from collections import OrderedDict
 parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Visualization')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--vis-prefix', type=str, default='dummy-prefix',
+parser.add_argument('--vis-prefix', type=str, default=None,
                     help='prefix to save plots e.g. "baseline" or "SAM-1"')
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
@@ -36,8 +36,7 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or
     target_layer = model.layer4
     gradcam = GradCAM(model, target_layer=target_layer)
     gradcam_pp = GradCAMpp(model, target_layer=target_layer)
-
-    mask, _, sam_output = gradcam(input_img)
+    mask, no_norm_mask, logit, sam_output = gradcam(input_img)
 
     sam1_show = torch.squeeze(sam_output[0].cpu()).detach().numpy()
     sam4_show = torch.squeeze(sam_output[3].cpu()).detach().numpy()
@@ -48,7 +47,7 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or
 
     result_show = np.moveaxis(torch.squeeze(result).detach().numpy(), 0, -1)
 
-    mask_pp, _ = gradcam_pp(input_img)
+    mask_pp, no_norm_mask_pp, logit_pp, sam_output_pp = gradcam_pp(input_img)
     heatmap_pp, result_pp = visualize_cam(mask_pp, no_norm_image)
 
     result_pp_show = np.moveaxis(torch.squeeze(result_pp).detach().numpy(), 0, -1)
@@ -171,14 +170,15 @@ def main():
     )
 
     # create directories to save plots
-    if not os.path.exists(f'vis/{args.vis_prefix}'):
-        os.mkdir(f'vis/{args.vis_prefix}')
+    if args.vis_prefix is not None:
+        if not os.path.exists(f'vis/{args.vis_prefix}'):
+            os.mkdir(f'vis/{args.vis_prefix}')
 
-    if not os.path.exists(f'vis/{args.vis_prefix}/train'):
-        os.mkdir(f'vis/{args.vis_prefix}/train')
+        if not os.path.exists(f'vis/{args.vis_prefix}/train'):
+            os.mkdir(f'vis/{args.vis_prefix}/train')
 
-    if not os.path.exists(f'vis/{args.vis_prefix}/val'):
-        os.mkdir(f'vis/{args.vis_prefix}/val')
+        if not os.path.exists(f'vis/{args.vis_prefix}/val'):
+            os.mkdir(f'vis/{args.vis_prefix}/val')
 
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
