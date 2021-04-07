@@ -392,7 +392,6 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         input_img = dictionary['image']
         target = dictionary['label']
         segm = dictionary['segm']
-        print(dictionary['name'])
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
@@ -494,13 +493,13 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
 
         for j in range(SAM_AMOUNT):
             predicted_sam = sam_output[j].detach().numpy()
-            sam_att[j].append(np.mean(predicted_sam * invert_mask[j].numpy()))
+            sam_att[j].append(np.mean(predicted_sam * invert_mask[j].cpu().numpy()))
 
             predicted = (sam_output[j] > 0.5).int()
-            predicted_np = predicted.detach().numpy()
+            predicted_np = predicted.detach().cpu().numpy()
 
             expected = mask[j].int()
-            expected_np = expected.detach().numpy()
+            expected_np = expected.detach().cpu().numpy()
             iou[j].append(iou_numpy(expected_np, predicted_np))
 
         # mask, no_norm_mask, logit, sam_output2 = gradcam(input_img)
