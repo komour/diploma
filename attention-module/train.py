@@ -22,6 +22,7 @@ from sklearn.metrics import average_precision_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import f1_score
+from sklearn.metrics import jaccard_score
 
 import matplotlib.pyplot as plt
 
@@ -35,6 +36,8 @@ from gradcam.utils import visualize_cam
 from gradcam import GradCAM, GradCAMpp
 from MODELS.model_resnet import *
 from torchvision.utils import make_grid, save_image
+from math import inf
+import sys
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -90,6 +93,7 @@ c5_predicted = []
 
 args = parser.parse_args()
 is_server = args.is_server == 1
+SAM_AMOUNT = 16
 
 avg_f1_best = 0
 avg_f1_val_best = 0
@@ -144,6 +148,32 @@ c4_recall_val_best = 0
 c5_recall_best = 0
 c5_recall_val_best = 0
 
+# SAM miss attention metric
+sam_att = [[] for _ in range(SAM_AMOUNT)]
+sam_att_best = [inf for _ in range(SAM_AMOUNT)]
+
+sam_att_val = [[] for _ in range(SAM_AMOUNT)]
+sam_att_val_best = [inf for _ in range(SAM_AMOUNT)]
+
+iou = [[] for _ in range(SAM_AMOUNT)]
+iou_best = [inf for _ in range(SAM_AMOUNT)]
+
+iou_val = [[] for _ in range(SAM_AMOUNT)]
+iou_val_best = [inf for _ in range(SAM_AMOUNT)]
+
+# GradCam miss attention metric
+gradcam_att = []
+gradcam_att_best = inf
+
+gradcam_att_val = []
+gradcam_att_val_best = inf
+
+gradcam_pp_att = []
+gradcam_pp_att_best = inf
+
+gradcam_pp_att_val = []
+gradcam_pp_att_val_best = inf
+
 run = None
 
 train_vis_file = open('vis_train.txt')
@@ -175,30 +205,30 @@ def main():
         [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
     if is_server:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
-        # sam_criterion = nn.BCELoss(reduction='none').cuda(args.cuda_device)
+        sam_criterion_inv = nn.BCELoss(reduction='none').cuda(args.cuda_device)
         sam_criterion = nn.BCELoss().cuda(args.cuda_device)
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
-        # sam_criterion = nn.BCELoss(reduction='none')
+        sam_criterion_inv = nn.BCELoss(reduction='none')
         sam_criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     start_epoch = 0
 
     # code to load my own checkpoints:
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume)
-            state_dict = checkpoint['state_dict']
-
-            model.load_state_dict(state_dict)
-            print(f"=> loaded checkpoint '{args.resume}'")
-            print(f"epoch = {checkpoint['epoch']}")
-            start_epoch = checkpoint['epoch']
-        else:
-            print(f"=> no checkpoint found at '{args.resume}'")
-            return -1
+    # if args.resume:
+    #     if os.path.isfile(args.resume):
+    #         print(f"=> loading checkpoint '{args.resume}'")
+    #         checkpoint = torch.load(args.resume)
+    #         state_dict = checkpoint['state_dict']
+    #
+    #         model.load_state_dict(state_dict)
+    #         print(f"=> loaded checkpoint '{args.resume}'")
+    #         print(f"epoch = {checkpoint['epoch']}")
+    #         start_epoch = checkpoint['epoch']
+    #     else:
+    #         print(f"=> no checkpoint found at '{args.resume}'")
+    #         return -1
 
     config = dict(
         architecture=f"{args.arch}{args.depth}",
@@ -215,50 +245,50 @@ def main():
         evaluate=args.evaluate
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.4", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.5", name=args.run_name, tags=args.tags)
 
     if is_server:
         model = model.cuda(args.cuda_device)
 
-    # # code to load imagenet checkpoint:
-    # # create dummy layer to init weights in the state_dict
-    # dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
-    # torch.nn.init.xavier_uniform_(dummy_fc.weight)
-    # # optionally resume from a checkpoint
-    # if args.resume:
-    #     if os.path.isfile(args.resume):
-    #         print(f"=> loading checkpoint '{args.resume}'")
-    #         checkpoint = torch.load(args.resume)
-    #         state_dict = checkpoint['state_dict']
-    #
-    #         state_dict['module.fc.weight'] = dummy_fc.weight
-    #         state_dict['module.fc.bias'] = dummy_fc.bias
-    #
-    #         # remove `module.` prefix because we don't use torch.nn.DataParallel
-    #
-    #         new_state_dict = OrderedDict()
-    #         for k, v in state_dict.items():
-    #             name = k[7:]  # remove `module.`
-    #             new_state_dict[name] = v
-    #         #  load weights to the new added cbam module from the nearest cbam module in checkpoint
-    #         new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.weight']
-    #         new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.bias']
-    #         new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.weight']
-    #         new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.bias']
-    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.conv.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.conv.weight']
-    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.weight']
-    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.bias"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.bias']
-    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_mean"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_mean']
-    #         new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_var"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_var']
-    #         model.load_state_dict(new_state_dict)
-    #         # model.load_state_dict(state_dict)
-    #         if 'optimizer' in checkpoint:
-    #             optimizer.load_state_dict(checkpoint['optimizer'])
-    #         print(f"=> loaded checkpoint '{args.resume}'")
-    #         # print(f"epoch = {checkpoint['epoch']}")
-    #     else:
-    #         print(f"=> no checkpoint found at '{args.resume}'")
-    #         return -1
+    # code to load imagenet checkpoint:
+    # create dummy layer to init weights in the state_dict
+    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
+    torch.nn.init.xavier_uniform_(dummy_fc.weight)
+    # optionally resume from a checkpoint
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print(f"=> loading checkpoint '{args.resume}'")
+            checkpoint = torch.load(args.resume)
+            state_dict = checkpoint['state_dict']
+
+            state_dict['module.fc.weight'] = dummy_fc.weight
+            state_dict['module.fc.bias'] = dummy_fc.bias
+
+            # remove `module.` prefix because we don't use torch.nn.DataParallel
+
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                name = k[7:]  # remove `module.`
+                new_state_dict[name] = v
+            #  load weights to the new added cbam module from the nearest cbam module in checkpoint
+            # new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.weight']
+            # new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.bias']
+            # new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.weight']
+            # new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.bias']
+            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.conv.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.conv.weight']
+            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.weight']
+            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.bias"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.bias']
+            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_mean"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_mean']
+            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_var"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_var']
+            model.load_state_dict(new_state_dict)
+            # model.load_state_dict(state_dict)
+            if 'optimizer' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer'])
+            print(f"=> loaded checkpoint '{args.resume}'")
+            # print(f"epoch = {checkpoint['epoch']}")
+        else:
+            print(f"=> no checkpoint found at '{args.resume}'")
+            return -1
 
     if is_server:
         wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
@@ -325,7 +355,7 @@ def main():
 
         # train for one epoch
         clear_expected_predicted()
-        train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch_number)
+        train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, optimizer, epoch, epoch_number)
 
         # evaluate on validation set
         clear_expected_predicted()
@@ -336,10 +366,14 @@ def main():
     run.finish()
 
 
-def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch_number):
+def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, optimizer, epoch, epoch_number):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
+
+    # target_layer = model.layer4
+    # gradcam = GradCAM(model, target_layer=target_layer)
+    # gradcam_pp = GradCAMpp(model, target_layer=target_layer)
 
     # switch to train mode
     model.train()
@@ -357,11 +391,12 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        # segm = dictionary['segm']
+        segm = dictionary['segm']
+        print(dictionary['name'])
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-            # segm = segm.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -378,35 +413,44 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch
         # plt.show()
 
         # initial segm size = [1, 3, 224, 224]
-        # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
-        #
-        # processed_segm1 = maxpool_segm1(segm)
-        # processed_segm2 = maxpool_segm2(segm)
-        # processed_segm3 = maxpool_segm3(segm)
-        # processed_segm4 = maxpool_segm4(segm)
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+        maxpool_segm0 = nn.MaxPool3d(kernel_size=(3, 1, 1))
+
+        processed_segm1 = maxpool_segm1(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
+        processed_segm0 = maxpool_segm0(segm)
+
+        processed_segm1_invert = (processed_segm1 + 1) % 2
+        processed_segm2_invert = (processed_segm2 + 1) % 2
+        processed_segm3_invert = (processed_segm3 + 1) % 2
+        processed_segm4_invert = (processed_segm4 + 1) % 2
+
+        invert_mask = [processed_segm1_invert for _ in range(3)] + [processed_segm2_invert for _ in range(4)] + \
+                      [processed_segm3_invert for _ in range(6)] + [processed_segm4_invert for _ in range(3)]
+
+        mask = [processed_segm1 for _ in range(3)] + [processed_segm2 for _ in range(4)] + \
+               [processed_segm3 for _ in range(6)] + [processed_segm4 for _ in range(3)]
 
         # compute output
         output, sam_output = model(input_img)
-        # processed_segm1_invert = (processed_segm1 + 1) % 2
-        # processed_segm2_invert = (processed_segm2 + 1) % 2
-        # processed_segm3_invert = (processed_segm3 + 1) % 2
-        # processed_segm4_invert = (processed_segm4 + 1) % 2
-
-        # loss0 = criterion(output, target)
-        # loss1 = torch.mean(sam_criterion(sam_output[0], processed_segm1) * processed_segm1_invert)
-        # loss4 = torch.mean(sam_criterion(sam_output[3], processed_segm2) * processed_segm2_invert)
-        # loss8 = torch.mean(sam_criterion(sam_output[7], processed_segm3) * processed_segm3_invert)
-        # loss14 = torch.mean(sam_criterion(sam_output[13], processed_segm4) * processed_segm4_invert)
-        # loss_added_cbam_outer = torch.mean(sam_criterion(sam_add, processed_segm4) * processed_segm4_invert)
 
         loss0 = criterion(output, target)
-        # loss1 = sam_criterion(sam_output[0], processed_segm1)
-        # loss4 = sam_criterion(sam_output[3], processed_segm2)
-        # loss8 = sam_criterion(sam_output[7], processed_segm3)
-        # loss14 = sam_criterion(sam_output[13], processed_segm4)
+
+        loss1_inv = torch.mean(sam_criterion_inv(sam_output[0], processed_segm1) * processed_segm1_invert)
+        loss4_inv = torch.mean(sam_criterion_inv(sam_output[3], processed_segm2) * processed_segm2_invert)
+        loss8_inv = torch.mean(sam_criterion_inv(sam_output[7], processed_segm3) * processed_segm3_invert)
+        loss14_inv = torch.mean(sam_criterion_inv(sam_output[13], processed_segm4) * processed_segm4_invert)
+        # loss_added_cbam_outer = torch.mean(sam_criterion_inv(sam_add, processed_segm4) * processed_segm4_invert)
+
+        loss1 = sam_criterion(sam_output[0], processed_segm1)
+        loss4 = sam_criterion(sam_output[3], processed_segm2)
+        loss8 = sam_criterion(sam_output[7], processed_segm3)
+        loss14 = sam_criterion(sam_output[13], processed_segm4)
         # loss_added_cbam = sam_criterion(sam_add, processed_segm4)
 
         # loss1 = sam_criterion(sam_output[0], processed_segm1)
@@ -427,10 +471,40 @@ def train(train_loader, model, criterion, sam_criterion, optimizer, epoch, epoch
         # loss16 = sam_criterion(sam_output[15], processed_segm4)
         #
         loss_comb = loss0
-        # if args.number == 1:
-        #     loss_comb += loss_added_cbam
-        # elif args.number == 2:
-        #     loss_comb += loss_added_cbam_outer
+        if args.number == 1:
+            loss_comb += loss1
+        elif args.number == 2:
+            loss_comb += loss4
+        elif args.number == 3:
+            loss_comb += loss8
+        elif args.number == 4:
+            loss_comb += loss14
+        elif args.number == 5:
+            loss_comb += loss1 + loss4 + loss8 + loss14
+        elif args.number == 10:
+            loss_comb += loss1_inv
+        elif args.number == 20:
+            loss_comb += loss4_inv
+        elif args.number == 30:
+            loss_comb += loss8_inv
+        elif args.number == 40:
+            loss_comb += loss14_inv
+        elif args.number == 50:
+            loss_comb += loss1_inv + loss4_inv + loss8_inv + loss14_inv
+
+        for j in range(SAM_AMOUNT):
+            predicted_sam = sam_output[j].detach().numpy()
+            sam_att[j].append(np.mean(predicted_sam * invert_mask[j].numpy()))
+
+            predicted = (sam_output[j] > 0.5).int()
+            predicted_np = predicted.detach().numpy()
+
+            expected = mask[j].int()
+            expected_np = expected.detach().numpy()
+            iou[j].append(iou_numpy(expected_np, predicted_np))
+
+        # mask, no_norm_mask, logit, sam_output2 = gradcam(input_img)
+        # mask_pp, no_norm_mask_pp, logit_pp, sam_output2_pp = gradcam_pp(input_img)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -467,27 +541,51 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
-        # segm = dictionary['segm']
+        segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
-            # segm = segm.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
 
-        # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
-        #
-        # processed_segm1 = maxpool_segm1(segm)
-        # processed_segm2 = maxpool_segm2(segm)
-        # processed_segm3 = maxpool_segm3(segm)
-        # processed_segm4 = maxpool_segm4(segm)
+        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+        maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+        maxpool_segm0 = nn.MaxPool3d(kernel_size=(3, 1, 1))
+
+        processed_segm1 = maxpool_segm1(segm)
+        processed_segm2 = maxpool_segm2(segm)
+        processed_segm3 = maxpool_segm3(segm)
+        processed_segm4 = maxpool_segm4(segm)
+        processed_segm0 = maxpool_segm0(segm)
+
+        processed_segm1_invert = (processed_segm1 + 1) % 2
+        processed_segm2_invert = (processed_segm2 + 1) % 2
+        processed_segm3_invert = (processed_segm3 + 1) % 2
+        processed_segm4_invert = (processed_segm4 + 1) % 2
+
+        invert_mask = [processed_segm1_invert for _ in range(3)] + [processed_segm2_invert for _ in range(4)] + \
+                      [processed_segm3_invert for _ in range(6)] + [processed_segm4_invert for _ in range(3)]
+
+        mask = [processed_segm1 for _ in range(3)] + [processed_segm2 for _ in range(4)] + \
+               [processed_segm3 for _ in range(6)] + [processed_segm4 for _ in range(3)]
 
         # compute output
         with torch.no_grad():
-            output, _ = model(input_img)
+            output, sam_output = model(input_img)
             loss = criterion(output, target)
             # loss = CB_loss(target, output)
+
+        for j in range(SAM_AMOUNT):
+            predicted_sam = sam_output[j].detach().numpy()
+            sam_att_val[j].append(np.mean(predicted_sam * invert_mask[j].numpy()))
+
+            predicted = (sam_output[j] > 0.5).int()
+            predicted_np = predicted.detach().numpy()
+
+            expected = mask[j].int()
+            expected_np = expected.detach().numpy()
+            iou_val[j].append(iou_numpy(expected_np, predicted_np))
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -669,6 +767,7 @@ def wandb_log_train(epoch, loss_avg):
     global c1_recall_best, c2_recall_best, c3_recall_best, c4_recall_best, c5_recall_best
     global c1_prec_best, c2_prec_best, c3_prec_best, c4_prec_best, c5_prec_best
     global avg_f1_best, avg_mAP_best, avg_recall_best, avg_prec_best
+    global sam_att, sam_att_best, iou, iou_best
 
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
@@ -728,6 +827,24 @@ def wandb_log_train(epoch, loss_avg):
     if c5_f1 > c5_f1_best:
         c5_f1_best = c5_f1
 
+    # attention metrics
+    iou_avg = [-1. for _ in range(SAM_AMOUNT)]
+    sam_att_avg = [-1. for _ in range(SAM_AMOUNT)]
+
+    for j in range(SAM_AMOUNT):
+        iou_avg[j] = sum(iou[j]) / len(iou[j])
+        sam_att_avg[j] = sum(sam_att[j]) / len(sam_att[j])
+
+    for j in range(SAM_AMOUNT):
+        iou[j] = []
+        sam_att[j] = []
+
+    for j in range(SAM_AMOUNT):
+        iou_best[j] = min(iou_best[j], iou_avg[j])
+        sam_att_best[j] = min(sam_att_best[j], sam_att_avg[j])
+
+    print('iou_avg:', iou_avg)
+
     wandb.log({"loss_avg_trn": loss_avg,
                "mAP/с1_trn": c1_mAP, "mAP/с2_trn": c2_mAP, "mAP/с3_trn": c3_mAP, "mAP/с4_trn": c4_mAP,
                "mAP/с5_trn": c5_mAP,
@@ -738,7 +855,17 @@ def wandb_log_train(epoch, loss_avg):
                "recall/c4_trn": c4_recall,
                "recall/c5_trn": c5_recall, "recall/avg_trn": avg_recall,
                "f1/c1_trn": c1_f1, "f1/c2_trn": c2_f1, "f1/c3_trn": c3_f1, "f1/c4_trn": c4_f1, "f1/c5_trn": c5_f1,
-               "f1/avg_trn": avg_f1
+               "f1/avg_trn": avg_f1,
+               "IoU/1_trn": iou_avg[0], "IoU/2_trn": iou_avg[1], "IoU/3_trn": iou_avg[2], "IoU/4_trn": iou_avg[3], "IoU/5_trn": iou_avg[4],
+               "IoU/6_trn": iou_avg[5], "IoU/7_trn": iou_avg[6], "IoU/8_trn": iou_avg[7], "IoU/9_trn": iou_avg[8], "IoU/10_trn": iou_avg[9],
+               "IoU/11_trn": iou_avg[10], "IoU/12_trn": iou_avg[11], "IoU/13_trn": iou_avg[12], "IoU/14_trn": iou_avg[13],
+               "IoU/15_trn": iou_avg[14], "IoU/16_trn": iou_avg[15],
+               "sam_att/1_trn": sam_att_avg[0], "sam_att/2_trn": sam_att_avg[1], "sam_att/3_trn": sam_att_avg[2],
+               "sam_att/4_trn": sam_att_avg[3], "sam_att/5_trn": sam_att_avg[4], "sam_att/6_trn": sam_att_avg[5],
+               "sam_att/7_trn": sam_att_avg[6], "sam_att/8_trn": sam_att_avg[7], "sam_att/9_trn": sam_att_avg[8],
+               "sam_att/10_trn": sam_att_avg[9], "sam_att/11_trn": sam_att_avg[10], "sam_att/12_trn": sam_att_avg[11],
+               "sam_att/13_trn": sam_att_avg[12], "sam_att/14_trn": sam_att_avg[13],
+               "sam_att/15_trn": sam_att_avg[14], "sam_att/16_trn": sam_att_avg[15]
                },
               step=epoch)
 
@@ -752,6 +879,7 @@ def wandb_log_val(epoch, loss_avg):
     global c1_recall_val_best, c2_recall_val_best, c3_recall_val_best, c4_recall_val_best, c5_recall_val_best
     global c1_prec_val_best, c2_prec_val_best, c3_prec_val_best, c4_prec_val_best, c5_prec_val_best
     global avg_f1_val_best, avg_mAP_val_best, avg_recall_val_best, avg_prec_val_best
+    global sam_att_val, sam_att_val_best, iou_val, iou_val_best
 
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
@@ -811,6 +939,24 @@ def wandb_log_val(epoch, loss_avg):
     if c5_f1 > c5_f1_val_best:
         c5_f1_val_best = c5_f1
 
+    # attention metrics
+    iou_avg = [-1. for _ in range(SAM_AMOUNT)]
+    sam_att_avg = [-1. for _ in range(SAM_AMOUNT)]
+
+    for j in range(SAM_AMOUNT):
+        iou_avg[j] = sum(iou_val[j]) / len(iou_val[j])
+        sam_att_avg[j] = sum(sam_att_val[j]) / len(sam_att_val[j])
+
+    for j in range(SAM_AMOUNT):
+        iou_val[j] = []
+        sam_att_val[j] = []
+
+    for j in range(SAM_AMOUNT):
+        iou_val_best[j] = min(iou_val_best[j], iou_avg[j])
+        sam_att_val_best[j] = min(sam_att_val_best[j], sam_att_avg[j])
+
+    print('iou_val_avg:', iou_avg)
+
     wandb.log({"loss_avg_val": loss_avg,
                "mAP/c1_val": c1_mAP, "mAP/c2_val": c2_mAP, "mAP/c3_val": c3_mAP, "mAP/c4_val": c4_mAP,
                "mAP/c5_val": c5_mAP,
@@ -822,7 +968,17 @@ def wandb_log_val(epoch, loss_avg):
                "recall/c4_val": c4_recall,
                "recall/c5_val": c5_recall, "recall/avg_val": avg_recall,
                "f1/c1_val": c1_f1, "f1/c2_val": c2_f1, "f1/c3_val": c3_f1, "f1/c4_val": c4_f1, "f1/c5_val": c5_f1,
-               "f1/avg_val": avg_f1
+               "f1/avg_val": avg_f1,
+               "IoU/1_val": iou_avg[0], "IoU/2_val": iou_avg[1], "IoU/3_val": iou_avg[2], "IoU/4_val": iou_avg[3], "IoU/5_val": iou_avg[4],
+               "IoU/6_val": iou_avg[5], "IoU/7_val": iou_avg[6], "IoU/8_val": iou_avg[7], "IoU/9_val": iou_avg[8], "IoU/10_val": iou_avg[9],
+               "IoU/11_val": iou_avg[10], "IoU/12_val": iou_avg[11], "IoU/13_val": iou_avg[12], "IoU/14_val": iou_avg[13],
+               "IoU/15_val": iou_avg[14], "IoU/16_val": iou_avg[15],
+               "sam_att/1_val": sam_att_avg[0], "sam_att/2_val": sam_att_avg[1], "sam_att/3_val": sam_att_avg[2],
+               "sam_att/4_val": sam_att_avg[3], "sam_att/5_val": sam_att_avg[4], "sam_att/6_val": sam_att_avg[5],
+               "sam_att/7_val": sam_att_avg[6], "sam_att/8_val": sam_att_avg[7], "sam_att/9_val": sam_att_avg[8],
+               "sam_att/10_val": sam_att_avg[9], "sam_att/11_val": sam_att_avg[10], "sam_att/12_val": sam_att_avg[11],
+               "sam_att/13_val": sam_att_avg[12], "sam_att/14_val": sam_att_avg[13], "sam_att/15_val": sam_att_avg[14],
+               "sam_att/16_val": sam_att_avg[15]
                },
               step=epoch)
 
@@ -893,6 +1049,13 @@ def save_summary():
     run.summary["f1/c4_val'"] = c4_f1_val_best
     run.summary["f1/c5_val'"] = c5_f1_val_best
 
+    for j in range(SAM_AMOUNT):
+        run.summary[f"sam_att/{j}_trn'"] = sam_att_best[j]
+        run.summary[f"sam_att/{j}_val'"] = sam_att_val_best[j]
+
+        run.summary[f"IoU/{j}_trn'"] = iou_best[j]
+        run.summary[f"IoU/{j}_val'"] = iou_val_best[j]
+
 
 def print_metrics():
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
@@ -919,6 +1082,21 @@ def save_checkpoint(state, prefix):
     torch.save(state, filename)
     # if is_best:
     #     shutil.copyfile(filename, './checkpoints/%s_model_best.pth.tar' % prefix)
+
+
+def iou_numpy(outputs: np.array, labels: np.array):
+    SMOOTH = 1e-8
+
+    outputs = outputs.squeeze(1)
+    labels = labels.squeeze(1)
+
+    intersection = (outputs & labels).sum((1, 2))
+    union = (outputs | labels).sum((1, 2))
+
+    iou_res = (intersection + SMOOTH) / (union + SMOOTH)
+    rounded = np.round(iou_res, 5)
+
+    return rounded.mean()  # Or rounded.mean()
 
 
 def save_checkpoint_to_folder(state, folder_name, checkpoint_number):
