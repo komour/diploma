@@ -492,7 +492,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
             loss_comb += loss1_inv + loss4_inv + loss8_inv + loss14_inv
 
         for j in range(SAM_AMOUNT):
-            predicted_sam = sam_output[j].detach().numpy()
+            predicted_sam = sam_output[j].detach().cpu().numpy()
             sam_att[j].append(np.mean(predicted_sam * invert_mask[j].cpu().numpy()))
 
             predicted = (sam_output[j] > 0.5).int()
@@ -576,14 +576,14 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
             # loss = CB_loss(target, output)
 
         for j in range(SAM_AMOUNT):
-            predicted_sam = sam_output[j].detach().numpy()
-            sam_att_val[j].append(np.mean(predicted_sam * invert_mask[j].numpy()))
+            predicted_sam = sam_output[j].detach().cpu().numpy()
+            sam_att_val[j].append(np.mean(predicted_sam * invert_mask[j].cpu().numpy()))
 
             predicted = (sam_output[j] > 0.5).int()
-            predicted_np = predicted.detach().numpy()
+            predicted_np = predicted.detach().cpu().numpy()
 
             expected = mask[j].int()
-            expected_np = expected.detach().numpy()
+            expected_np = expected.detach().cpu().numpy()
             iou_val[j].append(iou_numpy(expected_np, predicted_np))
 
         # measure accuracy and record loss
