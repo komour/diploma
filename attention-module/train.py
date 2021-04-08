@@ -371,10 +371,6 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
     data_time = AverageMeter()
     losses = AverageMeter()
 
-    target_layer = model.layer4
-    gradcam = GradCAM(model, target_layer=target_layer)
-    gradcam_pp = GradCAMpp(model, target_layer=target_layer)
-
     # switch to train mode
     model.train()
     end = time.time()
@@ -438,7 +434,20 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
                [processed_segm3 for _ in range(6)] + [processed_segm4 for _ in range(3)]
 
         # compute output
-        output, sam_output = model(input_img)
+        # output, sam_output = model(input_img)
+
+        # calculate gradcam metrics + compute output
+        target_layer = model.layer4
+        gradcam = GradCAM(model, target_layer=target_layer)
+        gradcam_pp = GradCAMpp(model, target_layer=target_layer)
+
+        true_mask_invert = true_mask_invert.detach().cpu().numpy()
+
+        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
+        gradcam_att.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
+
+        gcpp_mask, no_norm_gcpp_mask, logit_pp, sam_output2_pp = gradcam_pp(input_img)
+        gradcam_pp_att.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
 
         loss0 = criterion(output, target)
 
@@ -504,14 +513,6 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
             expected_np = expected.detach().cpu().numpy()
             iou[j].append(iou_numpy(expected_np, predicted_np))
 
-        true_mask_invert = true_mask_invert.detach().cpu().numpy()
-
-        mask, no_norm_mask, logit, sam_output2 = gradcam(input_img)
-        gradcam_att.append(np.sum(no_norm_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
-
-        mask_pp, no_norm_mask_pp, logit_pp, sam_output2_pp = gradcam_pp(input_img)
-        gradcam_pp_att.append(np.sum(no_norm_mask_pp.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
-
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
@@ -543,10 +544,6 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     model.eval()
     global val_vis_image_names
     end = time.time()
-
-    target_layer = model.layer4
-    gradcam = GradCAM(model, target_layer=target_layer)
-    gradcam_pp = GradCAMpp(model, target_layer=target_layer)
 
     global iou_val, sam_att_val, gradcam_att_val, gradcam_pp_att_val
     for i, dictionary in enumerate(val_loader):
@@ -583,10 +580,24 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
                [processed_segm3 for _ in range(6)] + [processed_segm4 for _ in range(3)]
 
         # compute output
-        with torch.no_grad():
-            output, sam_output = model(input_img)
-            loss = criterion(output, target)
+        # with torch.no_grad():
+        #     output, sam_output = model(input_img)
+        #     loss = criterion(output, target)
             # loss = CB_loss(target, output)
+
+        target_layer = model.layer4
+        gradcam = GradCAM(model, target_layer=target_layer)
+        gradcam_pp = GradCAMpp(model, target_layer=target_layer)
+
+        true_mask_invert = true_mask_invert.detach().cpu().numpy()
+
+        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
+        gradcam_att_val.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
+
+        loss = criterion(output, target)
+
+        gcpp_mask, no_norm_gcpp_mask, logit_pp, sam_output2_pp = gradcam_pp(input_img)
+        gradcam_pp_att_val.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
 
         for j in range(SAM_AMOUNT):
             predicted_sam = sam_output[j].detach().cpu().numpy()
@@ -598,14 +609,6 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
             expected = mask[j].int()
             expected_np = expected.detach().cpu().numpy()
             iou_val[j].append(iou_numpy(expected_np, predicted_np))
-
-        true_mask_invert = true_mask_invert.detach().cpu().numpy()
-
-        mask, no_norm_mask, logit, sam_output2 = gradcam(input_img)
-        gradcam_att_val.append(np.sum(no_norm_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
-
-        mask_pp, no_norm_mask_pp, logit_pp, sam_output2_pp = gradcam_pp(input_img)
-        gradcam_pp_att_val.append(np.sum(no_norm_mask_pp.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
