@@ -63,12 +63,21 @@ class GradCAM:
         b, c, h, w = input.size()
 
         logit, sam_output = self.model_arch(input)
+        # print(logit.size())
         # logit = self.model_arch(input)
+        # print(f'logit: {logit}, logit_shape: {logit.size()}')
         if class_idx is None:
-            score = logit[:, logit.max(1)[-1]].squeeze()
+            score = 0
+            max_indexes = logit.max(1)[-1]
+            for i in range(len(max_indexes)):
+                cur_max = max_indexes[i]
+                score += logit[i][cur_max]
+            # score = logit[:, logit.max(1)[-1]].squeeze()
+
         else:
             score = logit[:, class_idx].squeeze()
 
+        # print(f'score: {score}, score_shape: {score.size()}')
         self.model_arch.zero_grad()
         score.backward(retain_graph=retain_graph)
         gradients = self.gradients['value']
@@ -83,10 +92,10 @@ class GradCAM:
         saliency_map = F.relu(saliency_map)
         # saliency_map = F.upsample(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
         saliency_map = F.interpolate(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
+        saliency_map_no_norm = saliency_map
         saliency_map_min, saliency_map_max = saliency_map.min(), saliency_map.max()
         saliency_map = (saliency_map - saliency_map_min).div(saliency_map_max - saliency_map_min).data
-
-        return saliency_map, logit, sam_output
+        return saliency_map, saliency_map_no_norm, logit, sam_output
 
     def __call__(self, input, class_idx=None, retain_graph=False):
         return self.forward(input, class_idx, retain_graph)
@@ -125,9 +134,15 @@ class GradCAMpp(GradCAM):
     def forward(self, input, class_idx=None, retain_graph=False):
         b, c, h, w = input.size()
 
-        logit, _ = self.model_arch(input)
+        logit, sam_output = self.model_arch(input)
         if class_idx is None:
-            score = logit[:, logit.max(1)[-1]].squeeze()
+            score = 0
+            max_indexes = logit.max(1)[-1]
+            for i in range(len(max_indexes)):
+                cur_max = max_indexes[i]
+                score += logit[i][cur_max]
+            # score = logit[:, logit.max(1)[-1]].squeeze()
+
         else:
             score = logit[:, class_idx].squeeze()
 
@@ -148,8 +163,8 @@ class GradCAMpp(GradCAM):
         saliency_map = (weights * activations).sum(1, keepdim=True)
         saliency_map = F.relu(saliency_map)
         saliency_map = F.interpolate(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
+        saliency_map_no_norm = saliency_map
         # saliency_map = F.upsample(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
         saliency_map_min, saliency_map_max = saliency_map.min(), saliency_map.max()
         saliency_map = (saliency_map - saliency_map_min).div(saliency_map_max - saliency_map_min).data
-
-        return saliency_map, logit
+        return saliency_map, saliency_map_no_norm, logit, sam_output
