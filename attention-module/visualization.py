@@ -24,6 +24,8 @@ parser.add_argument('--run-name', type=str, default='noname run', help='run name
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
 parser.add_argument('--cuda-device', type=int, default=0)
+parser.add_argument('--batch-size', default=1, type=int,
+                    metavar='N', help='mini-batch size (default: 1)')
 
 args = parser.parse_args()
 is_server = args.is_server == 1
@@ -90,6 +92,8 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or
     axs[1][5].set_title('SAM-14 relative')
     axs[0][5].imshow(sam14_show, vmin=0., vmax=1., cmap='gray')
     axs[0][5].set_title('SAM-14 absolute')
+    plt.show()
+    return
     if vis_prefix is not None:
         plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
     if is_server:
@@ -152,7 +156,7 @@ def main():
     )
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=1, shuffle=False,
+        batch_size=args.batch_size, shuffle=False,
         pin_memory=True
     )
 
@@ -165,7 +169,7 @@ def main():
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=1, shuffle=False,
+        batch_size=args.batch_size, shuffle=False,
         pin_memory=True
     )
 
@@ -188,6 +192,7 @@ def main():
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
         make_plot_and_save(input_img, img_name, no_norm_image, segm, model, 'train', vis_prefix=args.vis_prefix)
+        return
 
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
