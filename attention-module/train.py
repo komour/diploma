@@ -544,6 +544,10 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     global val_vis_image_names
     end = time.time()
 
+    target_layer = model.layer4
+    gradcam = GradCAM(model, target_layer=target_layer)
+    gradcam_pp = GradCAMpp(model, target_layer=target_layer)
+
     global iou_val, sam_att_val, gradcam_att_val, gradcam_pp_att_val
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
