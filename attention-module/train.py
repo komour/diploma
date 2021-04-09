@@ -162,29 +162,29 @@ iou_val = [[] for _ in range(SAM_AMOUNT)]
 iou_val_best = [-inf for _ in range(SAM_AMOUNT)]
 
 # GradCam miss attention metric
-gradcam_att = []
-gradcam_att_best = inf
+gradcam_miss_att = []
+gradcam_miss_att_best = inf
 
 gradcam_direct_att = []
 gradcam_direct_att_best = inf
 
-gradcam_att_val = []
-gradcam_att_val_best = inf
+gradcam_miss_att_val = []
+gradcam_miss_att_val_best = inf
 
 gradcam_direct_att_val = []
 gradcam_direct_att_val_best = inf
 
-gradcam_pp_att = []
-gradcam_pp_att_best = inf
-
-gradcam_pp_direct_att = []
-gradcam_pp_direct_att_best = inf
-
-gradcam_pp_att_val = []
-gradcam_pp_att_val_best = inf
-
-gradcam_pp_direct_att_val = []
-gradcam_pp_direct_att_val_best = inf
+# gradcam_pp_att = []
+# gradcam_pp_att_best = inf
+#
+# gradcam_pp_direct_att = []
+# gradcam_pp_direct_att_best = inf
+#
+# gradcam_pp_att_val = []
+# gradcam_pp_att_val_best = inf
+#
+# gradcam_pp_direct_att_val = []
+# gradcam_pp_direct_att_val_best = inf
 
 run = None
 
@@ -396,7 +396,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
     #     }
     #     save_checkpoint_to_folder(checkpoint_dict, args.run_name, epoch_number / 10 + 1)
 
-    global iou, sam_att, gradcam_att, gradcam_pp_att
+    global iou, sam_att, gradcam_miss_att, gradcam_direct_att  # , gradcam_pp_att
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
@@ -451,18 +451,18 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         # calculate gradcam metrics + compute output
         target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
-        gradcam_pp = GradCAMpp(model, target_layer=target_layer)
+        # gradcam_pp = GradCAMpp(model, target_layer=target_layer)
 
         true_mask_invert = true_mask_invert.detach().cpu().numpy()
         true_mask = processed_segm0.detach().cpu().numpy()
 
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
-        gradcam_att.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
+        gradcam_miss_att.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
         gradcam_direct_att.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask) / args.batch_size)
 
-        gcpp_mask, no_norm_gcpp_mask, logit_pp, sam_output2_pp = gradcam_pp(input_img)
-        gradcam_pp_att.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
-        gradcam_pp_direct_att.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask) / args.batch_size)
+        # gcpp_mask, no_norm_gcpp_mask, logit_pp, sam_output2_pp = gradcam_pp(input_img)
+        # gradcam_pp_att.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
+        # gradcam_pp_direct_att.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask) / args.batch_size)
 
         loss0 = criterion(output, target)
 
@@ -560,7 +560,7 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     global val_vis_image_names
     end = time.time()
 
-    global iou_val, sam_att_val, gradcam_att_val, gradcam_pp_att_val
+    global iou_val, sam_att_val, gradcam_miss_att_val, gradcam_direct_att_val  # , gradcam_pp_att_val
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
@@ -598,24 +598,24 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
         # with torch.no_grad():
         #     output, sam_output = model(input_img)
         #     loss = criterion(output, target)
-            # loss = CB_loss(target, output)
+        # loss = CB_loss(target, output)
 
         target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
-        gradcam_pp = GradCAMpp(model, target_layer=target_layer)
+        # gradcam_pp = GradCAMpp(model, target_layer=target_layer)
 
         true_mask_invert = true_mask_invert.detach().cpu().numpy()
         true_mask = processed_segm0.detach().cpu().numpy()
 
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
-        gradcam_att_val.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
+        gradcam_miss_att_val.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
         gradcam_direct_att_val.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask) / args.batch_size)
 
         loss = criterion(output, target)
 
-        gcpp_mask, no_norm_gcpp_mask, logit_pp, sam_output2_pp = gradcam_pp(input_img)
-        gradcam_pp_att_val.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
-        gradcam_pp_direct_att_val.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask) / args.batch_size)
+        # gcpp_mask, no_norm_gcpp_mask, logit_pp, sam_output2_pp = gradcam_pp(input_img)
+        # gradcam_pp_att_val.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask_invert) / args.batch_size)
+        # gradcam_pp_direct_att_val.append(np.sum(no_norm_gcpp_mask.detach().cpu().numpy() * true_mask) / args.batch_size)
 
         for j in range(SAM_AMOUNT):
             predicted_sam = sam_output[j].detach().cpu().numpy()
@@ -808,8 +808,8 @@ def wandb_log_train(epoch, loss_avg):
     global c1_recall_best, c2_recall_best, c3_recall_best, c4_recall_best, c5_recall_best
     global c1_prec_best, c2_prec_best, c3_prec_best, c4_prec_best, c5_prec_best
     global avg_f1_best, avg_mAP_best, avg_recall_best, avg_prec_best
-    global sam_att, sam_att_best, iou, iou_best, gradcam_att, gradcam_att_best, gradcam_pp_att, gradcam_pp_att_best
-    global gradcam_direct_att, gradcam_direct_att_best, gradcam_pp_direct_att, gradcam_pp_direct_att_best
+    global sam_att, sam_att_best, iou, iou_best, gradcam_miss_att, gradcam_miss_att_best  # , gradcam_pp_att, gradcam_pp_att_best
+    global gradcam_direct_att, gradcam_direct_att_best  # , gradcam_pp_direct_att, gradcam_pp_direct_att_best
 
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
@@ -885,22 +885,22 @@ def wandb_log_train(epoch, loss_avg):
         iou_best[j] = max(iou_best[j], iou_avg[j])
         sam_att_best[j] = min(sam_att_best[j], sam_att_avg[j])
 
-    avg_gradcam_att = sum(gradcam_att) / len(gradcam_att)
+    avg_gradcam_miss_att = sum(gradcam_miss_att) / len(gradcam_miss_att)
     avg_gradcam_direct_att = sum(gradcam_direct_att) / len(gradcam_direct_att)
 
-    gradcam_att_best = min(gradcam_att_best, avg_gradcam_att)
+    gradcam_miss_att_best = min(gradcam_miss_att_best, avg_gradcam_miss_att)
     gradcam_direct_att_best = max(gradcam_direct_att_best, avg_gradcam_direct_att)
 
-    avg_gradcam_pp_att = sum(gradcam_pp_att) / len(gradcam_pp_att)
-    avg_gradcam_pp_direct_att = sum(gradcam_pp_direct_att) / len(gradcam_pp_direct_att)
+    # avg_gradcam_pp_att = sum(gradcam_pp_att) / len(gradcam_pp_att)
+    # avg_gradcam_pp_direct_att = sum(gradcam_pp_direct_att) / len(gradcam_pp_direct_att)
+    #
+    # gradcam_pp_att_best = min(gradcam_pp_att_best, avg_gradcam_pp_att)
+    # gradcam_pp_direct_att_best = max(gradcam_pp_direct_att_best, gradcam_pp_direct_att_best)
 
-    gradcam_pp_att_best = min(gradcam_pp_att_best, avg_gradcam_pp_att)
-    gradcam_pp_direct_att_best = max(gradcam_pp_direct_att_best, gradcam_pp_direct_att_best)
-
-    gradcam_att = []
+    gradcam_miss_att = []
     gradcam_direct_att = []
-    gradcam_pp_att = []
-    gradcam_pp_direct_att = []
+    # gradcam_pp_att = []
+    # gradcam_pp_direct_att = []
 
     wandb.log({"loss_avg_trn": loss_avg,
                "mAP/с1_trn": c1_mAP, "mAP/с2_trn": c2_mAP, "mAP/с3_trn": c3_mAP, "mAP/с4_trn": c4_mAP,
@@ -926,8 +926,8 @@ def wandb_log_train(epoch, loss_avg):
                "sam_att/10_trn": sam_att_avg[9], "sam_att/11_trn": sam_att_avg[10], "sam_att/12_trn": sam_att_avg[11],
                "sam_att/13_trn": sam_att_avg[12], "sam_att/14_trn": sam_att_avg[13],
                "sam_att/15_trn": sam_att_avg[14], "sam_att/16_trn": sam_att_avg[15],
-               "gradcam_trn": avg_gradcam_att, "gradcam++_trn": avg_gradcam_pp_att,
-               "gradcam_direct_trn": avg_gradcam_direct_att, "gradcam++_direct_trn": avg_gradcam_pp_direct_att,
+               "gradcam_miss_trn": avg_gradcam_miss_att,  # "gradcam++_trn": avg_gradcam_pp_att,
+               "gradcam_direct_trn": avg_gradcam_direct_att  # "gradcam++_direct_trn": avg_gradcam_pp_direct_att,
                },
               step=epoch)
 
@@ -941,8 +941,8 @@ def wandb_log_val(epoch, loss_avg):
     global c1_recall_val_best, c2_recall_val_best, c3_recall_val_best, c4_recall_val_best, c5_recall_val_best
     global c1_prec_val_best, c2_prec_val_best, c3_prec_val_best, c4_prec_val_best, c5_prec_val_best
     global avg_f1_val_best, avg_mAP_val_best, avg_recall_val_best, avg_prec_val_best
-    global sam_att_val, sam_att_val_best, iou_val, iou_val_best, gradcam_att_val, gradcam_att_val_best, gradcam_pp_att_val, gradcam_pp_att_val_best
-    global gradcam_direct_att_val, gradcam_direct_att_val_best, gradcam_pp_direct_att_val, gradcam_pp_direct_att_val_best
+    global sam_att_val, sam_att_val_best, iou_val, iou_val_best, gradcam_miss_att_val, gradcam_miss_att_val_best  # , gradcam_pp_att_val, gradcam_pp_att_val_best
+    global gradcam_direct_att_val, gradcam_direct_att_val_best  # , gradcam_pp_direct_att_val, gradcam_pp_direct_att_val_best
 
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
     c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
@@ -1018,23 +1018,23 @@ def wandb_log_val(epoch, loss_avg):
         iou_val_best[j] = max(iou_val_best[j], iou_avg[j])
         sam_att_val_best[j] = min(sam_att_val_best[j], sam_att_avg[j])
 
-    avg_gradcam_att = sum(gradcam_att_val) / len(gradcam_att_val)
+    avg_gradcam_miss_att = sum(gradcam_miss_att_val) / len(gradcam_miss_att_val)
     avg_gradcam_direct_att = sum(gradcam_direct_att_val) / len(gradcam_direct_att_val)
 
-    gradcam_att_val_best = min(gradcam_att_val_best, avg_gradcam_att)
+    gradcam_miss_att_val_best = min(gradcam_miss_att_val_best, avg_gradcam_miss_att)
     gradcam_direct_att_val_best = max(gradcam_direct_att_val_best, avg_gradcam_direct_att)
 
-    avg_gradcam_pp_att = sum(gradcam_pp_att_val) / len(gradcam_pp_att_val)
-    avg_gradcam_pp_direct_att = sum(gradcam_pp_direct_att_val) / len(gradcam_pp_direct_att_val)
+    # avg_gradcam_pp_att = sum(gradcam_pp_att_val) / len(gradcam_pp_att_val)
+    # avg_gradcam_pp_direct_att = sum(gradcam_pp_direct_att_val) / len(gradcam_pp_direct_att_val)
+    #
+    # gradcam_pp_att_val_best = min(gradcam_pp_att_val_best, avg_gradcam_pp_att)
+    # gradcam_pp_direct_att_val_best = max(gradcam_pp_direct_att_val_best, avg_gradcam_pp_direct_att)
 
-    gradcam_pp_att_val_best = min(gradcam_pp_att_val_best, avg_gradcam_pp_att)
-    gradcam_pp_direct_att_val_best = max(gradcam_pp_direct_att_val_best, avg_gradcam_pp_direct_att)
-
-    gradcam_att_val = []
+    gradcam_miss_att_val = []
     gradcam_direct_att_val = []
 
-    gradcam_pp_att_val = []
-    gradcam_pp_direct_att_val = []
+    # gradcam_pp_att_val = []
+    # gradcam_pp_direct_att_val = []
 
     wandb.log({"loss_avg_val": loss_avg,
                "mAP/c1_val": c1_mAP, "mAP/c2_val": c2_mAP, "mAP/c3_val": c3_mAP, "mAP/c4_val": c4_mAP,
@@ -1061,13 +1061,15 @@ def wandb_log_val(epoch, loss_avg):
                "sam_att/10_val": sam_att_avg[9], "sam_att/11_val": sam_att_avg[10], "sam_att/12_val": sam_att_avg[11],
                "sam_att/13_val": sam_att_avg[12], "sam_att/14_val": sam_att_avg[13], "sam_att/15_val": sam_att_avg[14],
                "sam_att/16_val": sam_att_avg[15],
-               "gradcam_val": avg_gradcam_att, "gradcam++_val": avg_gradcam_pp_att,
-               "gradcam_direct_val": avg_gradcam_direct_att, "gradcam++_direct_val": avg_gradcam_pp_direct_att,
+               "gradcam_miss_val": avg_gradcam_miss_att,  # "gradcam++_val": avg_gradcam_pp_att,
+               "gradcam_direct_val": avg_gradcam_direct_att  # , "gradcam++_direct_val": avg_gradcam_pp_direct_att,
                },
               step=epoch)
 
 
 def save_summary():
+    if not is_server:
+        return
     print("saving summary..")
     # train
     run.summary["f1/avg_trn'"] = avg_f1_best
@@ -1140,17 +1142,17 @@ def save_summary():
         run.summary[f"IoU/{j}_trn'"] = iou_best[j]
         run.summary[f"IoU/{j}_val'"] = iou_val_best[j]
 
-    run.summary["gradcam_trn'"] = gradcam_att_best
-    run.summary["gradcam_val'"] = gradcam_att_val_best
+    run.summary["gradcam_miss_trn'"] = gradcam_miss_att_best
+    run.summary["gradcam_miss_val'"] = gradcam_miss_att_val_best
 
-    run.summary["gradcam++_trn'"] = gradcam_pp_att_best
-    run.summary["gradcam++_val'"] = gradcam_pp_att_val_best
+    # run.summary["gradcam++_trn'"] = gradcam_pp_att_best
+    # run.summary["gradcam++_val'"] = gradcam_pp_att_val_best
 
     run.summary["gradcam_direct_trn'"] = gradcam_direct_att_best
     run.summary["gradcam_direct_val'"] = gradcam_direct_att_val_best
 
-    run.summary["gradcam++_direct_trn'"] = gradcam_pp_direct_att_best
-    run.summary["gradcam++_direct_val'"] = gradcam_pp_direct_att_val_best
+    # run.summary["gradcam++_direct_trn'"] = gradcam_pp_direct_att_best
+    # run.summary["gradcam++_direct_val'"] = gradcam_pp_direct_att_val_best
 
 
 def print_metrics():
