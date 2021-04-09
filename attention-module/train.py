@@ -1025,8 +1025,9 @@ def wandb_log_val(epoch, loss_avg):
     gradcam_direct_att_val_best = max(gradcam_direct_att_val_best, avg_gradcam_direct_att)
 
     avg_gradcam_pp_att = sum(gradcam_pp_att_val) / len(gradcam_pp_att_val)
-    avg_gradcam_pp_direct_att = sum(gradcam_pp_dirtect_att_val) / len(gradcam_pp_dirtect_att_val)
+    avg_gradcam_pp_direct_att = sum(gradcam_pp_direct_att_val) / len(gradcam_pp_direct_att_val)
 
+    gradcam_pp_att_val_best = min(gradcam_pp_att_val_best, avg_gradcam_pp_att)
     gradcam_pp_direct_att_val_best = max(gradcam_pp_direct_att_val_best, avg_gradcam_pp_direct_att)
 
     gradcam_att_val = []
