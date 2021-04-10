@@ -362,6 +362,7 @@ def main():
     # need to do visualization with loading from checkpoint (e.g. every 10 epochs)
     epoch_number = 0
 
+    create_needed_folders_for_hists()
     for epoch in range(start_epoch, start_epoch + args.epochs):
         # adjust_learning_rate(optimizer, epoch)
 
@@ -560,6 +561,7 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     global val_vis_image_names
     end = time.time()
 
+    sam_concat = [None for _ in range(SAM_AMOUNT)]
     global iou_val, sam_att_val, gradcam_miss_att_val, gradcam_direct_att_val  # , gradcam_pp_att_val
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
@@ -619,6 +621,9 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
 
         for j in range(SAM_AMOUNT):
             predicted_sam = sam_output[j].detach().cpu().numpy()
+            sam_concat[j] = predicted_sam if sam_concat[j] is None \
+                else np.concatenate((sam_concat[j], predicted_sam), axis=0)
+
             sam_att_val[j].append(np.mean(predicted_sam * invert_mask[j].cpu().numpy()))
 
             predicted = (sam_output[j] > 0.5).int()
@@ -649,6 +654,11 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     #         'state_dict': model.state_dict(),
     #         'optimizer': optimizer.state_dict()
     #     }, args.run_name)
+    for j in range(SAM_AMOUNT):
+        values = sam_concat[j].ravel()
+        plt.close('all')
+        plt.hist(values)
+        plt.savefig(f'hists/SAM_{j + 1}/e{epoch + 1}.pdf')
     wandb_log_val(epoch, losses.avg)
 
 
@@ -1204,6 +1214,14 @@ def save_checkpoint_to_folder(state, folder_name, checkpoint_number):
     filename = f'./checkpoints/{folder_name}/{int(checkpoint_number)}.pth'
     torch.save(state, filename)
     print("successfully saved checkpoint")
+
+
+def create_needed_folders_for_hists():
+    if not os.path.exists('hists'):
+        os.mkdir('hists')
+    for j in range(SAM_AMOUNT):
+        if not os.path.exists(f'hists/SAM_{j + 1}'):
+            os.mkdir(f'hists/SAM_{j + 1}')
 
 
 if __name__ == '__main__':
