@@ -362,7 +362,7 @@ def main():
     # need to do visualization with loading from checkpoint (e.g. every 10 epochs)
     epoch_number = 0
 
-    create_needed_folders_for_hists()
+    # create_needed_folders_for_hists()
     for epoch in range(start_epoch, start_epoch + args.epochs):
         # adjust_learning_rate(optimizer, epoch)
 
@@ -467,16 +467,16 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
 
         loss0 = criterion(output, target)
 
-        loss1_inv = torch.mean(sam_criterion_inv(sam_output[0], processed_segm1) * processed_segm1_invert)
-        loss4_inv = torch.mean(sam_criterion_inv(sam_output[3], processed_segm2) * processed_segm2_invert)
-        loss8_inv = torch.mean(sam_criterion_inv(sam_output[7], processed_segm3) * processed_segm3_invert)
-        loss14_inv = torch.mean(sam_criterion_inv(sam_output[13], processed_segm4) * processed_segm4_invert)
+        loss3_inv = torch.mean(sam_criterion_inv(sam_output[2], processed_segm1) * processed_segm1_invert)
+        loss7_inv = torch.mean(sam_criterion_inv(sam_output[6], processed_segm2) * processed_segm2_invert)
+        loss13_inv = torch.mean(sam_criterion_inv(sam_output[12], processed_segm3) * processed_segm3_invert)
+        loss16_inv = torch.mean(sam_criterion_inv(sam_output[15], processed_segm4) * processed_segm4_invert)
         # loss_added_cbam_outer = torch.mean(sam_criterion_inv(sam_add, processed_segm4) * processed_segm4_invert)
 
-        loss1 = sam_criterion(sam_output[0], processed_segm1)
-        loss4 = sam_criterion(sam_output[3], processed_segm2)
-        loss8 = sam_criterion(sam_output[7], processed_segm3)
-        loss14 = sam_criterion(sam_output[13], processed_segm4)
+        loss3 = sam_criterion(sam_output[2], processed_segm1)
+        loss7 = sam_criterion(sam_output[6], processed_segm2)
+        loss13 = sam_criterion(sam_output[12], processed_segm3)
+        loss16 = sam_criterion(sam_output[15], processed_segm4)
         # loss_added_cbam = sam_criterion(sam_add, processed_segm4)
 
         # loss1 = sam_criterion(sam_output[0], processed_segm1)
@@ -498,25 +498,25 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         #
         loss_comb = loss0
         if args.number == 1:
-            loss_comb += loss1
+            loss_comb += loss3
         elif args.number == 2:
-            loss_comb += loss4
+            loss_comb += loss7
         elif args.number == 3:
-            loss_comb += loss8
+            loss_comb += loss13
         elif args.number == 4:
-            loss_comb += loss14
+            loss_comb += loss16
         elif args.number == 5:
-            loss_comb += loss1 + loss4 + loss8 + loss14
+            loss_comb += loss3 + loss7 + loss13 + loss16
         elif args.number == 10:
-            loss_comb += loss1_inv
+            loss_comb += loss3_inv
         elif args.number == 20:
-            loss_comb += loss4_inv
+            loss_comb += loss7_inv
         elif args.number == 30:
-            loss_comb += loss8_inv
+            loss_comb += loss13_inv
         elif args.number == 40:
-            loss_comb += loss14_inv
+            loss_comb += loss16_inv
         elif args.number == 50:
-            loss_comb += loss1_inv + loss4_inv + loss8_inv + loss14_inv
+            loss_comb += loss3_inv + loss7_inv + loss13_inv + loss16_inv
 
         for j in range(SAM_AMOUNT):
             predicted_sam = sam_output[j].detach().cpu().numpy()
@@ -621,8 +621,8 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
 
         for j in range(SAM_AMOUNT):
             predicted_sam = sam_output[j].detach().cpu().numpy()
-            sam_concat[j] = predicted_sam if sam_concat[j] is None \
-                else np.concatenate((sam_concat[j], predicted_sam), axis=0)
+            # sam_concat[j] = predicted_sam if sam_concat[j] is None \
+            #     else np.concatenate((sam_concat[j], predicted_sam), axis=0)
 
             sam_att_val[j].append(np.mean(predicted_sam * invert_mask[j].cpu().numpy()))
 
@@ -654,11 +654,13 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     #         'state_dict': model.state_dict(),
     #         'optimizer': optimizer.state_dict()
     #     }, args.run_name)
-    for j in range(SAM_AMOUNT):
-        values = sam_concat[j].ravel()
-        plt.close('all')
-        plt.hist(values)
-        plt.savefig(f'hists/SAM_{j + 1}/e{epoch + 1}.pdf')
+
+    # for histograms:
+    # for j in range(SAM_AMOUNT):
+    #     values = sam_concat[j].ravel()
+    #     plt.close('all')
+    #     plt.hist(values)
+    #     plt.savefig(f'hists/SAM_{j + 1}/e{epoch + 1}.pdf')
     wandb_log_val(epoch, losses.avg)
 
 
