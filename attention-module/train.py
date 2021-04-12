@@ -220,9 +220,12 @@ def main():
     pos_weight_train = torch.Tensor(
         [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
     if is_server:
-        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
-        sam_criterion_inv = nn.BCELoss(reduction='none').cuda(args.cuda_device)
-        sam_criterion = nn.BCELoss().cuda(args.cuda_device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda()
+        # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
+        sam_criterion_inv = nn.BCELoss(reduction='none').cuda()
+        # sam_criterion_inv = nn.BCELoss(reduction='none').cuda(args.cuda_device)
+        sam_criterion = nn.BCELoss().cuda()
+        # sam_criterion = nn.BCELoss().cuda(args.cuda_device)
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
         sam_criterion_inv = nn.BCELoss(reduction='none')
@@ -265,7 +268,8 @@ def main():
         run = wandb.init(config=config, project="vol.6", name=args.run_name, tags=args.tags)
 
     if is_server:
-        model = model.cuda(args.cuda_device)
+        model = model.cuda()
+        # model = model.cuda(args.cuda_device)
 
     # code to load imagenet checkpoint:
     # create dummy layer to init weights in the state_dict
@@ -409,9 +413,12 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         target = dictionary['label']
         segm = dictionary['segm']
         if is_server:
-            input_img = input_img.cuda(args.cuda_device)
-            target = target.cuda(args.cuda_device)
-            segm = segm.cuda(args.cuda_device)
+            # input_img = input_img.cuda(args.cuda_device)
+            input_img = input_img.cuda()
+            # target = target.cuda(args.cuda_device)
+            target = target.cuda()
+            # segm = segm.cuda(args.cuda_device)
+            segm = segm.cuda()
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -566,9 +573,12 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
         target = dictionary['label']
         segm = dictionary['segm']
         if is_server:
-            input_img = input_img.cuda(args.cuda_device)
-            target = target.cuda(args.cuda_device)
-            segm = segm.cuda(args.cuda_device)
+            input_img = input_img.cuda()
+            # input_img = input_img.cuda(args.cuda_device)
+            target = target.cuda()
+            # target = target.cuda(args.cuda_device)
+            segm = segm.cuda()
+            # segm = segm.cuda(args.cuda_device)
 
         maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
         maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))

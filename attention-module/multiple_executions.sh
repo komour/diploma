@@ -46,4 +46,4 @@ python3 train.py --arch BAM --lr 1e-6 --tags BAM SAM-all concurrent --run-name "
 python3 train.py --arch BAM --lr 1e-3 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-3" --cuda-device 3 --number 50 &&
 python3 train.py --arch BAM --lr 1e-4 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-4" --cuda-device 3 --number 50 &&
 python3 train.py --arch BAM --lr 1e-5 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-5" --cuda-device 3 --number 50 &&
-python3 train.py --arch BAM --lr 1e-6 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-6" --cuda-device 3 --number 50 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-6" --cuda-device 3 --number 50
