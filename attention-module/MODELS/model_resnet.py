@@ -71,14 +71,14 @@ class Bottleneck(nn.Module):
         else:
             self.cbam = None
 
-    def forward(self, x_init):
-    # def forward(self, x):
-        if not self.first_launch:
-            x = x_init[0]
-            sam_output_list = x_init[1]
-        else:
-            x = x_init
-            sam_output_list = []
+    # def forward(self, x_init):
+    def forward(self, x):
+        # if not self.first_launch:
+        #     x = x_init[0]
+        #     sam_output_list = x_init[1]
+        # else:
+        #     x = x_init
+        #     sam_output_list = []
 
         residual = x
         if self.downsample is not None:
@@ -95,14 +95,14 @@ class Bottleneck(nn.Module):
         out = self.conv3(out)
         out = self.bn3(out)
 
-        sam_output = None
+        # sam_output = None
         if self.cbam is not None:
-            out, sam_output = self.cbam(out)
-            # out = self.cbam(out)
+            # out, sam_output = self.cbam(out)
+            out = self.cbam(out)
         out += residual
         out = self.relu(out)
-        sam_output_list.append(sam_output)
-        return out, sam_output_list
+        # sam_output_list.append(sam_output)
+        return out  # , sam_output_list
 
 
 class ResNet(nn.Module):
@@ -191,7 +191,9 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
         # return layers
 
-    def forward(self, x):
+    def forward(self, x, masks=None):
+        if masks is None:
+            masks = [None, None, None]
         sam_output = []
         x = self.conv1(x)
         x = self.bn1(x)
@@ -206,11 +208,13 @@ class ResNet(nn.Module):
         # x, sam2 = self.layer1[2](x, segm[0])
         # sam_output.append(sam2)
 
-        # x = self.layer1(x)
-        x, sam1 = self.layer1(x)
+        x = self.layer1(x)
+        # x, sam1 = self.layer1(x)
 
-        if self.bam1 is not None:  # false
-            x, _ = self.bam1(x)
+        if self.bam1 is not None:
+            # x = self.bam1(x)
+            x, sam1 = self.bam1(x, masks[0])
+            sam_output.append(sam1)
 
         # x, sam3 = self.layer2[0](x, segm[1])
         # sam_output.append(sam3)
@@ -221,11 +225,13 @@ class ResNet(nn.Module):
         # x, sam6 = self.layer2[3](x, segm[1])
         # sam_output.append(sam6)
 
-        # x = self.layer2(x)
-        x, sam2 = self.layer2(x)
+        x = self.layer2(x)
+        # x, sam2 = self.layer2(x)
 
-        if self.bam2 is not None:  # false
-            x, _ = self.bam2(x)
+        if self.bam2 is not None:
+            # x = self.bam2(x)
+            x, sam2 = self.bam2(x, masks[1])
+            sam_output.append(sam2)
 
         # x, sam7 = self.layer3[0](x, segm[2])
         # sam_output.append(sam7)
@@ -240,11 +246,13 @@ class ResNet(nn.Module):
         # x, sam12 = self.layer3[5](x, segm[2])
         # sam_output.append(sam12)
 
-        x, sam3 = self.layer3(x)
-        # x = self.layer3(x)
+        # x, sam3 = self.layer3(x)
+        x = self.layer3(x)
 
-        if self.bam3 is not None:  # false
-            x, _ = self.bam3(x)
+        if self.bam3 is not None:
+            # x = self.bam3(x)
+            x, sam3 = self.bam3(x, masks[2])
+            sam_output.append(sam3)
 
         # x, sam13 = self.layer4[0](x, segm[3])
         # sam_output.append(sam13)
@@ -253,8 +261,8 @@ class ResNet(nn.Module):
         # x, sam15 = self.layer4[2](x, segm[3])
         # sam_output.append(sam15)
 
-        # x = self.layer4(x)
-        x, sam4 = self.layer4(x)
+        x = self.layer4(x)
+        # x, sam4 = self.layer4(x)
 
         # x, sam_add = self.cbam_after_layer4(x) #  added CBAM here
 
@@ -265,10 +273,6 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
-        sam_output += sam1
-        sam_output += sam2
-        sam_output += sam3
-        sam_output += sam4
         return x, sam_output
 
 

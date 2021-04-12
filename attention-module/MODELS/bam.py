@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 import torch.nn.functional as F
 
 
@@ -10,7 +11,7 @@ class Flatten(nn.Module):
 class ChannelGate(nn.Module):
     def __init__(self, gate_channel, reduction_ratio=16, num_layers=1):
         super(ChannelGate, self).__init__()
-        self.gate_activation = gate_activation
+        # self.gate_activation = gate_activation
         self.gate_c = nn.Sequential()
         self.gate_c.add_module('flatten', Flatten())
         gate_channels = [gate_channel]
@@ -44,8 +45,12 @@ class SpatialGate(nn.Module):
             self.gate_s.add_module('gate_s_relu_di_%d' % i, nn.ReLU())
         self.gate_s.add_module('gate_s_conv_final', nn.Conv2d(gate_channel // reduction_ratio, 1, kernel_size=1))
 
-    def forward(self, in_tensor):
-        return self.gate_s(in_tensor).expand_as(in_tensor)
+    def forward(self, in_tensor, mask=None):
+        if mask is None:
+            sam_output = self.gate_s(in_tensor)
+            return sam_output.expand_as(in_tensor), torch.sigmoid(sam_output)
+        else:
+            return mask.expand_as(in_tensor), mask
 
 
 class BAM(nn.Module):
@@ -54,6 +59,7 @@ class BAM(nn.Module):
         self.channel_att = ChannelGate(gate_channel)
         self.spatial_att = SpatialGate(gate_channel)
 
-    def forward(self, in_tensor):
-        att = 1 + F.sigmoid(self.channel_att(in_tensor) * self.spatial_att(in_tensor))
-        return att * in_tensor
+    def forward(self, in_tensor, mask=None):
+        sam_attention, sam_output = self.spatial_att(in_tensor, mask=mask)
+        att = 1 + torch.sigmoid(self.channel_att(in_tensor) * sam_attention)
+        return att * in_tensor, sam_output

@@ -87,11 +87,16 @@ class SpatialGate(nn.Module):
         self.spatial = BasicConv(2, 1, kernel_size, stride=1, padding=(kernel_size - 1) // 2, relu=False)
 
     def forward(self, x):
+        # print('***')
+        # print(x.size())
         x_compress = self.compress(x)
+        # print(x_compress.size())
         x_out = self.spatial(x_compress)
+        # print(x_out.size())
+        # print('***')
         scale = torch.sigmoid(x_out)  # broadcasting
         # print(scale.size())
-        return x * scale, scale
+        return x * scale  # , scale
 
 
 class CBAM(nn.Module):
@@ -107,6 +112,6 @@ class CBAM(nn.Module):
     def forward(self, x):
         x_out = self.ChannelGate(x)
         if not self.no_spatial:
-            # x_out = self.SpatialGate(x_out)
-            x_out, scale = self.SpatialGate(x_out)
-        return x_out, scale
+            x_out = self.SpatialGate(x_out)
+            # x_out, scale = self.SpatialGate(x_out)
+        return x_out  # , scale

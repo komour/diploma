@@ -1,15 +1,49 @@
-python3 train.py --arch resnet34 --lr 1e-3 --tags resnet34 --run-name "resnet34, lr = 1e-3" --cuda-device 3 &&
-python3 train.py --arch resnet34 --lr 1e-4 --tags resnet34 --run-name "resnet34, lr = 1e-4" --cuda-device 3 &&
-python3 train.py --arch resnet34 --lr 1e-5 --tags resnet34 --run-name "resnet34, lr = 1e-5" --cuda-device 3 &&
-python3 train.py --arch resnet50 --lr 1e-3 --tags resnet34 --run-name "resnet50, lr = 1e-3" --cuda-device 3 &&
-python3 train.py --arch resnet50 --lr 1e-4 --tags resnet34 --run-name "resnet50, lr = 1e-4" --cuda-device 3 &&
-python3 train.py --arch resnet50 --lr 1e-5 --tags resnet34 --run-name "resnet50, lr = 1e-5" --cuda-device 3 &&
-python3 train.py --arch resnet101 --lr 1e-3 --tags resnet101 --run-name "resnet101, lr = 1e-3" --cuda-device 3 &&
-python3 train.py --arch resnet101 --lr 1e-4 --tags resnet101 --run-name "resnet101, lr = 1e-4" --cuda-device 3 &&
-python3 train.py --arch resnet101 --lr 1e-5 --tags resnet101 --run-name "resnet101, lr = 1e-5" --cuda-device 3 &&
-python3 train.py --arch vgg13 --lr 1e-3 --tags vgg13 --run-name "vgg13, lr = 1e-3" --cuda-device 3 &&
-python3 train.py --arch vgg13 --lr 1e-4 --tags vgg13 --run-name "vgg13, lr = 1e-4" --cuda-device 3 &&
-python3 train.py --arch vgg13 --lr 1e-5 --tags vgg13 --run-name "vgg13, lr = 1e-5" --cuda-device 3 &&
-python3 train.py --arch vgg16 --lr 1e-3 --tags vgg16 --run-name "vgg16, lr = 1e-3" --cuda-device 3 &&
-python3 train.py --arch vgg16 --lr 1e-4 --tags vgg16 --run-name "vgg16, lr = 1e-4" --cuda-device 3 &&
-python3 train.py --arch vgg16 --lr 1e-5 --tags vgg16 --run-name "vgg16, lr = 1e-5" --cuda-device 3
+python3 train.py --arch BAM --lr 1e-3 --tags BAM baseline concurrent --run-name "baseline, lr = 1e-3" --cuda-device 3 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM baseline concurrent --run-name "baseline, lr = 1e-4" --cuda-device 3 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM baseline concurrent --run-name "baseline, lr = 1e-5" --cuda-device 3 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM baseline concurrent --run-name "baseline, lr = 1e-6" --cuda-device 3 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM inv-mask-sam --run-name "inv-mask-sam, lr = 1e-3" --cuda-device 3 --number -1 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM inv-mask-sam --run-name "inv-mask-sam, lr = 1e-4" --cuda-device 3 --number -1 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM inv-mask-sam --run-name "inv-mask-sam, lr = 1e-5" --cuda-device 3 --number -1 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM inv-mask-sam --run-name "inv-mask-sam, lr = 1e-6" --cuda-device 3 --number -1 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM SAM-1 concurrent --run-name "SAM-1, lr = 1e-3" --cuda-device 3 --number 1 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM SAM-1 concurrent --run-name "SAM-1, lr = 1e-4" --cuda-device 3 --number 1 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM SAM-1 concurrent --run-name "SAM-1, lr = 1e-5" --cuda-device 3 --number 1 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM SAM-1 concurrent --run-name "SAM-1, lr = 1e-6" --cuda-device 3 --number 1 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM outer SAM-1 concurrent --run-name "outer-SAM-1, lr = 1e-3" --cuda-device 3 --number 10 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM outer SAM-1 concurrent --run-name "outer-SAM-1, lr = 1e-4" --cuda-device 3 --number 10 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM outer SAM-1 concurrent --run-name "outer-SAM-1, lr = 1e-5" --cuda-device 3 --number 10 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM outer SAM-1 concurrent --run-name "outer-SAM-1, lr = 1e-6" --cuda-device 3 --number 10 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM SAM-2 concurrent --run-name "SAM-2, lr = 1e-3" --cuda-device 3 --number 2 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM SAM-2 concurrent --run-name "SAM-2, lr = 1e-4" --cuda-device 3 --number 2 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM SAM-2 concurrent --run-name "SAM-2, lr = 1e-5" --cuda-device 3 --number 2 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM SAM-2 concurrent --run-name "SAM-2, lr = 1e-6" --cuda-device 3 --number 2 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM outer SAM-2 concurrent --run-name "outer-SAM-2, lr = 1e-3" --cuda-device 3 --number 20 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM outer SAM-2 concurrent --run-name "outer-SAM-2, lr = 1e-4" --cuda-device 3 --number 20 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM outer SAM-2 concurrent --run-name "outer-SAM-2, lr = 1e-5" --cuda-device 3 --number 20 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM outer SAM-2 concurrent --run-name "outer-SAM-2, lr = 1e-6" --cuda-device 3 --number 20 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM SAM-3 concurrent --run-name "SAM-3, lr = 1e-3" --cuda-device 3 --number 3 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM SAM-3 concurrent --run-name "SAM-3, lr = 1e-4" --cuda-device 3 --number 3 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM SAM-3 concurrent --run-name "SAM-3, lr = 1e-5" --cuda-device 3 --number 3 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM SAM-3 concurrent --run-name "SAM-3, lr = 1e-6" --cuda-device 3 --number 3 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM outer SAM-3 concurrent --run-name "outer-SAM-3, lr = 1e-3" --cuda-device 3 --number 30 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM outer SAM-3 concurrent --run-name "outer-SAM-3, lr = 1e-4" --cuda-device 3 --number 30 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM outer SAM-3 concurrent --run-name "outer-SAM-3, lr = 1e-5" --cuda-device 3 --number 30 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM outer SAM-3 concurrent --run-name "outer-SAM-3, lr = 1e-6" --cuda-device 3 --number 30 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM SAM-all concurrent --run-name "SAM-all, lr = 1e-3" --cuda-device 3 --number 5 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM SAM-all concurrent --run-name "SAM-all, lr = 1e-4" --cuda-device 3 --number 5 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM SAM-all concurrent --run-name "SAM-all, lr = 1e-5" --cuda-device 3 --number 5 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM SAM-all concurrent --run-name "SAM-all, lr = 1e-6" --cuda-device 3 --number 5 &&
+
+python3 train.py --arch BAM --lr 1e-3 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-3" --cuda-device 3 --number 50 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-4" --cuda-device 3 --number 50 &&
+python3 train.py --arch BAM --lr 1e-5 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-5" --cuda-device 3 --number 50 &&
+python3 train.py --arch BAM --lr 1e-6 --tags BAM outer SAM-all concurrent --run-name "outer-SAM-all, lr = 1e-6" --cuda-device 3 --number 50 &&
