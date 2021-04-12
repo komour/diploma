@@ -214,7 +214,7 @@ def main():
     else:
         model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM')
 
-    model = torch.nn.DataParallel(model, device_ids=list(range(4)))
+    model = torch.nn.DataParallel(model, device_ids=list(range(4)), output_device=args.cuda_device)
 
     # define loss function (criterion) and optimizer
     pos_weight_train = torch.Tensor(
@@ -456,7 +456,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         # output = model(input_img)
 
         # calculate gradcam metrics + compute output
-        target_layer = model.layer4
+        target_layer = model.module.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
 
         true_mask_invert = true_mask_invert.detach().cpu().numpy()
