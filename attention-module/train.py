@@ -60,7 +60,7 @@ parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
+parser.add_argument('--resume', default=None, type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--seed', type=int, default=1234, metavar='BS')
 parser.add_argument('--prefix', type=str, default='', metavar='PFX',
@@ -189,6 +189,8 @@ def main():
     global args, run
     args = parser.parse_args()
     print("args", args)
+    if args.resume is None:
+        print("Run w/o checkpoint!")
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
@@ -463,7 +465,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         # output = model(input_img)
 
         # calculate gradcam metrics + compute output
-        target_layer = model.module.layer4
+        target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
 
         true_mask_invert = true_mask_invert.detach().cpu().numpy()
