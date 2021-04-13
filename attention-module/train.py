@@ -510,20 +510,28 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         loss_comb = loss0
         if args.number == 1:
             loss_comb += loss1
+            print('SAM-1')
         elif args.number == 2:
             loss_comb += loss2
+            print('SAM-2')
         elif args.number == 3:
             loss_comb += loss3
+            print('SAM-3')
         elif args.number == 5:
             loss_comb += loss1 + loss2 + loss3
+            print('SAM-all')
         elif args.number == 10:
+            print('outer-SAM-1')
             loss_comb += loss1_inv
         elif args.number == 20:
             loss_comb += loss2_inv
+            print('outer-SAM-2')
         elif args.number == 30:
             loss_comb += loss3_inv
+            print('outer-SAM-3')
         elif args.number == 50:
             loss_comb += loss1_inv + loss2_inv + loss3_inv
+            print('outer-SAM-all')
 
         for j in range(SAM_AMOUNT):
             predicted_sam = sam_output[j].detach().cpu().numpy()
