@@ -583,7 +583,7 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
         target = dictionary['label']
         segm = dictionary['segm']
         if is_server:
-            input_img = input_img.cuda()
+            # input_img = input_img.cuda()
             input_img = input_img.cuda(args.cuda_device)
             # target = target.cuda()
             target = target.cuda(args.cuda_device)
