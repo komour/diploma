@@ -5,6 +5,7 @@
 checkpoints/
 vis/
 wandb/
+hists/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
