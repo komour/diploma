@@ -71,6 +71,7 @@ parser.add_argument('--run-name', type=str, default='noname run', help='run name
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
 parser.add_argument('--number', type=int, default=0, help='number of run in the run pool')
+parser.add_argument('--lmbd', type=int, default=1, help='coefficient for additional loss')
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -264,7 +265,8 @@ def main():
         workers=args.workers,
         prefix=args.prefix,
         resume=args.resume,
-        evaluate=args.evaluate
+        evaluate=args.evaluate,
+        lmbd = args.lmbd
     )
     if is_server:
         run = wandb.init(config=config, project="vol.6", name=args.run_name, tags=args.tags)
@@ -468,81 +470,89 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
 
-        true_mask_invert = true_mask_invert.detach().cpu().numpy()
-        true_mask = processed_segm0.detach().cpu().numpy()
-
         if args.number == -1:
             gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True, masks=invert_masks)
         else:
             gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
-        gradcam_miss_att.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask_invert) / (np.sum(true_mask_invert) * args.batch_size))
-        gradcam_direct_att.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask) / (np.sum(true_mask) * args.batch_size))
+
+        # measure gradcam attention metrics
+        true_mask_invert = true_mask_invert.detach().cpu().numpy()
+        true_mask = processed_segm0.detach().cpu().numpy()
+        no_norm_gc_mask_numpy = no_norm_gc_mask.detach().cpu().numpy()
+
+        assert true_mask.shape == true_mask_invert.shape
+        assert no_norm_gc_mask_numpy.shape == true_mask_invert.shape
+        for j in range(len(no_norm_gc_mask_numpy)):
+            cur_gc = no_norm_gc_mask_numpy[j]
+            cur_mask = true_mask[j]
+            cur_mask_inv = true_mask_invert[j]
+
+            gradcam_miss_att.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
+            gradcam_direct_att.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
 
         loss0 = criterion(output, target)
 
-        loss1_inv = torch.mean(sam_criterion_inv(sam_output[0], processed_segm1) * processed_segm1_invert)
-        loss2_inv = torch.mean(sam_criterion_inv(sam_output[1], processed_segm2) * processed_segm2_invert)
-        loss3_inv = torch.mean(sam_criterion_inv(sam_output[2], processed_segm3) * processed_segm3_invert)
-        # loss_added_cbam_outer = torch.mean(sam_criterion_inv(sam_add, processed_segm4) * processed_segm4_invert)
+        assert len(processed_segm1) == len(processed_segm2) == len(processed_segm3)
+        loss_inv_sum1 = 0
+        loss_inv_sum2 = 0
+        loss_inv_sum3 = 0
+        for j in range(len(processed_segm1)):
+            loss_inv_sum1 += safe_division(
+                torch.sum(sam_criterion_inv(sam_output[0][j], processed_segm1[j]) * processed_segm1_invert[j]),
+                torch.sum(processed_segm1_invert[j]))
 
-        loss1 = sam_criterion(sam_output[0], processed_segm1)
-        loss2 = sam_criterion(sam_output[1], processed_segm2)
-        loss3 = sam_criterion(sam_output[2], processed_segm3)
-        # loss_added_cbam = sam_criterion(sam_add, processed_segm4)
+            loss_inv_sum2 += safe_division(
+                torch.sum(sam_criterion_inv(sam_output[1][j], processed_segm2[j]) * processed_segm2_invert[j]),
+                torch.sum(processed_segm2_invert[j]))
 
-        # loss1 = sam_criterion(sam_output[0], processed_segm1)
-        # loss2 = sam_criterion(sam_output[1], processed_segm1)
-        # loss3 = sam_criterion(sam_output[2], processed_segm1)
-        # loss4 = sam_criterion(sam_output[3], processed_segm2)
-        # loss5 = sam_criterion(sam_output[4], processed_segm2)
-        # loss6 = sam_criterion(sam_output[5], processed_segm2)
-        # loss7 = sam_criterion(sam_output[6], processed_segm2)
-        # loss8 = sam_criterion(sam_output[7], processed_segm3)
-        # loss9 = sam_criterion(sam_output[8], processed_segm3)
-        # loss10 = sam_criterion(sam_output[9], processed_segm3)
-        # loss11 = sam_criterion(sam_output[10], processed_segm3)
-        # loss12 = sam_criterion(sam_output[11], processed_segm3)
-        # loss13 = sam_criterion(sam_output[12], processed_segm3)
-        # loss14 = sam_criterion(sam_output[13], processed_segm4)
-        # loss15 = sam_criterion(sam_output[14], processed_segm4)
-        # loss16 = sam_criterion(sam_output[15], processed_segm4)
-        #
+            loss_inv_sum3 += safe_division(
+                torch.sum(sam_criterion_inv(sam_output[2][j], processed_segm3[j]) * processed_segm3_invert[j]),
+                torch.sum(processed_segm3_invert[j]))
+
+        loss1_inv = args.lmbd * loss_inv_sum1 / args.batch_size
+        loss2_inv = args.lmbd * loss_inv_sum2 / args.batch_size
+        loss3_inv = args.lmbd * loss_inv_sum3 / args.batch_size
+
+        loss1 = args.lmbd * sam_criterion(sam_output[0], processed_segm1)
+        loss2 = args.lmbd * sam_criterion(sam_output[1], processed_segm2)
+        loss3 = args.lmbd * sam_criterion(sam_output[2], processed_segm3)
+
         loss_comb = loss0
         if args.number == 1:
             loss_comb += loss1
-            print('SAM-1')
         elif args.number == 2:
             loss_comb += loss2
-            print('SAM-2')
         elif args.number == 3:
             loss_comb += loss3
-            print('SAM-3')
         elif args.number == 5:
             loss_comb += loss1 + loss2 + loss3
-            print('SAM-all')
         elif args.number == 10:
-            print('outer-SAM-1')
             loss_comb += loss1_inv
         elif args.number == 20:
             loss_comb += loss2_inv
-            print('outer-SAM-2')
         elif args.number == 30:
             loss_comb += loss3_inv
-            print('outer-SAM-3')
         elif args.number == 50:
             loss_comb += loss1_inv + loss2_inv + loss3_inv
-            print('outer-SAM-all')
 
+        # measure sam attention metrics
         for j in range(SAM_AMOUNT):
             predicted_sam = sam_output[j].detach().cpu().numpy()
-            sam_att[j].append(np.sum(predicted_sam * invert_masks[j].cpu().numpy()) / np.sum(invert_masks[j].cpu().numpy()))
 
             predicted = (sam_output[j] > 0.5).int()
             predicted_np = predicted.detach().cpu().numpy()
 
             expected = masks[j].int()
             expected_np = expected.detach().cpu().numpy()
-            iou[j].append(iou_numpy(expected_np, predicted_np))
+
+            for k in range(len(predicted_sam)):
+                cur_sam = predicted_sam[k]
+                cur_pred = predicted_np[k]
+                cur_expected = expected_np[k]
+
+                sam_att[j].append(safe_division(np.sum(cur_sam * invert_masks[j][k].cpu().numpy()),
+                                                np.sum(invert_masks[j][k].cpu().numpy())))
+                iou[j].append(iou_numpy(cur_expected, cur_pred))
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -615,38 +625,54 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
         # compute output
         # with torch.no_grad():
         #     output, sam_output = model(input_img)
-            # output = model(input_img)
-            # loss = criterion(output, target)
+        # output = model(input_img)
+        # loss = criterion(output, target)
         # loss = CB_loss(target, output)
 
         target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
 
-        true_mask_invert = true_mask_invert.detach().cpu().numpy()
-        true_mask = processed_segm0.detach().cpu().numpy()
-
         if args.number == -1:
             gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, masks=invert_mask)
         else:
             gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
-        gradcam_miss_att_val.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask_invert) / (args.batch_size * np.sum(true_mask_invert)))
-        gradcam_direct_att_val.append(np.sum(no_norm_gc_mask.detach().cpu().numpy() * true_mask) / (args.batch_size * np.sum(true_mask)))
+
+        # measure attention metrics
+        true_mask_invert = true_mask_invert.detach().cpu().numpy()
+        true_mask = processed_segm0.detach().cpu().numpy()
+        no_norm_gc_mask_numpy = no_norm_gc_mask.detach().cpu().numpy()
+
+        assert true_mask.shape == true_mask_invert.shape
+        assert no_norm_gc_mask_numpy.shape == true_mask_invert.shape
+
+        for j in range(len(no_norm_gc_mask_numpy)):
+            cur_gc = no_norm_gc_mask_numpy[j]
+            cur_mask = true_mask[j]
+            cur_mask_inv = true_mask_invert[j]
+            gradcam_miss_att_val.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
+            gradcam_direct_att_val.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
 
         loss = criterion(output, target)
 
         for j in range(SAM_AMOUNT):
-            predicted_sam = sam_output[j].detach().cpu().numpy()
             # sam_concat[j] = predicted_sam if sam_concat[j] is None \
             #     else np.concatenate((sam_concat[j], predicted_sam), axis=0)
 
-            sam_att_val[j].append(np.sum(predicted_sam * invert_mask[j].cpu().numpy()) / np.sum(invert_mask[j].cpu().numpy()))
+            predicted_sam = sam_output[j].detach().cpu().numpy()
 
             predicted = (sam_output[j] > 0.5).int()
             predicted_np = predicted.detach().cpu().numpy()
 
             expected = mask[j].int()
             expected_np = expected.detach().cpu().numpy()
-            iou_val[j].append(iou_numpy(expected_np, predicted_np))
+            for k in range(len(predicted_sam)):
+                cur_sam = predicted_sam[k]
+                cur_pred = predicted_np[k]
+                cur_expected = expected_np[k]
+
+                sam_att_val[j].append(safe_division(np.sum(cur_sam * invert_mask[j][k].cpu().numpy()),
+                                                    np.sum(invert_mask[j][k].cpu().numpy())))
+                iou_val[j].append(iou_numpy(cur_expected, cur_pred))
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
@@ -901,6 +927,9 @@ def wandb_log_train(epoch, loss_avg):
     sam_att_avg = [-1. for _ in range(SAM_AMOUNT)]
 
     for j in range(SAM_AMOUNT):
+        assert len(iou[j]) == 1600
+        assert len(sam_att[j]) == 1600
+
         iou_avg[j] = sum(iou[j]) / len(iou[j])
         sam_att_avg[j] = sum(sam_att[j]) / len(sam_att[j])
 
@@ -912,6 +941,7 @@ def wandb_log_train(epoch, loss_avg):
         iou_best[j] = max(iou_best[j], iou_avg[j])
         sam_att_best[j] = min(sam_att_best[j], sam_att_avg[j])
 
+    assert len(gradcam_direct_att_val) == len(gradcam_miss_att_val) == 1600
     avg_gradcam_miss_att = sum(gradcam_miss_att) / len(gradcam_miss_att)
     avg_gradcam_direct_att = sum(gradcam_direct_att) / len(gradcam_direct_att)
 
@@ -1026,6 +1056,9 @@ def wandb_log_val(epoch, loss_avg):
     sam_att_avg = [-1. for _ in range(SAM_AMOUNT)]
 
     for j in range(SAM_AMOUNT):
+        assert len(iou_val[j]) == 400
+        assert len(sam_att_val[j]) == 400
+
         iou_avg[j] = sum(iou_val[j]) / len(iou_val[j])
         sam_att_avg[j] = sum(sam_att_val[j]) / len(sam_att_val[j])
 
@@ -1037,6 +1070,7 @@ def wandb_log_val(epoch, loss_avg):
         iou_val_best[j] = max(iou_val_best[j], iou_avg[j])
         sam_att_val_best[j] = min(sam_att_val_best[j], sam_att_avg[j])
 
+    assert len(gradcam_direct_att_val) == len(gradcam_miss_att_val) == 400
     avg_gradcam_miss_att = sum(gradcam_miss_att_val) / len(gradcam_miss_att_val)
     avg_gradcam_direct_att = sum(gradcam_direct_att_val) / len(gradcam_direct_att_val)
 
@@ -1189,17 +1223,17 @@ def save_checkpoint(state, prefix):
 def iou_numpy(labels: np.array, outputs: np.array):
     assert outputs.shape == labels.shape
     SMOOTH = 1e-8
+    outputs = outputs.squeeze()
+    labels = labels.squeeze()
 
-    outputs = outputs.squeeze(1)
-    labels = labels.squeeze(1)
 
-    intersection = (outputs & labels).sum((1, 2))
-    union = (outputs | labels).sum((1, 2))
+    intersection = (outputs & labels).sum()
+    union = (outputs | labels).sum()
 
     iou_res = (intersection + SMOOTH) / (union + SMOOTH)
     rounded = np.round(iou_res, 5)
 
-    return rounded.mean()  # Or rounded.mean()
+    return rounded
 
 
 def save_checkpoint_to_folder(state, folder_name, checkpoint_number):
@@ -1216,6 +1250,10 @@ def create_needed_folders_for_hists():
     for j in range(SAM_AMOUNT):
         if not os.path.exists(f'hists/SAM_{j + 1}'):
             os.mkdir(f'hists/SAM_{j + 1}')
+
+
+def safe_division(a, b):
+    return 0 if b == 0 else a / b
 
 
 if __name__ == '__main__':
