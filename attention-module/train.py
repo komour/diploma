@@ -941,7 +941,7 @@ def wandb_log_train(epoch, loss_avg):
         iou_best[j] = max(iou_best[j], iou_avg[j])
         sam_att_best[j] = min(sam_att_best[j], sam_att_avg[j])
 
-    assert len(gradcam_direct_att_val) == len(gradcam_miss_att_val) == 1600
+    assert len(gradcam_direct_att) == len(gradcam_miss_att) == 1600
     avg_gradcam_miss_att = sum(gradcam_miss_att) / len(gradcam_miss_att)
     avg_gradcam_direct_att = sum(gradcam_direct_att) / len(gradcam_direct_att)
 
@@ -1225,7 +1225,6 @@ def iou_numpy(labels: np.array, outputs: np.array):
     SMOOTH = 1e-8
     outputs = outputs.squeeze()
     labels = labels.squeeze()
-
 
     intersection = (outputs & labels).sum()
     union = (outputs | labels).sum()
