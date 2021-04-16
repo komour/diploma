@@ -1,0 +1,7 @@
+python3 train.py --lmbd 2 --arch BAM --lr 1e-4 --tags BAM SAM-2 concurrent --run-name "lmbd=2, SAM-2, lr=1e-4" --resume checkpoints/RESNET50_IMAGENET_BAM_best.pth.tar --cuda-device 2 --number 2 &&
+python3 train.py --lmbd 5 --arch BAM --lr 1e-4 --tags BAM SAM-2 concurrent --run-name "lmbd=5, SAM-2, lr=1e-4" --resume checkpoints/RESNET50_IMAGENET_BAM_best.pth.tar --cuda-device 2 --number 2 &&
+python3 train.py --lmbd 10 --arch BAM --lr 1e-4 --tags BAM SAM-2 concurrent --run-name "lmbd=10, SAM-2, lr=1e-4" --resume checkpoints/RESNET50_IMAGENET_BAM_best.pth.tar --cuda-device 2 --number 2 &&
+
+python3 train.py --lmbd 2 --arch BAM --lr 1e-4 --tags BAM SAM-2 concurrent outer --run-name "lmbd=2, outer-SAM-2, lr=1e-4" --resume checkpoints/RESNET50_IMAGENET_BAM_best.pth.tar --cuda-device 2 --number 20 &&
+python3 train.py --lmbd 5 --arch BAM --lr 1e-4 --tags BAM SAM-2 concurrent outer --run-name "lmbd=5, outer-SAM-2, lr=1e-4" --resume checkpoints/RESNET50_IMAGENET_BAM_best.pth.tar --cuda-device 2 --number 20 &&
+python3 train.py --lmbd 10 --arch BAM --lr 1e-4 --tags BAM SAM-2 concurrent outer --run-name "lmbd=10, outer-SAM-2, lr=1e-4" --resume checkpoints/RESNET50_IMAGENET_BAM_best.pth.tar --cuda-device 2 --number 20
