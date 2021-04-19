@@ -302,6 +302,8 @@ def main():
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
                 name = k[7:]  # remove `module.`
+                if args.arch == "ResNet50" and "bam" in name:
+                    continue
                 new_state_dict[name] = v
 
             #  load weights to the new added cbam module from the nearest cbam module in checkpoint
