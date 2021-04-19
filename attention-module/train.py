@@ -275,7 +275,7 @@ def main():
         lmbd=args.lmbd
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.6", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.7", name=args.run_name, tags=args.tags)
 
     if is_server:
         # model = model.cuda()
@@ -1079,7 +1079,7 @@ def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
 
         iou_avg[j] = sum(iou[j]) / len(iou[j])
         sam_att_miss_avg[j] = sum(sam_att_miss[j]) / len(sam_att_miss[j])
-        sam_att_direct_avg[j] = sum(sam_att_miss[j]) / len(sam_att_miss[j])
+        sam_att_direct_avg[j] = sum(sam_att_direct[j]) / len(sam_att_direct[j])
 
     for j in range(SAM_AMOUNT):
         iou[j] = []
@@ -1121,7 +1121,7 @@ def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
                # "IoU/15_trn": iou_avg[14], "IoU/16_trn": iou_avg[15],
                "sam_att_miss/1_trn": sam_att_miss_avg[0], "sam_att_miss/2_trn": sam_att_miss_avg[1],
                "sam_att_miss/3_trn": sam_att_miss_avg[2],
-               "sam_att_DIRECT/1_trn": sam_att_direct_avg[0], "sam_att_direct/2_trn": sam_att_direct_avg[1],
+               "sam_att_direct/1_trn": sam_att_direct_avg[0], "sam_att_direct/2_trn": sam_att_direct_avg[1],
                "sam_att_direct/3_trn": sam_att_direct_avg[2],
                # "sam_att/4_trn": sam_att_miss_avg[3], "sam_att/5_trn": sam_att_miss_avg[4], "sam_att/6_trn": sam_att_miss_avg[5],
                # "sam_att/7_trn": sam_att_miss_avg[6], "sam_att/8_trn": sam_att_miss_avg[7], "sam_att/9_trn": sam_att_miss_avg[8],
