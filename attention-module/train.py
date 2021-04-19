@@ -150,11 +150,17 @@ c5_recall_best = 0
 c5_recall_val_best = 0
 
 # SAM miss attention metric
-sam_att = [[] for _ in range(SAM_AMOUNT)]
-sam_att_best = [inf for _ in range(SAM_AMOUNT)]
+sam_att_miss = [[] for _ in range(SAM_AMOUNT)]
+sam_att_direct = [[] for _ in range(SAM_AMOUNT)]
 
-sam_att_val = [[] for _ in range(SAM_AMOUNT)]
-sam_att_val_best = [inf for _ in range(SAM_AMOUNT)]
+sam_att_miss_best = [inf for _ in range(SAM_AMOUNT)]
+sam_att_direct_best = [-inf for _ in range(SAM_AMOUNT)]
+
+sam_att_miss_val = [[] for _ in range(SAM_AMOUNT)]
+sam_att_direct_val = [[] for _ in range(SAM_AMOUNT)]
+
+sam_att_miss_val_best = [inf for _ in range(SAM_AMOUNT)]
+sam_att_direct_val_best = [-inf for _ in range(SAM_AMOUNT)]
 
 iou = [[] for _ in range(SAM_AMOUNT)]
 iou_best = [-inf for _ in range(SAM_AMOUNT)]
@@ -225,13 +231,13 @@ def main():
     if is_server:
         # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda()
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
-        # sam_criterion_inv = nn.BCELoss(reduction='none').cuda()
-        sam_criterion_inv = nn.BCELoss(reduction='none').cuda(args.cuda_device)
+        # sam_criterion_outer = nn.BCELoss(reduction='none').cuda()
+        sam_criterion_outer = nn.BCELoss(reduction='none').cuda(args.cuda_device)
         # sam_criterion = nn.BCELoss().cuda()
         sam_criterion = nn.BCELoss().cuda(args.cuda_device)
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
-        sam_criterion_inv = nn.BCELoss(reduction='none')
+        sam_criterion_outer = nn.BCELoss(reduction='none')
         sam_criterion = nn.BCELoss()
     # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
@@ -266,7 +272,7 @@ def main():
         prefix=args.prefix,
         resume=args.resume,
         evaluate=args.evaluate,
-        lmbd = args.lmbd
+        lmbd=args.lmbd
     )
     if is_server:
         run = wandb.init(config=config, project="vol.6", name=args.run_name, tags=args.tags)
@@ -382,21 +388,23 @@ def main():
 
         # train for one epoch
         clear_expected_predicted()
-        train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, optimizer, epoch, epoch_number)
+        train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch, epoch_number)
 
         # evaluate on validation set
         clear_expected_predicted()
-        validate(val_loader, model, criterion, epoch, optimizer, epoch_number)
+        validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_criterion, sam_criterion_outer)
         epoch_number += 1
 
     save_summary()
     run.finish()
 
 
-def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, optimizer, epoch, epoch_number):
+def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch, epoch_number):
     batch_time = AverageMeter()
     data_time = AverageMeter()
-    losses = AverageMeter()
+    loss_sum_stat = AverageMeter()
+    loss_main_stat = AverageMeter()
+    loss_add_stat = AverageMeter()
 
     # switch to train mode
     model.train()
@@ -411,7 +419,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
     #     }
     #     save_checkpoint_to_folder(checkpoint_dict, args.run_name, epoch_number / 10 + 1)
 
-    global iou, sam_att, gradcam_miss_att, gradcam_direct_att
+    global iou, sam_att_miss, sam_att_direct, gradcam_miss_att, gradcam_direct_att
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
@@ -493,47 +501,87 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
         loss0 = criterion(output, target)
 
         assert len(processed_segm1) == len(processed_segm2) == len(processed_segm3)
+        loss_outer_sum1 = 0
+        loss_outer_sum2 = 0
+        loss_outer_sum3 = 0
+
         loss_inv_sum1 = 0
         loss_inv_sum2 = 0
         loss_inv_sum3 = 0
         for j in range(len(processed_segm1)):
-            loss_inv_sum1 += safe_division(
-                torch.sum(sam_criterion_inv(sam_output[0][j], processed_segm1[j]) * processed_segm1_invert[j]),
+            loss_outer_sum1 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[0][j], processed_segm1[j]) * processed_segm1_invert[j]),
                 torch.sum(processed_segm1_invert[j]))
 
-            loss_inv_sum2 += safe_division(
-                torch.sum(sam_criterion_inv(sam_output[1][j], processed_segm2[j]) * processed_segm2_invert[j]),
+            loss_inv_sum1 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[0][j], processed_segm1_invert[j]) * processed_segm1[j]),
+                torch.sum(processed_segm1[j]))
+
+            loss_outer_sum2 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[1][j], processed_segm2[j]) * processed_segm2_invert[j]),
                 torch.sum(processed_segm2_invert[j]))
 
-            loss_inv_sum3 += safe_division(
-                torch.sum(sam_criterion_inv(sam_output[2][j], processed_segm3[j]) * processed_segm3_invert[j]),
+            loss_inv_sum2 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[1][j], processed_segm2_invert[j]) * processed_segm2[j]),
+                torch.sum(processed_segm2[j]))
+
+            loss_outer_sum3 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[2][j], processed_segm3[j]) * processed_segm3_invert[j]),
                 torch.sum(processed_segm3_invert[j]))
 
-        loss1_inv = args.lmbd * loss_inv_sum1 / args.batch_size
-        loss2_inv = args.lmbd * loss_inv_sum2 / args.batch_size
-        loss3_inv = args.lmbd * loss_inv_sum3 / args.batch_size
+            loss_inv_sum3 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[2][j], processed_segm3_invert[j]) * processed_segm3[j]),
+                torch.sum(processed_segm3[j]))
+
+        loss1_outer = args.lmbd * loss_outer_sum1 / args.batch_size
+        loss2_outer = args.lmbd * loss_outer_sum2 / args.batch_size
+        loss3_outer = args.lmbd * loss_outer_sum3 / args.batch_size
+
+        loss1_inv_outer = args.lmbd * loss_inv_sum1 / args.batch_size
+        loss2_inv_outer = args.lmbd * loss_inv_sum2 / args.batch_size
+        loss3_inv_outer = args.lmbd * loss_inv_sum3 / args.batch_size
 
         loss1 = args.lmbd * sam_criterion(sam_output[0], processed_segm1)
         loss2 = args.lmbd * sam_criterion(sam_output[1], processed_segm2)
         loss3 = args.lmbd * sam_criterion(sam_output[2], processed_segm3)
 
-        loss_comb = loss0
+        loss1_inv = args.lmbd * sam_criterion(sam_output[0], processed_segm1_invert)
+        loss2_inv = args.lmbd * sam_criterion(sam_output[1], processed_segm2_invert)
+        loss3_inv = args.lmbd * sam_criterion(sam_output[2], processed_segm3_invert)
+
+        loss_add = 0
         if args.number == 1:
-            loss_comb += loss1
+            loss_add = loss1
+        elif args.number == -1:
+            loss_add = loss1_inv
         elif args.number == 2:
-            loss_comb += loss2
+            loss_add = loss2
+        elif args.number == -2:
+            loss_add = loss2_inv
         elif args.number == 3:
-            loss_comb += loss3
+            loss_add = loss3
+        elif args.number == -3:
+            loss_add = loss3_inv
         elif args.number == 5:
-            loss_comb += loss1 + loss2 + loss3
+            loss_add = loss1 + loss2 + loss3
+        elif args.number == -5:
+            loss_add = loss1_inv + loss2_inv + loss3_inv
         elif args.number == 10:
-            loss_comb += loss1_inv
+            loss_add = loss1_outer
+        elif args.number == -10:
+            loss_add = loss1_inv_outer
         elif args.number == 20:
-            loss_comb += loss2_inv
+            loss_add = loss2_outer
+        elif args.number == -20:
+            loss_add = loss2_inv_outer
         elif args.number == 30:
-            loss_comb += loss3_inv
+            loss_add = loss3_outer
+        elif args.number == -30:
+            loss_add = loss3_inv_outer
         elif args.number == 50:
-            loss_comb += loss1_inv + loss2_inv + loss3_inv
+            loss_add = loss1_outer + loss2_outer + loss3_outer
+        elif args.number == -50:
+            loss_add = loss1_inv_outer + loss2_inv_outer + loss3_inv_outer
 
         # measure sam attention metrics
         for j in range(SAM_AMOUNT):
@@ -550,18 +598,24 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
                 cur_pred = predicted_np[k]
                 cur_expected = expected_np[k]
 
-                sam_att[j].append(safe_division(np.sum(cur_sam * invert_masks[j][k].cpu().numpy()),
-                                                np.sum(invert_masks[j][k].cpu().numpy())))
+                sam_att_miss[j].append(safe_division(np.sum(cur_sam * invert_masks[j][k].cpu().numpy()),
+                                                     np.sum(invert_masks[j][k].cpu().numpy())))
+                sam_att_direct[j].append(safe_division(np.sum(cur_sam * masks[j][k].cpu().numpy()),
+                                                       np.sum(masks[j][k].cpu().numpy())))
                 iou[j].append(iou_numpy(cur_expected, cur_pred))
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
-        losses.update(loss_comb.item(), input_img.size(0))
+        loss_sum = loss0 + loss_add
+
+        loss_add_stat.update(loss_add.item(), input_img.size(0))
+        loss_main_stat.update(loss0.item(), input_img.size(0))
+        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
-        loss_comb.backward()
+        loss_sum.backward()
         optimizer.step()
 
         # measure elapsed time
@@ -572,22 +626,24 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_inv, opti
             print(f'\nEpoch: [{epoch}][{i}/{len(train_loader)}]\t'
                   f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   f'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  f'Loss {losses.val:.4f} ({losses.avg:.4f})')
+                  f'Loss {loss_sum_stat.val:.4f} ({loss_sum_stat.avg:.4f})')
             if i > 0:
                 print_metrics()
-    wandb_log_train(epoch, losses.avg)
+    wandb_log_train(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
 
 
-def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
+def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_criterion, sam_criterion_outer):
     batch_time = AverageMeter()
-    losses = AverageMeter()
+    loss_sum_stat = AverageMeter()
+    loss_add_stat = AverageMeter()
+    loss_main_stat = AverageMeter()
     # switch to evaluate mode
     model.eval()
     global val_vis_image_names
     end = time.time()
 
     # sam_concat = [None for _ in range(SAM_AMOUNT)]
-    global iou_val, sam_att_val, gradcam_miss_att_val, gradcam_direct_att_val
+    global iou_val, sam_att_miss_val, sam_att_direct_val, gradcam_miss_att_val, gradcam_direct_att_val
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
@@ -652,7 +708,90 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
             gradcam_miss_att_val.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
             gradcam_direct_att_val.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
 
-        loss = criterion(output, target)
+        loss0 = criterion(output, target)
+
+        assert len(processed_segm1) == len(processed_segm2) == len(processed_segm3)
+        loss_outer_sum1 = 0
+        loss_outer_sum2 = 0
+        loss_outer_sum3 = 0
+
+        loss_inv_sum1 = 0
+        loss_inv_sum2 = 0
+        loss_inv_sum3 = 0
+        for j in range(len(processed_segm1)):
+            loss_outer_sum1 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[0][j], processed_segm1[j]) * processed_segm1_invert[j]),
+                torch.sum(processed_segm1_invert[j]))
+
+            loss_inv_sum1 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[0][j], processed_segm1_invert[j]) * processed_segm1[j]),
+                torch.sum(processed_segm1[j]))
+
+            loss_outer_sum2 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[1][j], processed_segm2[j]) * processed_segm2_invert[j]),
+                torch.sum(processed_segm2_invert[j]))
+
+            loss_inv_sum2 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[1][j], processed_segm2_invert[j]) * processed_segm2[j]),
+                torch.sum(processed_segm2[j]))
+
+            loss_outer_sum3 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[2][j], processed_segm3[j]) * processed_segm3_invert[j]),
+                torch.sum(processed_segm3_invert[j]))
+
+            loss_inv_sum3 += safe_division(
+                torch.sum(sam_criterion_outer(sam_output[2][j], processed_segm3_invert[j]) * processed_segm3[j]),
+                torch.sum(processed_segm3[j]))
+
+        loss1_outer = args.lmbd * loss_outer_sum1 / args.batch_size
+        loss2_outer = args.lmbd * loss_outer_sum2 / args.batch_size
+        loss3_outer = args.lmbd * loss_outer_sum3 / args.batch_size
+
+        loss1_inv_outer = args.lmbd * loss_inv_sum1 / args.batch_size
+        loss2_inv_outer = args.lmbd * loss_inv_sum2 / args.batch_size
+        loss3_inv_outer = args.lmbd * loss_inv_sum3 / args.batch_size
+
+        loss1 = args.lmbd * sam_criterion(sam_output[0], processed_segm1)
+        loss2 = args.lmbd * sam_criterion(sam_output[1], processed_segm2)
+        loss3 = args.lmbd * sam_criterion(sam_output[2], processed_segm3)
+
+        loss1_inv = args.lmbd * sam_criterion(sam_output[0], processed_segm1_invert)
+        loss2_inv = args.lmbd * sam_criterion(sam_output[1], processed_segm2_invert)
+        loss3_inv = args.lmbd * sam_criterion(sam_output[2], processed_segm3_invert)
+
+        loss_add = 0
+        if args.number == 1:
+            loss_add = loss1
+        elif args.number == -1:
+            loss_add = loss1_inv
+        elif args.number == 2:
+            loss_add = loss2
+        elif args.number == -2:
+            loss_add = loss2_inv
+        elif args.number == 3:
+            loss_add = loss3
+        elif args.number == -3:
+            loss_add = loss3_inv
+        elif args.number == 5:
+            loss_add = loss1 + loss2 + loss3
+        elif args.number == -5:
+            loss_add = loss1_inv + loss2_inv + loss3_inv
+        elif args.number == 10:
+            loss_add = loss1_outer
+        elif args.number == -10:
+            loss_add = loss1_inv_outer
+        elif args.number == 20:
+            loss_add = loss2_outer
+        elif args.number == -20:
+            loss_add = loss2_inv_outer
+        elif args.number == 30:
+            loss_add = loss3_outer
+        elif args.number == -30:
+            loss_add = loss3_inv_outer
+        elif args.number == 50:
+            loss_add = loss1_outer + loss2_outer + loss3_outer
+        elif args.number == -50:
+            loss_add = loss1_inv_outer + loss2_inv_outer + loss3_inv_outer
 
         for j in range(SAM_AMOUNT):
             # sam_concat[j] = predicted_sam if sam_concat[j] is None \
@@ -670,13 +809,18 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
                 cur_pred = predicted_np[k]
                 cur_expected = expected_np[k]
 
-                sam_att_val[j].append(safe_division(np.sum(cur_sam * invert_mask[j][k].cpu().numpy()),
-                                                    np.sum(invert_mask[j][k].cpu().numpy())))
+                sam_att_miss_val[j].append(safe_division(np.sum(cur_sam * invert_mask[j][k].cpu().numpy()),
+                                                         np.sum(invert_mask[j][k].cpu().numpy())))
+                sam_att_direct_val[j].append(safe_division(np.sum(cur_sam * mask[j][k].cpu().numpy()),
+                                                           np.sum(mask[j][k].cpu().numpy())))
                 iou_val[j].append(iou_numpy(cur_expected, cur_pred))
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
-        losses.update(loss.item(), input_img.size(0))
+        loss_sum = loss0 + loss_add
+        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
+        loss_add_stat.update(loss_add.item(), input_img.size(0))
+        loss_main_stat.update(loss0.item(), input_img.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -685,7 +829,7 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
         if i % args.print_freq == 0:
             print(f'Validate: [{i}/{len(val_loader)}]\t'
                   f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  f'Loss {losses.val:.4f} ({losses.avg:.4f})')
+                  f'Loss {loss_sum_stat.val:.4f} ({loss_sum_stat.avg:.4f})')
             if i != 0:
                 print_metrics()
     # c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
@@ -702,7 +846,7 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number):
     #     plt.close('all')
     #     plt.hist(values)
     #     plt.savefig(f'hists/SAM_{j + 1}/e{epoch + 1}.pdf')
-    wandb_log_val(epoch, losses.avg)
+    wandb_log_val(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
 
 
 class AverageMeter(object):
@@ -852,7 +996,7 @@ def count_f1():
     return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
 
 
-def wandb_log_train(epoch, loss_avg):
+def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
     if not is_server:
         return
 
@@ -861,7 +1005,8 @@ def wandb_log_train(epoch, loss_avg):
     global c1_recall_best, c2_recall_best, c3_recall_best, c4_recall_best, c5_recall_best
     global c1_prec_best, c2_prec_best, c3_prec_best, c4_prec_best, c5_prec_best
     global avg_f1_best, avg_mAP_best, avg_recall_best, avg_prec_best
-    global sam_att, sam_att_best, iou, iou_best, gradcam_miss_att, gradcam_miss_att_best
+    global sam_att_miss, sam_att_miss_best, iou, iou_best, gradcam_miss_att, gradcam_miss_att_best
+    global sam_att_direct, sam_att_direct_best
     global gradcam_direct_att, gradcam_direct_att_best
 
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
@@ -924,22 +1069,27 @@ def wandb_log_train(epoch, loss_avg):
 
     # attention metrics
     iou_avg = [-1. for _ in range(SAM_AMOUNT)]
-    sam_att_avg = [-1. for _ in range(SAM_AMOUNT)]
+    sam_att_miss_avg = [-1. for _ in range(SAM_AMOUNT)]
+    sam_att_direct_avg = [-1. for _ in range(SAM_AMOUNT)]
 
     for j in range(SAM_AMOUNT):
         assert len(iou[j]) == 1600
-        assert len(sam_att[j]) == 1600
+        assert len(sam_att_miss[j]) == 1600
+        assert len(sam_att_direct[j]) == 1600
 
         iou_avg[j] = sum(iou[j]) / len(iou[j])
-        sam_att_avg[j] = sum(sam_att[j]) / len(sam_att[j])
+        sam_att_miss_avg[j] = sum(sam_att_miss[j]) / len(sam_att_miss[j])
+        sam_att_direct_avg[j] = sum(sam_att_miss[j]) / len(sam_att_miss[j])
 
     for j in range(SAM_AMOUNT):
         iou[j] = []
-        sam_att[j] = []
+        sam_att_miss[j] = []
+        sam_att_direct[j] = []
 
     for j in range(SAM_AMOUNT):
         iou_best[j] = max(iou_best[j], iou_avg[j])
-        sam_att_best[j] = min(sam_att_best[j], sam_att_avg[j])
+        sam_att_miss_best[j] = min(sam_att_miss_best[j], sam_att_miss_avg[j])
+        sam_att_direct_best[j] = max(sam_att_direct_best[j], sam_att_direct_avg[j])
 
     assert len(gradcam_direct_att) == len(gradcam_miss_att) == 1600
     avg_gradcam_miss_att = sum(gradcam_miss_att) / len(gradcam_miss_att)
@@ -951,7 +1101,7 @@ def wandb_log_train(epoch, loss_avg):
     gradcam_miss_att = []
     gradcam_direct_att = []
 
-    wandb.log({"loss_avg_trn": loss_avg,
+    wandb.log({"loss/sum_trn": loss_sum, "loss/add_trn": loss_add, "loss/main_trn": loss_main,
                "mAP/с1_trn": c1_mAP, "mAP/с2_trn": c2_mAP, "mAP/с3_trn": c3_mAP, "mAP/с4_trn": c4_mAP,
                "mAP/с5_trn": c5_mAP,
                "mAP/avg_trn": avg_mAP,
@@ -969,19 +1119,22 @@ def wandb_log_train(epoch, loss_avg):
                # "IoU/11_trn": iou_avg[10], "IoU/12_trn": iou_avg[11], "IoU/13_trn": iou_avg[12],
                # "IoU/14_trn": iou_avg[13],
                # "IoU/15_trn": iou_avg[14], "IoU/16_trn": iou_avg[15],
-               "sam_att/1_trn": sam_att_avg[0], "sam_att/2_trn": sam_att_avg[1], "sam_att/3_trn": sam_att_avg[2],
-               # "sam_att/4_trn": sam_att_avg[3], "sam_att/5_trn": sam_att_avg[4], "sam_att/6_trn": sam_att_avg[5],
-               # "sam_att/7_trn": sam_att_avg[6], "sam_att/8_trn": sam_att_avg[7], "sam_att/9_trn": sam_att_avg[8],
-               # "sam_att/10_trn": sam_att_avg[9], "sam_att/11_trn": sam_att_avg[10], "sam_att/12_trn": sam_att_avg[11],
-               # "sam_att/13_trn": sam_att_avg[12], "sam_att/14_trn": sam_att_avg[13],
-               # "sam_att/15_trn": sam_att_avg[14], "sam_att/16_trn": sam_att_avg[15],
+               "sam_att_miss/1_trn": sam_att_miss_avg[0], "sam_att_miss/2_trn": sam_att_miss_avg[1],
+               "sam_att_miss/3_trn": sam_att_miss_avg[2],
+               "sam_att_DIRECT/1_trn": sam_att_direct_avg[0], "sam_att_direct/2_trn": sam_att_direct_avg[1],
+               "sam_att_direct/3_trn": sam_att_direct_avg[2],
+               # "sam_att/4_trn": sam_att_miss_avg[3], "sam_att/5_trn": sam_att_miss_avg[4], "sam_att/6_trn": sam_att_miss_avg[5],
+               # "sam_att/7_trn": sam_att_miss_avg[6], "sam_att/8_trn": sam_att_miss_avg[7], "sam_att/9_trn": sam_att_miss_avg[8],
+               # "sam_att/10_trn": sam_att_miss_avg[9], "sam_att/11_trn": sam_att_miss_avg[10], "sam_att/12_trn": sam_att_miss_avg[11],
+               # "sam_att/13_trn": sam_att_miss_avg[12], "sam_att/14_trn": sam_att_miss_avg[13],
+               # "sam_att/15_trn": sam_att_miss_avg[14], "sam_att/16_trn": sam_att_miss_avg[15],
                "gradcam_miss_trn": avg_gradcam_miss_att,
                "gradcam_direct_trn": avg_gradcam_direct_att
                },
               step=epoch)
 
 
-def wandb_log_val(epoch, loss_avg):
+def wandb_log_val(epoch, loss_sum, loss_add, loss_main):
     if not is_server:
         return
 
@@ -990,7 +1143,8 @@ def wandb_log_val(epoch, loss_avg):
     global c1_recall_val_best, c2_recall_val_best, c3_recall_val_best, c4_recall_val_best, c5_recall_val_best
     global c1_prec_val_best, c2_prec_val_best, c3_prec_val_best, c4_prec_val_best, c5_prec_val_best
     global avg_f1_val_best, avg_mAP_val_best, avg_recall_val_best, avg_prec_val_best
-    global sam_att_val, sam_att_val_best, iou_val, iou_val_best, gradcam_miss_att_val, gradcam_miss_att_val_best
+    global sam_att_miss_val, sam_att_miss_val_best, iou_val, iou_val_best, gradcam_miss_att_val, gradcam_miss_att_val_best
+    global sam_att_direct_val, sam_att_direct_val_best
     global gradcam_direct_att_val, gradcam_direct_att_val_best
 
     c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
@@ -1053,22 +1207,27 @@ def wandb_log_val(epoch, loss_avg):
 
     # attention metrics
     iou_avg = [-1. for _ in range(SAM_AMOUNT)]
-    sam_att_avg = [-1. for _ in range(SAM_AMOUNT)]
+    sam_att_miss_avg = [-1. for _ in range(SAM_AMOUNT)]
+    sam_att_direct_avg = [-1. for _ in range(SAM_AMOUNT)]
 
     for j in range(SAM_AMOUNT):
         assert len(iou_val[j]) == 400
-        assert len(sam_att_val[j]) == 400
+        assert len(sam_att_miss_val[j]) == 400
+        assert len(sam_att_direct_val[j]) == 400
 
         iou_avg[j] = sum(iou_val[j]) / len(iou_val[j])
-        sam_att_avg[j] = sum(sam_att_val[j]) / len(sam_att_val[j])
+        sam_att_miss_avg[j] = sum(sam_att_miss_val[j]) / len(sam_att_miss_val[j])
+        sam_att_direct_avg[j] = sum(sam_att_direct_val[j]) / len(sam_att_direct_val[j])
 
     for j in range(SAM_AMOUNT):
         iou_val[j] = []
-        sam_att_val[j] = []
+        sam_att_miss_val[j] = []
+        sam_att_direct_val[j] = []
 
     for j in range(SAM_AMOUNT):
         iou_val_best[j] = max(iou_val_best[j], iou_avg[j])
-        sam_att_val_best[j] = min(sam_att_val_best[j], sam_att_avg[j])
+        sam_att_miss_val_best[j] = min(sam_att_miss_val_best[j], sam_att_miss_avg[j])
+        sam_att_direct_val_best[j] = max(sam_att_direct_val_best[j], sam_att_direct_avg[j])
 
     assert len(gradcam_direct_att_val) == len(gradcam_miss_att_val) == 400
     avg_gradcam_miss_att = sum(gradcam_miss_att_val) / len(gradcam_miss_att_val)
@@ -1080,7 +1239,7 @@ def wandb_log_val(epoch, loss_avg):
     gradcam_miss_att_val = []
     gradcam_direct_att_val = []
 
-    wandb.log({"loss_avg_val": loss_avg,
+    wandb.log({"loss/sum_val": loss_sum, "loss/add_val": loss_add, "loss/main_val": loss_main,
                "mAP/c1_val": c1_mAP, "mAP/c2_val": c2_mAP, "mAP/c3_val": c3_mAP, "mAP/c4_val": c4_mAP,
                "mAP/c5_val": c5_mAP,
                "mAP/avg_val": avg_mAP,
@@ -1099,12 +1258,15 @@ def wandb_log_val(epoch, loss_avg):
                # "IoU/11_val": iou_avg[10], "IoU/12_val": iou_avg[11], "IoU/13_val": iou_avg[12],
                # "IoU/14_val": iou_avg[13],
                # "IoU/15_val": iou_avg[14], "IoU/16_val": iou_avg[15],
-               "sam_att/1_val": sam_att_avg[0], "sam_att/2_val": sam_att_avg[1], "sam_att/3_val": sam_att_avg[2],
-               # "sam_att/4_val": sam_att_avg[3], "sam_att/5_val": sam_att_avg[4], "sam_att/6_val": sam_att_avg[5],
-               # "sam_att/7_val": sam_att_avg[6], "sam_att/8_val": sam_att_avg[7], "sam_att/9_val": sam_att_avg[8],
-               # "sam_att/10_val": sam_att_avg[9], "sam_att/11_val": sam_att_avg[10], "sam_att/12_val": sam_att_avg[11],
-               # "sam_att/13_val": sam_att_avg[12], "sam_att/14_val": sam_att_avg[13], "sam_att/15_val": sam_att_avg[14],
-               # "sam_att/16_val": sam_att_avg[15],
+               "sam_att_miss/1_val": sam_att_miss_avg[0], "sam_att_miss/2_val": sam_att_miss_avg[1],
+               "sam_att_miss/3_val": sam_att_miss_avg[2],
+               "sam_att_direct/1_val": sam_att_direct_avg[0], "sam_att_direct/2_val": sam_att_direct_avg[1],
+               "sam_att_direct/3_val": sam_att_direct_avg[2],
+               # "sam_att/4_val": sam_att_miss_avg[3], "sam_att/5_val": sam_att_miss_avg[4], "sam_att/6_val": sam_att_miss_avg[5],
+               # "sam_att/7_val": sam_att_miss_avg[6], "sam_att/8_val": sam_att_miss_avg[7], "sam_att/9_val": sam_att_miss_avg[8],
+               # "sam_att/10_val": sam_att_miss_avg[9], "sam_att/11_val": sam_att_miss_avg[10], "sam_att/12_val": sam_att_miss_avg[11],
+               # "sam_att/13_val": sam_att_miss_avg[12], "sam_att/14_val": sam_att_miss_avg[13], "sam_att/15_val": sam_att_miss_avg[14],
+               # "sam_att/16_val": sam_att_miss_avg[15],
                "gradcam_miss_val": avg_gradcam_miss_att,
                "gradcam_direct_val": avg_gradcam_direct_att
                },
@@ -1180,8 +1342,11 @@ def save_summary():
     run.summary["f1/c5_val'"] = c5_f1_val_best
 
     for j in range(SAM_AMOUNT):
-        run.summary[f"sam_att/{j + 1}_trn'"] = sam_att_best[j]
-        run.summary[f"sam_att/{j + 1}_val'"] = sam_att_val_best[j]
+        run.summary[f"sam_att_miss/{j + 1}_trn'"] = sam_att_miss_best[j]
+        run.summary[f"sam_att_direct/{j + 1}_trn'"] = sam_att_direct_best[j]
+
+        run.summary[f"sam_att_miss/{j + 1}_val'"] = sam_att_miss_val_best[j]
+        run.summary[f"sam_att_direct/{j + 1}_val'"] = sam_att_direct_val_best[j]
 
         run.summary[f"IoU/{j + 1}_trn'"] = iou_best[j]
         run.summary[f"IoU/{j + 1}_val'"] = iou_val_best[j]
