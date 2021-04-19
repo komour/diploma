@@ -289,7 +289,7 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume)
+            checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
             state_dict = checkpoint['state_dict']
 
             state_dict['module.fc.weight'] = dummy_fc.weight
