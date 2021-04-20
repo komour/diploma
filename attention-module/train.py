@@ -498,7 +498,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
             gradcam_miss_att.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
             gradcam_direct_att.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
 
-        loss0 = criterion(output, target)
+        loss_main = criterion(output, target)
 
         assert len(processed_segm1) == len(processed_segm2) == len(processed_segm3)
         loss_outer_sum1 = 0
@@ -607,10 +607,10 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
 
-        loss_sum = loss0 + loss_add
+        loss_sum = loss_main + loss_add
 
-        loss_add_stat.update(loss_add.item(), input_img.size(0))
-        loss_main_stat.update(loss0.item(), input_img.size(0))
+        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
+        loss_main_stat.update(loss_main.item(), input_img.size(0))
         loss_sum_stat.update(loss_sum.item(), input_img.size(0))
 
         # compute gradient and do SGD step
@@ -708,7 +708,7 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_c
             gradcam_miss_att_val.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
             gradcam_direct_att_val.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
 
-        loss0 = criterion(output, target)
+        loss_main = criterion(output, target)
 
         assert len(processed_segm1) == len(processed_segm2) == len(processed_segm3)
         loss_outer_sum1 = 0
@@ -817,10 +817,10 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_c
 
         # measure accuracy and record loss
         measure_accuracy(output.data, target)
-        loss_sum = loss0 + loss_add
+        loss_sum = loss_main + loss_add
         loss_sum_stat.update(loss_sum.item(), input_img.size(0))
-        loss_add_stat.update(loss_add.item(), input_img.size(0))
-        loss_main_stat.update(loss0.item(), input_img.size(0))
+        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
+        loss_main_stat.update(loss_main.item(), input_img.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
