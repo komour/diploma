@@ -1,1 +1,1 @@
-python3 train.py --tags hists concurrent baseline --resume "checkpoints/RESNET50_CBAM_new_name_wrap.pth" --run-name "baseline-hists, lr = 1e-4" --lr 1e-4 --cuda-device 3 --number 0 &&
+python3 train.py --arch BAM --lr 1e-4 --tags BAM baseline concurrent --run-name "baseline512, lr=1e-4" --resume checkpoints/RESNET50_IMAGENET_BAM_best.pth.tar --cuda-device 1 --number 0

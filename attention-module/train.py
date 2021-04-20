@@ -333,6 +333,7 @@ def main():
     cudnn.benchmark = True
     # Data loading code
     root_dir = 'data/'
+    root_dir = 'data512/'
     traindir = os.path.join(root_dir, 'train')
     train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
     valdir = os.path.join(root_dir, 'val')
@@ -342,7 +343,8 @@ def main():
 
     # import pdb
     # pdb.set_trace()
-    size0 = 224
+    # size0 = 224
+    size0 = 448
     val_dataset = DatasetISIC2018(
         val_labels,
         valdir,

@@ -16,6 +16,7 @@ def label_to_tensor(label):
 
 
 segm_dir = "images/256ISIC2018_Task1_Training_GroundTruth/"
+segm_dir = "images/512ISIC2018_Task1_Training_GroundTruth/"
 segm_suffix = "_segmentation"
 jpg = '.jpg'
 png = '.png'
@@ -90,6 +91,7 @@ class DatasetISIC2018(Dataset):
             # ratio = [3. / 4., 4. / 3.]  # for pip
             i, j, h, w = transforms.RandomResizedCrop.get_params(img, scale, ratio)
             size0 = 224
+            size0 = 448
             # size = (size0, size0)  # for conda
             size = [size0, size0]  # for pip
             img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)  # for conda

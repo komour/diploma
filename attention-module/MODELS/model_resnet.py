@@ -113,30 +113,43 @@ class ResNet(nn.Module):
     # att_type = CBAM
     def __init__(self, block, layers, network_type, num_classes, att_type=None):
         self.inplanes = 64
+        self.inplanes = 128
         super(ResNet, self).__init__()
         self.network_type = network_type
         # different model config between ImageNet and CIFAR
         if network_type == "ImageNet":
-            self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            # self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            self.conv1 = nn.Conv2d(3, 128, kernel_size=7, stride=2, padding=3, bias=False)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-            self.avgpool = nn.AvgPool2d(7)
+            # self.avgpool = nn.AvgPool2d(7)
+            self.avgpool = nn.AvgPool2d(14)
         else:
-            self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+            self.conv1 = nn.Conv2d(3, 128, kernel_size=3, stride=1, padding=1, bias=False)
+            # self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 
-        self.bn1 = nn.BatchNorm2d(64)
+        # self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = nn.BatchNorm2d(128)
         self.relu = nn.ReLU(inplace=True)
 
         if att_type == 'BAM':
-            self.bam1 = BAM(64 * block.expansion)
-            self.bam2 = BAM(128 * block.expansion)
-            self.bam3 = BAM(256 * block.expansion)
+            # self.bam1 = BAM(64 * block.expansion)
+            self.bam1 = BAM(128 * block.expansion)
+            # self.bam2 = BAM(128 * block.expansion)
+            self.bam2 = BAM(256 * block.expansion)
+            # self.bam3 = BAM(256 * block.expansion)
+            self.bam3 = BAM(512 * block.expansion)
         else:
             self.bam1, self.bam2, self.bam3 = None, None, None
 
-        self.layer1 = self._make_layer(block, 64, layers[0], att_type=att_type)
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, att_type=att_type)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2, att_type=att_type)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2, att_type=att_type)
+        # self.layer1 = self._make_layer(block, 64, layers[0], att_type=att_type)
+        self.layer1 = self._make_layer(block, 128, layers[0], att_type=att_type)
+        # self.layer2 = self._make_layer(block, 128, layers[1], stride=2, att_type=att_type)
+        self.layer2 = self._make_layer(block, 256, layers[1], stride=2, att_type=att_type)
+        # self.layer3 = self._make_layer(block, 256, layers[2], stride=2, att_type=att_type)
+        self.layer3 = self._make_layer(block, 512, layers[2], stride=2, att_type=att_type)
+        # self.layer4 = self._make_layer(block, 512, layers[3], stride=2, att_type=att_type)
+        self.layer4 = self._make_layer(block, 1024, layers[3], stride=2, att_type=att_type)
+
         # self.cbam_after_layer4 = CBAM(2048, 16)
 
         # self.l0 = self.layerList1[0]
@@ -159,7 +172,8 @@ class ResNet(nn.Module):
         # self.l14 = self.layerList4[1]
         # self.l15 = self.layerList4[2]
 
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        # self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(1024 * block.expansion, num_classes)
 
         init.kaiming_normal_(self.fc.weight)
         for key in self.state_dict():
@@ -270,6 +284,7 @@ class ResNet(nn.Module):
             x = self.avgpool(x)
         else:
             x = F.avg_pool2d(x, 4)
+        # print(x.size())
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
