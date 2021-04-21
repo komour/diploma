@@ -373,6 +373,12 @@ def main():
     #     testdir,
     #     False,
     #     False,
+    #     transforms.CenterCrop(size0)
+    # )
+    # test_loader = torch.utils.data.DataLoader(
+    #     test_dataset,
+    #     batch_size=args.batch_size, shuffle=False,
+    #     num_workers=args.workers, pin_memory=True
     # )
     train_sampler = None
 
@@ -461,9 +467,9 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
         # processed_segm4 = maxpool_segm4(segm)
         processed_segm0 = maxpool_segm0(segm)
         #
-        processed_segm1_invert = (processed_segm1 + 1) % 2
-        processed_segm2_invert = (processed_segm2 + 1) % 2
-        processed_segm3_invert = (processed_segm3 + 1) % 2
+        processed_segm1_invert = 1 - processed_segm1
+        processed_segm2_invert = 1 - processed_segm2
+        processed_segm3_invert = 1 - processed_segm3
         # processed_segm4_invert = (processed_segm4 + 1) % 2
 
         true_mask_invert = (processed_segm0 + 1) % 2
@@ -497,8 +503,10 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
             cur_mask = true_mask[j]
             cur_mask_inv = true_mask_invert[j]
 
-            gradcam_miss_att.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
-            gradcam_direct_att.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
+            # gradcam_miss_att.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
+            gradcam_miss_att.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_gc)))
+            # gradcam_direct_att.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
+            gradcam_direct_att.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_gc)))
 
         loss_main = criterion(output, target)
 
@@ -600,10 +608,14 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
                 cur_pred = predicted_np[k]
                 cur_expected = expected_np[k]
 
+                # sam_att_miss[j].append(safe_division(np.sum(cur_sam * invert_masks[j][k].cpu().numpy()),
+                #                                      np.sum(invert_masks[j][k].cpu().numpy())))
                 sam_att_miss[j].append(safe_division(np.sum(cur_sam * invert_masks[j][k].cpu().numpy()),
-                                                     np.sum(invert_masks[j][k].cpu().numpy())))
+                                                     np.sum(cur_sam)))
+                # sam_att_direct[j].append(safe_division(np.sum(cur_sam * masks[j][k].cpu().numpy()),
+                #                                        np.sum(masks[j][k].cpu().numpy())))
                 sam_att_direct[j].append(safe_division(np.sum(cur_sam * masks[j][k].cpu().numpy()),
-                                                       np.sum(masks[j][k].cpu().numpy())))
+                                                       np.sum(cur_sam)))
                 iou[j].append(iou_numpy(cur_expected, cur_pred))
 
         # measure accuracy and record loss
@@ -670,9 +682,9 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_c
         # processed_segm4 = maxpool_segm4(segm)
         processed_segm0 = maxpool_segm0(segm)
 
-        processed_segm1_invert = (processed_segm1 + 1) % 2
-        processed_segm2_invert = (processed_segm2 + 1) % 2
-        processed_segm3_invert = (processed_segm3 + 1) % 2
+        processed_segm1_invert = 1 - processed_segm1
+        processed_segm2_invert = 1 - processed_segm2
+        processed_segm3_invert = 1 - processed_segm3
         # processed_segm4_invert = (processed_segm4 + 1) % 2
         true_mask_invert = (processed_segm0 + 1) % 2
 
@@ -707,8 +719,10 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_c
             cur_gc = no_norm_gc_mask_numpy[j]
             cur_mask = true_mask[j]
             cur_mask_inv = true_mask_invert[j]
-            gradcam_miss_att_val.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
-            gradcam_direct_att_val.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
+            # gradcam_miss_att_val.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
+            gradcam_miss_att_val.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_gc)))
+            # gradcam_direct_att_val.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
+            gradcam_direct_att_val.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_gc)))
 
         loss_main = criterion(output, target)
 
@@ -811,10 +825,14 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_c
                 cur_pred = predicted_np[k]
                 cur_expected = expected_np[k]
 
+                # sam_att_miss_val[j].append(safe_division(np.sum(cur_sam * invert_mask[j][k].cpu().numpy()),
+                #                                          np.sum(invert_mask[j][k].cpu().numpy())))
                 sam_att_miss_val[j].append(safe_division(np.sum(cur_sam * invert_mask[j][k].cpu().numpy()),
-                                                         np.sum(invert_mask[j][k].cpu().numpy())))
+                                                         np.sum(cur_sam)))
+                # sam_att_direct_val[j].append(safe_division(np.sum(cur_sam * mask[j][k].cpu().numpy()),
+                #                                            np.sum(mask[j][k].cpu().numpy())))
                 sam_att_direct_val[j].append(safe_division(np.sum(cur_sam * mask[j][k].cpu().numpy()),
-                                                           np.sum(mask[j][k].cpu().numpy())))
+                                                           np.sum(cur_sam)))
                 iou_val[j].append(iou_numpy(cur_expected, cur_pred))
 
         # measure accuracy and record loss
