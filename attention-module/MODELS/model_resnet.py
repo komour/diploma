@@ -111,7 +111,7 @@ class ResNet(nn.Module):
     # network_type = ImageNet
     # num_classes = 5
     # att_type = CBAM
-    def __init__(self, block, layers, network_type, num_classes, att_type=None):
+    def __init__(self, block, layers, network_type, num_classes, att_type=None, image_size=256):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.network_type = network_type
@@ -119,8 +119,10 @@ class ResNet(nn.Module):
         if network_type == "ImageNet":
             self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-            # self.avgpool = nn.AvgPool2d(7)
-            self.avgpool = nn.AvgPool2d(14)
+            if image_size == 256:
+                self.avgpool = nn.AvgPool2d(7)
+            else:
+                self.avgpool = nn.AvgPool2d(14)
         else:
             self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 
@@ -266,7 +268,6 @@ class ResNet(nn.Module):
         # x, sam4 = self.layer4(x)
 
         # x, sam_add = self.cbam_after_layer4(x) #  added CBAM here
-        print(x.size())
         if self.network_type == "ImageNet":
             x = self.avgpool(x)
         else:
@@ -279,20 +280,20 @@ class ResNet(nn.Module):
 
 # att_type = CBAM
 # network_type = ImageNet
-def ResidualNet(network_type, depth, num_classes, att_type):
+def ResidualNet(network_type, depth, num_classes, att_type, image_size):
     assert network_type in ["ImageNet", "CIFAR10", "CIFAR100"], "network type should be ImageNet or CIFAR10 / CIFAR100"
     assert depth in [18, 34, 50, 101], 'network depth should be 18, 34, 50 or 101'
     model = None
     if depth == 18:
-        model = ResNet(BasicBlock, [2, 2, 2, 2], network_type, num_classes, att_type)
+        model = ResNet(BasicBlock, [2, 2, 2, 2], network_type, num_classes, att_type, image_size)
 
     elif depth == 34:
-        model = ResNet(BasicBlock, [3, 4, 6, 3], network_type, num_classes, att_type)
+        model = ResNet(BasicBlock, [3, 4, 6, 3], network_type, num_classes, att_type, image_size)
 
     elif depth == 50:
-        model = ResNet(Bottleneck, [3, 4, 6, 3], network_type, num_classes, att_type)
+        model = ResNet(Bottleneck, [3, 4, 6, 3], network_type, num_classes, att_type, image_size)
 
     elif depth == 101:
-        model = ResNet(Bottleneck, [3, 4, 23, 3], network_type, num_classes, att_type)
+        model = ResNet(Bottleneck, [3, 4, 23, 3], network_type, num_classes, att_type, image_size)
 
     return model

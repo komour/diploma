@@ -72,6 +72,7 @@ parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
 parser.add_argument('--number', type=int, default=0, help='number of run in the run pool')
 parser.add_argument('--lmbd', type=int, default=1, help='coefficient for additional loss')
+parser.add_argument('--image-size', type=int, default=256, help='coefficient for additional loss')
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -219,9 +220,9 @@ def main():
         model = models.vgg16(pretrained=True)
         model.classifier[6] = nn.Linear(4096, CLASS_AMOUNT)
     elif args.arch == "BAM":
-        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'BAM')
+        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'BAM', args.image_size)
     else:
-        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM')
+        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM', args.image_size)
 
     # model = torch.nn.DataParallel(model, device_ids=list(range(4)), output_device=args.cuda_device)
 
@@ -332,8 +333,15 @@ def main():
 
     cudnn.benchmark = True
     # Data loading code
-    root_dir = 'data/'
-    root_dir = 'data512/'
+    if args.image_size == 256:
+        root_dir = 'data/'
+        segm_dir = "images/256ISIC2018_Task1_Training_GroundTruth/"
+        size0 = 224
+    else:
+        root_dir = 'data512/'
+        segm_dir = "images/512ISIC2018_Task1_Training_GroundTruth/"
+        size0 = 448
+
     traindir = os.path.join(root_dir, 'train')
     train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
     valdir = os.path.join(root_dir, 'val')
@@ -343,11 +351,11 @@ def main():
 
     # import pdb
     # pdb.set_trace()
-    # size0 = 224
-    size0 = 448
     val_dataset = DatasetISIC2018(
         val_labels,
         valdir,
+        segm_dir,
+        size0,
         False,
         False,
         transforms.CenterCrop(size0)
@@ -364,6 +372,8 @@ def main():
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
+        segm_dir,
+        size0,
         True,  # perform flips
         True  # perform random resized crop with size = 224
     )

@@ -15,8 +15,6 @@ def label_to_tensor(label):
     return torch.Tensor(label_list)
 
 
-segm_dir = "images/256ISIC2018_Task1_Training_GroundTruth/"
-segm_dir = "images/512ISIC2018_Task1_Training_GroundTruth/"
 segm_suffix = "_segmentation"
 jpg = '.jpg'
 png = '.png'
@@ -25,7 +23,7 @@ png = '.png'
 class DatasetISIC2018(Dataset):
     """ISIC2018 dataset."""
 
-    def __init__(self, label_file, root_dir, perform_flips=False, perform_crop=False, transform=None):
+    def __init__(self, label_file, root_dir, segm_dir, size0=224, perform_flips=False, perform_crop=False, transform=None):
         """
         Args:
             label_file (string): Path to the txt file with annotations.
@@ -35,6 +33,7 @@ class DatasetISIC2018(Dataset):
             perform_crop (bool): If true: perform same RandomResizedCrop(224) for image and mask
         """
         self.transform = transform
+        self.size0 = size0
         self.perform_crop = perform_crop
         self.perform_flips = perform_flips
         self.image_to_onehot = {}
@@ -90,10 +89,8 @@ class DatasetISIC2018(Dataset):
             ratio = (3. / 4., 4. / 3.)  # for conda
             # ratio = [3. / 4., 4. / 3.]  # for pip
             i, j, h, w = transforms.RandomResizedCrop.get_params(img, scale, ratio)
-            size0 = 224
-            size0 = 448
-            # size = (size0, size0)  # for conda
-            size = [size0, size0]  # for pip
+            # size = (self.size0, self.size0)  # for conda
+            size = [self.size0, self.size0]  # for pip
             img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)  # for conda
             # img = TF.resized_crop(img, i, j, h, w, size, TF.InterpolationMode.BILINEAR)  # for pip
             segm = TF.resized_crop(segm, i, j, h, w, size, Image.NEAREST)  # for conda
