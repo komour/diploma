@@ -38,6 +38,9 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or
     target_layer = model.layer4
     gradcam = GradCAM(model, target_layer=target_layer)
     gradcam_pp = GradCAMpp(model, target_layer=target_layer)
+
+    # sam_output shapes:
+    # [1, 1, 56, 56]x3 , [1, 1, 28, 28]x4 [1, 1, 14, 14]x6 , [1, 1, 7, 7]x3
     mask, no_norm_mask, logit, sam_output = gradcam(input_img)
 
     sam1_show = torch.squeeze(sam_output[0].cpu()).detach().numpy()
@@ -93,7 +96,6 @@ def make_plot_and_save(input_img, img_name, no_norm_image, segm, model, train_or
     axs[0][5].imshow(sam14_show, vmin=0., vmax=1., cmap='gray')
     axs[0][5].set_title('SAM-14 absolute')
     plt.show()
-    return
     if vis_prefix is not None:
         plt.savefig(f'vis/{vis_prefix}/{train_or_val}/{img_name}.png', bbox_inches='tight')
     if is_server:
@@ -147,9 +149,12 @@ def main():
 
     # define datasets and data loaders
     size0 = 224
+    segm_dir = "images/256ISIC2018_Task1_Training_GroundTruth/"
     train_dataset = DatasetISIC2018(
         train_labels,
         traindir,
+        segm_dir,
+        size0,
         False,  # perform flips
         False,  # perform random resized crop with size = 224
         transforms.CenterCrop(size0)
@@ -163,6 +168,8 @@ def main():
     val_dataset = DatasetISIC2018(
         val_labels,
         valdir,
+        segm_dir,
+        size0,
         False,
         False,
         transforms.CenterCrop(size0)
