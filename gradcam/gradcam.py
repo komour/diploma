@@ -59,10 +59,10 @@ class GradCAM:
         self.model_arch(torch.zeros(1, 3, *input_size, device=device))
         return self.activations['value'].shape[2:]
 
-    def forward(self, input, class_idx=None, retain_graph=False, masks=None):
+    def forward(self, input, class_idx=None, retain_graph=False):
         b, c, h, w = input.size()
 
-        logit, sam_output = self.model_arch(input, masks)
+        logit, sam_output = self.model_arch(input)
         # print(logit.size())
         # logit = self.model_arch(input)
         # print(f'logit: {logit}, logit_shape: {logit.size()}')
@@ -97,8 +97,8 @@ class GradCAM:
         saliency_map = (saliency_map - saliency_map_min).div(saliency_map_max - saliency_map_min).data
         return saliency_map, saliency_map_no_norm, logit, sam_output
 
-    def __call__(self, input, class_idx=None, retain_graph=False, masks=None):
-        return self.forward(input, class_idx, retain_graph, masks)
+    def __call__(self, input, class_idx=None, retain_graph=False):
+        return self.forward(input, class_idx, retain_graph)
 
 
 class GradCAMpp(GradCAM):
