@@ -35,7 +35,7 @@ from gradcam.utils import visualize_cam
 from gradcam import GradCAM, GradCAMpp
 from MODELS.model_resnet import *
 from torchvision.utils import make_grid, save_image
-from math import inf
+from math import inf, isnan
 import sys
 
 from typing import List
@@ -75,28 +75,17 @@ parser.add_argument('--number', type=int, default=0, help='number of run in the 
 parser.add_argument('--lmbd', type=int, default=1, help='coefficient for additional loss')
 parser.add_argument('--image-size', type=int, default=256, help='coefficient for additional loss')
 
+args = parser.parse_args()
+is_server = args.is_server == 1
+SAM_AMOUNT = 3
+CLASS_AMOUNT = 5
+
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
 label_file = 'images-onehot.txt'
 
-c1_expected = []
-c1_predicted = []
-
-c2_expected = []
-c2_predicted = []
-
-c3_expected = []
-c3_predicted = []
-
-c4_expected = []
-c4_predicted = []
-
-c5_expected = []
-c5_predicted = []
-
-args = parser.parse_args()
-is_server = args.is_server == 1
-SAM_AMOUNT = 3
+epochs_predicted = [[] for _ in range(CLASS_AMOUNT)]
+epochs_expected = [[] for _ in range(CLASS_AMOUNT)]
 
 avg_f1_best = 0
 avg_f1_val_best = 0
@@ -106,6 +95,19 @@ avg_prec_best = 0
 avg_prec_val_best = 0
 avg_recall_best = 0
 avg_recall_val_best = 0
+
+# +1 for average value
+f1_trn_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+f1_val_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+
+mAP_trn_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+mAP_val_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+
+prec_trn_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+prec_val_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+
+recall_trn_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+recall_val_best = [0 for _ in range(CLASS_AMOUNT + 1)]
 
 c1_f1_best = 0
 c1_f1_val_best = 0
@@ -204,7 +206,6 @@ def main():
     torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
     # create model
-    CLASS_AMOUNT = 5
     if args.arch == "resnet34":
         model = models.resnet34(pretrained=True)
         model.fc = nn.Linear(512, CLASS_AMOUNT)
@@ -741,121 +742,56 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 def write_expected_predicted(target, output):
-    for t in target:
-        c1_expected.append(t[0])
-        c2_expected.append(t[1])
-        c3_expected.append(t[2])
-        c4_expected.append(t[3])
-        c5_expected.append(t[4])
+    # iterate over batch
+    assert target.size() == output.size()
+    for i in range(target.size(0)):
+        cur_target = target[i]
+        cur_output = output[i]
 
-    for o in output:
-        c1_predicted.append(o[0])
-        c2_predicted.append(o[1])
-        c3_predicted.append(o[2])
-        c4_predicted.append(o[3])
-        c5_predicted.append(o[4])
+        # iterate over classes
+        assert cur_target.size(0) == CLASS_AMOUNT
+        for j in range(CLASS_AMOUNT):
+            epochs_expected[j].append(cur_target[j])
+            epochs_predicted[j].append(cur_output[j])
 
 
 def clear_expected_predicted():
-    c1_expected.clear()
-    c2_expected.clear()
-    c3_expected.clear()
-    c4_expected.clear()
-    c5_expected.clear()
-
-    c1_predicted.clear()
-    c2_predicted.clear()
-    c3_predicted.clear()
-    c4_predicted.clear()
-    c5_predicted.clear()
+    for exp in epochs_expected:
+        exp.clear()
+    for pred in epochs_predicted:
+        pred.clear()
 
 
 def count_mAP():
-    c1_pred = np.asarray(c1_predicted).astype(float)
-    c2_pred = np.asarray(c2_predicted).astype(float)
-    c3_pred = np.asarray(c3_predicted).astype(float)
-    c4_pred = np.asarray(c4_predicted).astype(float)
-    c5_pred = np.asarray(c5_predicted).astype(float)
-
-    c1_exp = np.asarray(c1_expected).astype(float)
-    c2_exp = np.asarray(c2_expected).astype(float)
-    c3_exp = np.asarray(c3_expected).astype(float)
-    c4_exp = np.asarray(c4_expected).astype(float)
-    c5_exp = np.asarray(c5_expected).astype(float)
-
-    c1_mAP = average_precision_score(c1_exp, c1_pred)
-    c2_mAP = average_precision_score(c2_exp, c2_pred)
-    c3_mAP = average_precision_score(c3_exp, c3_pred)
-    c4_mAP = average_precision_score(c4_exp, c4_pred)
-    c5_mAP = average_precision_score(c5_exp, c5_pred)
-    avg_mAP = (c1_mAP + c2_mAP + c3_mAP + c4_mAP + c5_mAP) / 5
-    return c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP
+    mAP_per_class = [-1.0 for _ in range(CLASS_AMOUNT)]
+    for i in range(CLASS_AMOUNT):
+        mAP_per_class[i] = average_precision_score(epochs_expected[i], epochs_predicted[i])
+    avg_mAP = sum(mAP_per_class) / CLASS_AMOUNT
+    return tuple(mAP_per_class) + (avg_mAP,)
 
 
 def count_precision():
-    c1_pred = np.asarray(c1_predicted).astype(float)
-    c2_pred = np.asarray(c2_predicted).astype(float)
-    c3_pred = np.asarray(c3_predicted).astype(float)
-    c4_pred = np.asarray(c4_predicted).astype(float)
-    c5_pred = np.asarray(c5_predicted).astype(float)
-
-    c1_exp = np.asarray(c1_expected).astype(float)
-    c2_exp = np.asarray(c2_expected).astype(float)
-    c3_exp = np.asarray(c3_expected).astype(float)
-    c4_exp = np.asarray(c4_expected).astype(float)
-    c5_exp = np.asarray(c5_expected).astype(float)
-
-    c1_prec = precision_score(c1_exp, c1_pred, average="binary")
-    c2_prec = precision_score(c2_exp, c2_pred, average="binary")
-    c3_prec = precision_score(c3_exp, c3_pred, average="binary")
-    c4_prec = precision_score(c4_exp, c4_pred, average="binary")
-    c5_prec = precision_score(c5_exp, c5_pred, average="binary")
-    avg_prec = (c1_prec + c2_prec + c3_prec + c4_prec + c5_prec) / 5
-    return c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec
+    prec_per_class = [-1.0 for _ in range(CLASS_AMOUNT)]
+    for i in range(CLASS_AMOUNT):
+        prec_per_class[i] = precision_score(epochs_expected[i], epochs_predicted[i], average="binary")
+    avg_prec = sum(prec_per_class) / CLASS_AMOUNT
+    return tuple(prec_per_class) + (avg_prec,)
 
 
 def count_recall():
-    c1_pred = np.asarray(c1_predicted).astype(float)
-    c2_pred = np.asarray(c2_predicted).astype(float)
-    c3_pred = np.asarray(c3_predicted).astype(float)
-    c4_pred = np.asarray(c4_predicted).astype(float)
-    c5_pred = np.asarray(c5_predicted).astype(float)
-
-    c1_exp = np.asarray(c1_expected).astype(float)
-    c2_exp = np.asarray(c2_expected).astype(float)
-    c3_exp = np.asarray(c3_expected).astype(float)
-    c4_exp = np.asarray(c4_expected).astype(float)
-    c5_exp = np.asarray(c5_expected).astype(float)
-
-    c1_recall = recall_score(c1_exp, c1_pred, average="binary")
-    c2_recall = recall_score(c2_exp, c2_pred, average="binary")
-    c3_recall = recall_score(c3_exp, c3_pred, average="binary")
-    c4_recall = recall_score(c4_exp, c4_pred, average="binary")
-    c5_recall = recall_score(c5_exp, c5_pred, average="binary")
-    avg_recall = (c1_recall + c2_recall + c3_recall + c4_recall + c5_recall) / 5
-    return c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall
+    recall_per_class = [-1.0 for _ in range(CLASS_AMOUNT)]
+    for i in range(CLASS_AMOUNT):
+        recall_per_class[i] = recall_score(epochs_expected[i], epochs_predicted[i], average="binary")
+    avg_recall = sum(recall_per_class) / CLASS_AMOUNT
+    return tuple(recall_per_class) + (avg_recall,)
 
 
 def count_f1():
-    c1_pred = np.asarray(c1_predicted).astype(float)
-    c2_pred = np.asarray(c2_predicted).astype(float)
-    c3_pred = np.asarray(c3_predicted).astype(float)
-    c4_pred = np.asarray(c4_predicted).astype(float)
-    c5_pred = np.asarray(c5_predicted).astype(float)
-
-    c1_exp = np.asarray(c1_expected).astype(float)
-    c2_exp = np.asarray(c2_expected).astype(float)
-    c3_exp = np.asarray(c3_expected).astype(float)
-    c4_exp = np.asarray(c4_expected).astype(float)
-    c5_exp = np.asarray(c5_expected).astype(float)
-
-    c1_f1 = f1_score(c1_exp, c1_pred, average="binary")
-    c2_f1 = f1_score(c2_exp, c2_pred, average="binary")
-    c3_f1 = f1_score(c3_exp, c3_pred, average="binary")
-    c4_f1 = f1_score(c4_exp, c4_pred, average="binary")
-    c5_f1 = f1_score(c5_exp, c5_pred, average="binary")
-    avg_f1 = (c1_f1 + c2_f1 + c3_f1 + c4_f1 + c5_f1) / 5
-    return c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1
+    f1_per_class = [-1.0 for _ in range(CLASS_AMOUNT)]
+    for i in range(CLASS_AMOUNT):
+        f1_per_class[i] = f1_score(epochs_expected[i], epochs_predicted[i], average="binary")
+    avg_f1 = sum(f1_per_class) / CLASS_AMOUNT
+    return tuple(f1_per_class) + (avg_f1,)
 
 
 def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
@@ -975,21 +911,10 @@ def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
                "f1/c1_trn": c1_f1, "f1/c2_trn": c2_f1, "f1/c3_trn": c3_f1, "f1/c4_trn": c4_f1, "f1/c5_trn": c5_f1,
                "f1/avg_trn": avg_f1,
                "IoU/1_trn": iou_avg[0], "IoU/2_trn": iou_avg[1], "IoU/3_trn": iou_avg[2],  # , "IoU/4_trn": iou_avg[3],
-               # "IoU/5_trn": iou_avg[4],
-               # "IoU/6_trn": iou_avg[5], "IoU/7_trn": iou_avg[6], "IoU/8_trn": iou_avg[7], "IoU/9_trn": iou_avg[8],
-               # "IoU/10_trn": iou_avg[9],
-               # "IoU/11_trn": iou_avg[10], "IoU/12_trn": iou_avg[11], "IoU/13_trn": iou_avg[12],
-               # "IoU/14_trn": iou_avg[13],
-               # "IoU/15_trn": iou_avg[14], "IoU/16_trn": iou_avg[15],
                "sam_att_miss/1_trn": sam_att_miss_avg[0], "sam_att_miss/2_trn": sam_att_miss_avg[1],
                "sam_att_miss/3_trn": sam_att_miss_avg[2],
                "sam_att_direct/1_trn": sam_att_direct_avg[0], "sam_att_direct/2_trn": sam_att_direct_avg[1],
                "sam_att_direct/3_trn": sam_att_direct_avg[2],
-               # "sam_att/4_trn": sam_att_miss_avg[3], "sam_att/5_trn": sam_att_miss_avg[4], "sam_att/6_trn": sam_att_miss_avg[5],
-               # "sam_att/7_trn": sam_att_miss_avg[6], "sam_att/8_trn": sam_att_miss_avg[7], "sam_att/9_trn": sam_att_miss_avg[8],
-               # "sam_att/10_trn": sam_att_miss_avg[9], "sam_att/11_trn": sam_att_miss_avg[10], "sam_att/12_trn": sam_att_miss_avg[11],
-               # "sam_att/13_trn": sam_att_miss_avg[12], "sam_att/14_trn": sam_att_miss_avg[13],
-               # "sam_att/15_trn": sam_att_miss_avg[14], "sam_att/16_trn": sam_att_miss_avg[15],
                "gradcam_miss_trn": avg_gradcam_miss_att,
                "gradcam_direct_trn": avg_gradcam_direct_att
                },
@@ -1114,21 +1039,10 @@ def wandb_log_val(epoch, loss_sum, loss_add, loss_main):
                "f1/c1_val": c1_f1, "f1/c2_val": c2_f1, "f1/c3_val": c3_f1, "f1/c4_val": c4_f1, "f1/c5_val": c5_f1,
                "f1/avg_val": avg_f1,
                "IoU/1_val": iou_avg[0], "IoU/2_val": iou_avg[1], "IoU/3_val": iou_avg[2],  # "IoU/4_val": iou_avg[3],
-               # "IoU/5_val": iou_avg[4],
-               # "IoU/6_val": iou_avg[5], "IoU/7_val": iou_avg[6], "IoU/8_val": iou_avg[7], "IoU/9_val": iou_avg[8],
-               # "IoU/10_val": iou_avg[9],
-               # "IoU/11_val": iou_avg[10], "IoU/12_val": iou_avg[11], "IoU/13_val": iou_avg[12],
-               # "IoU/14_val": iou_avg[13],
-               # "IoU/15_val": iou_avg[14], "IoU/16_val": iou_avg[15],
                "sam_att_miss/1_val": sam_att_miss_avg[0], "sam_att_miss/2_val": sam_att_miss_avg[1],
                "sam_att_miss/3_val": sam_att_miss_avg[2],
                "sam_att_direct/1_val": sam_att_direct_avg[0], "sam_att_direct/2_val": sam_att_direct_avg[1],
                "sam_att_direct/3_val": sam_att_direct_avg[2],
-               # "sam_att/4_val": sam_att_miss_avg[3], "sam_att/5_val": sam_att_miss_avg[4], "sam_att/6_val": sam_att_miss_avg[5],
-               # "sam_att/7_val": sam_att_miss_avg[6], "sam_att/8_val": sam_att_miss_avg[7], "sam_att/9_val": sam_att_miss_avg[8],
-               # "sam_att/10_val": sam_att_miss_avg[9], "sam_att/11_val": sam_att_miss_avg[10], "sam_att/12_val": sam_att_miss_avg[11],
-               # "sam_att/13_val": sam_att_miss_avg[12], "sam_att/14_val": sam_att_miss_avg[13], "sam_att/15_val": sam_att_miss_avg[14],
-               # "sam_att/16_val": sam_att_miss_avg[15],
                "gradcam_miss_val": avg_gradcam_miss_att,
                "gradcam_direct_val": avg_gradcam_direct_att
                },
