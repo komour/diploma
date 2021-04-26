@@ -1,7 +1,6 @@
 import argparse
 import os
 import shutil
-import time
 import random
 
 import torch
@@ -38,6 +37,8 @@ from MODELS.model_resnet import *
 from torchvision.utils import make_grid, save_image
 from math import inf
 import sys
+
+from typing import List
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -417,25 +418,211 @@ def main():
     run.finish()
 
 
+def measure_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Tensor, gradcam_direct: List[float],
+                            gradcam_miss: List[float]):
+    """
+    Measure gradcam metric
+
+    @param segm - true mask, shape B x 3 x H x W
+    @param no_norm_gc_mask_numpy - Grad-CAM output w/o normalization, shape B x 1 x H x W
+    @param gradcam_direct - list of gradcam_direct metric value for current epoch
+    @param gradcam_miss - list of gradcam_miss metric value for current epoch
+    """
+
+    # initial segm size = [1, 3, 224, 224]
+    maxpool = nn.MaxPool3d(kernel_size=(3, 1, 1))
+    true_mask = maxpool(segm)
+    true_mask_invert = 1 - true_mask
+
+    true_mask_invert = true_mask_invert.detach().clone().cpu()
+    true_mask = true_mask.detach().clone().cpu()
+    gradcam_mask = no_norm_gc_mask_numpy.detach().clone().cpu()
+
+    # iterate over batch to calculate metrics on each image of the batch
+    assert gradcam_mask.size() == true_mask.size() == true_mask_invert.size()
+    for i in range(gradcam_mask.size(0)):
+        cur_gc = gradcam_mask[i]
+        cur_mask = true_mask[i]
+        cur_mask_inv = true_mask_invert[i]
+
+        gradcam_miss.append(safe_division(torch.sum(cur_gc * cur_mask_inv), torch.sum(cur_gc)))
+        gradcam_direct.append(safe_division(torch.sum(cur_gc * cur_mask), torch.sum(cur_gc)))
+
+
+def measure_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor, sam_direct: List[List[float]],
+                        sam_miss: List[List[float]], jaccard: List[List[float]]):
+    """
+    Measure SAM attention metrics and IoU
+
+    @param sam_output[i] - SAM-output #i
+    @param segm - true mask, shape B x 3 x H x W
+    @param sam_miss - list of sam_att_miss metric values for current epoch for each SAM (e.g. sam_miss[0] - for SAM-0)
+    @param sam_direct - list of sam_att_direct metric values for current epoch for each SAM (e.g. sam_direct[0] - for SAM-0)
+    @param jaccard - list of iou metric values for current epoch for each SAM (e.g. jaccard[0] - for SAM-0)
+    """
+
+    # initial segm size = [1, 3, 224, 224]
+    maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+    maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+    maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+
+    true_mask1 = maxpool_segm1(segm)
+    true_mask2 = maxpool_segm2(segm)
+    true_mask3 = maxpool_segm3(segm)
+
+    true_mask_inv1 = 1 - true_mask1
+    true_mask_inv2 = 1 - true_mask2
+    true_mask_inv3 = 1 - true_mask3
+
+    true_masks = [true_mask1, true_mask2, true_mask3]
+    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+
+    # measure SAM attention metrics
+    for i in range(SAM_AMOUNT):
+        cur_sam_batch = sam_output[i].detach().clone().cpu()
+        cur_mask_batch = true_masks[i].detach().clone().cpu()
+        cur_mask_inv_batch = invert_masks[i].detach().clone().cpu()
+
+        # iterate over batch to calculate metrics on each image of the batch
+        assert cur_sam_batch.size() == cur_mask_batch.size()
+        for j in range(cur_sam_batch.size(0)):
+            cur_sam = cur_sam_batch[j]
+            cur_mask = cur_mask_batch[j]
+            cur_mask_inv = cur_mask_inv_batch[j]
+
+            sam_miss[i].append(safe_division(torch.sum(cur_sam * cur_mask_inv),
+                                             torch.sum(cur_sam)))
+            sam_direct[i].append(safe_division(torch.sum(cur_sam * cur_mask),
+                                               torch.sum(cur_sam)))
+            jaccard[i].append(calculate_iou((cur_sam > 0.5).int(), cur_mask.int()))
+
+
+def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_criterion, sam_criterion_outer):
+    """
+    @param segm: true mask, shape B x 3 x H x W
+    @param sam_output[i] - SAM-output #i
+    @param sam_criterion - nn.BCELoss() (witch or w/o CUDA)
+    @param sam_criterion_outer - nn.BCELoss(reduction='none') (witch or w/o CUDA)
+    """
+    maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+    maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+    maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+
+    true_mask1 = maxpool_segm1(segm)
+    true_mask2 = maxpool_segm2(segm)
+    true_mask3 = maxpool_segm3(segm)
+
+    true_mask_inv1 = 1 - true_mask1
+    true_mask_inv2 = 1 - true_mask2
+    true_mask_inv3 = 1 - true_mask3
+
+    true_masks = [true_mask1, true_mask2, true_mask3]
+    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+
+    loss_outer_sum = [0 for _ in range(SAM_AMOUNT)]
+    loss_inv_sum = [0 for _ in range(SAM_AMOUNT)]
+
+    assert len(true_masks) == SAM_AMOUNT
+    # iterate over SAM number
+    for i in range(SAM_AMOUNT):
+        # iterate over batch
+        for j in range(len(true_masks[i])):
+            cur_mask = true_masks[i][j]
+            cur_mask_inv = invert_masks[i][j]
+            cur_sam_output = sam_output[i][j]
+
+            loss_outer_sum[i] += safe_division(
+                torch.sum(sam_criterion_outer(cur_sam_output, cur_mask) * cur_mask_inv),
+                torch.sum(cur_mask_inv))
+
+            loss_inv_sum[i] += safe_division(
+                torch.sum(sam_criterion_outer(cur_sam_output, cur_mask_inv) * cur_mask),
+                torch.sum(cur_mask))
+
+    loss = [None for _ in range(SAM_AMOUNT)]
+    loss_inv = [None for _ in range(SAM_AMOUNT)]
+
+    loss_outer = [None for _ in range(SAM_AMOUNT)]
+    loss_outer_inv = [None for _ in range(SAM_AMOUNT)]
+
+    for i in range(SAM_AMOUNT):
+
+        loss[i] = args.lmbd * sam_criterion(sam_output[i], true_masks[i])
+        loss_inv[i] = args.lmbd * sam_criterion(sam_output[i], invert_masks[i])
+
+        loss_outer[i] = args.lmbd * loss_outer_sum[i] / args.batch_size
+        loss_outer_inv[i] = args.lmbd * loss_inv_sum[i] / args.batch_size
+    return loss, loss_inv, loss_outer, loss_outer_inv
+
+
+def choose_add_loss(loss: list, loss_inv: list, loss_outer: list, loss_outer_inv: list):
+    """
+    The choice of additional loss depends on args.number.
+    Arguments - lists of already calculated losses, len of the list equals SAM_AMOUNT
+
+    @param loss - default SAM-loss
+    @param loss_inv: SAM-loss calculated with invert mask
+    @param loss_outer: outer SAM-loss
+    @param loss_outer_inv: outer SAM-loss calculated with invert mask
+    """
+    if args.number == 0:
+        return 0
+    assert len(loss) == len(loss_inv) == len(loss_outer) == len(loss_outer_inv) == SAM_AMOUNT
+
+    loss_add = None
+    if args.number == 1:
+        loss_add = loss[0]
+    elif args.number == -1:
+        loss_add = loss_inv[0]
+    elif args.number == 2:
+        loss_add = loss[1]
+    elif args.number == -2:
+        loss_add = loss_inv[1]
+    elif args.number == 3:
+        loss_add = loss[2]
+    elif args.number == -3:
+        loss_add = loss_inv[2]
+    elif args.number == 5:
+        loss_add = sum(loss)
+    elif args.number == -5:
+        loss_add = sum(loss_inv)
+    elif args.number == 10:
+        loss_add = loss_outer[0]
+    elif args.number == -10:
+        loss_add = loss_outer_inv[0]
+    elif args.number == 20:
+        loss_add = loss_outer[1]
+    elif args.number == -20:
+        loss_add = loss_outer_inv[1]
+    elif args.number == 30:
+        loss_add = loss_outer[2]
+    elif args.number == -30:
+        loss_add = loss_outer_inv[2]
+    elif args.number == 50:
+        loss_add = sum(loss_outer)
+    elif args.number == -50:
+        loss_add = sum(loss_outer_inv)
+    return loss_add
+
+
+def calculate_and_choose_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_criterion, sam_criterion_outer):
+    """
+    Calculate all add loss and select required one for the current run. The choice depends on the args.number.
+
+    @param segm: true mask, shape B x 3 x H x W
+    @param sam_output[i] - SAM-output #i
+    @param sam_criterion - nn.BCELoss() (witch or w/o CUDA)
+    @param sam_criterion_outer - nn.BCELoss(reduction='none') (witch or w/o CUDA)
+    """
+    return choose_add_loss(*calculate_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer))
+
+
 def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch, epoch_number):
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
     loss_sum_stat = AverageMeter()
     loss_main_stat = AverageMeter()
     loss_add_stat = AverageMeter()
-
     # switch to train mode
     model.train()
-    end = time.time()
-
-    #  decide whether to save checkpoint
-    # if epoch_number % 10 == 0:
-    #     checkpoint_dict = {
-    #         'epoch': epoch,
-    #         'state_dict': model.state_dict(),
-    #         'optimizer': optimizer.state_dict()
-    #     }
-    #     save_checkpoint_to_folder(checkpoint_dict, args.run_name, epoch_number / 10 + 1)
 
     global iou, sam_att_miss, sam_att_direct, gradcam_miss_att, gradcam_direct_att
     for i, dictionary in enumerate(train_loader):
@@ -444,195 +631,23 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
         segm = dictionary['segm']
         if is_server:
             input_img = input_img.cuda(args.cuda_device)
-            # input_img = input_img.cuda()
             target = target.cuda(args.cuda_device)
-            # target = target.cuda()
             segm = segm.cuda(args.cuda_device)
-            # segm = segm.cuda()
 
-        # measure data loading time
-        data_time.update(time.time() - end)
-
-        # sam_output shapes:
-        # [1, 1, 56, 56]x3 , [1, 1, 28, 28]x4 [1, 1, 14, 14]x6 , [1, 1, 7, 7]x3
-
-        # visualize masks/input_image/sam_output
-        # np_sam = torch.squeeze(sam_output[0]).detach().numpy()
-        # np_segm = np.moveaxis(torch.squeeze(segm).detach().numpy(), 0, -1)
-        # np_input = np.moveaxis(torch.squeeze(input_img).detach().numpy(), 0, -1)
-        # plt.imshow(np_segm.astype(np.uint8))
-        # plt.imshow(np_sam)
-        # plt.show()
-
-        # initial segm size = [1, 3, 224, 224]
-        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
-        maxpool_segm0 = nn.MaxPool3d(kernel_size=(3, 1, 1))
-        #
-        processed_segm1 = maxpool_segm1(segm)
-        processed_segm2 = maxpool_segm2(segm)
-        processed_segm3 = maxpool_segm3(segm)
-        # processed_segm4 = maxpool_segm4(segm)
-        processed_segm0 = maxpool_segm0(segm)
-        #
-        processed_segm1_invert = 1 - processed_segm1
-        processed_segm2_invert = 1 - processed_segm2
-        processed_segm3_invert = 1 - processed_segm3
-        # processed_segm4_invert = (processed_segm4 + 1) % 2
-
-        true_mask_invert = (processed_segm0 + 1) % 2
-
-        invert_masks = [processed_segm1_invert, processed_segm2_invert, processed_segm3_invert]
-
-        masks = [processed_segm1, processed_segm2, processed_segm3]
-
-        # compute output
-        # output, sam_output = model(input_img)
-        # output = model(input_img)
-
-        # calculate gradcam metrics + compute output
+        # get gradcam mask + compute output
         target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
+        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
 
-        if args.number == -1:
-            gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True, masks=invert_masks)
-        else:
-            gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
-
-        # measure gradcam attention metrics
-        true_mask_invert = true_mask_invert.detach().cpu().numpy()
-        true_mask = processed_segm0.detach().cpu().numpy()
-        no_norm_gc_mask_numpy = no_norm_gc_mask.detach().cpu().numpy()
-
-        assert true_mask.shape == true_mask_invert.shape
-        assert no_norm_gc_mask_numpy.shape == true_mask_invert.shape
-        for j in range(len(no_norm_gc_mask_numpy)):
-            cur_gc = no_norm_gc_mask_numpy[j]
-            cur_mask = true_mask[j]
-            cur_mask_inv = true_mask_invert[j]
-
-            # gradcam_miss_att.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
-            gradcam_miss_att.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_gc)))
-            # gradcam_direct_att.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
-            gradcam_direct_att.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_gc)))
-
+        # calculate loss
         loss_main = criterion(output, target)
-
-        assert len(processed_segm1) == len(processed_segm2) == len(processed_segm3)
-        loss_outer_sum1 = 0
-        loss_outer_sum2 = 0
-        loss_outer_sum3 = 0
-
-        loss_inv_sum1 = 0
-        loss_inv_sum2 = 0
-        loss_inv_sum3 = 0
-        for j in range(len(processed_segm1)):
-            loss_outer_sum1 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[0][j], processed_segm1[j]) * processed_segm1_invert[j]),
-                torch.sum(processed_segm1_invert[j]))
-
-            loss_inv_sum1 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[0][j], processed_segm1_invert[j]) * processed_segm1[j]),
-                torch.sum(processed_segm1[j]))
-
-            loss_outer_sum2 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[1][j], processed_segm2[j]) * processed_segm2_invert[j]),
-                torch.sum(processed_segm2_invert[j]))
-
-            loss_inv_sum2 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[1][j], processed_segm2_invert[j]) * processed_segm2[j]),
-                torch.sum(processed_segm2[j]))
-
-            loss_outer_sum3 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[2][j], processed_segm3[j]) * processed_segm3_invert[j]),
-                torch.sum(processed_segm3_invert[j]))
-
-            loss_inv_sum3 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[2][j], processed_segm3_invert[j]) * processed_segm3[j]),
-                torch.sum(processed_segm3[j]))
-
-        loss1_outer = args.lmbd * loss_outer_sum1 / args.batch_size
-        loss2_outer = args.lmbd * loss_outer_sum2 / args.batch_size
-        loss3_outer = args.lmbd * loss_outer_sum3 / args.batch_size
-
-        loss1_inv_outer = args.lmbd * loss_inv_sum1 / args.batch_size
-        loss2_inv_outer = args.lmbd * loss_inv_sum2 / args.batch_size
-        loss3_inv_outer = args.lmbd * loss_inv_sum3 / args.batch_size
-
-        loss1 = args.lmbd * sam_criterion(sam_output[0], processed_segm1)
-        loss2 = args.lmbd * sam_criterion(sam_output[1], processed_segm2)
-        loss3 = args.lmbd * sam_criterion(sam_output[2], processed_segm3)
-
-        loss1_inv = args.lmbd * sam_criterion(sam_output[0], processed_segm1_invert)
-        loss2_inv = args.lmbd * sam_criterion(sam_output[1], processed_segm2_invert)
-        loss3_inv = args.lmbd * sam_criterion(sam_output[2], processed_segm3_invert)
-
-        loss_add = 0
-        if args.number == 1:
-            loss_add = loss1
-        elif args.number == -1:
-            loss_add = loss1_inv
-        elif args.number == 2:
-            loss_add = loss2
-        elif args.number == -2:
-            loss_add = loss2_inv
-        elif args.number == 3:
-            loss_add = loss3
-        elif args.number == -3:
-            loss_add = loss3_inv
-        elif args.number == 5:
-            loss_add = loss1 + loss2 + loss3
-        elif args.number == -5:
-            loss_add = loss1_inv + loss2_inv + loss3_inv
-        elif args.number == 10:
-            loss_add = loss1_outer
-        elif args.number == -10:
-            loss_add = loss1_inv_outer
-        elif args.number == 20:
-            loss_add = loss2_outer
-        elif args.number == -20:
-            loss_add = loss2_inv_outer
-        elif args.number == 30:
-            loss_add = loss3_outer
-        elif args.number == -30:
-            loss_add = loss3_inv_outer
-        elif args.number == 50:
-            loss_add = loss1_outer + loss2_outer + loss3_outer
-        elif args.number == -50:
-            loss_add = loss1_inv_outer + loss2_inv_outer + loss3_inv_outer
-
-        # measure sam attention metrics
-        for j in range(SAM_AMOUNT):
-            predicted_sam = sam_output[j].detach().cpu().numpy()
-
-            predicted = (sam_output[j] > 0.5).int()
-            predicted_np = predicted.detach().cpu().numpy()
-
-            expected = masks[j].int()
-            expected_np = expected.detach().cpu().numpy()
-
-            for k in range(len(predicted_sam)):
-                cur_sam = predicted_sam[k]
-                cur_pred = predicted_np[k]
-                cur_expected = expected_np[k]
-
-                # sam_att_miss[j].append(safe_division(np.sum(cur_sam * invert_masks[j][k].cpu().numpy()),
-                #                                      np.sum(invert_masks[j][k].cpu().numpy())))
-                sam_att_miss[j].append(safe_division(np.sum(cur_sam * invert_masks[j][k].cpu().numpy()),
-                                                     np.sum(cur_sam)))
-                # sam_att_direct[j].append(safe_division(np.sum(cur_sam * masks[j][k].cpu().numpy()),
-                #                                        np.sum(masks[j][k].cpu().numpy())))
-                sam_att_direct[j].append(safe_division(np.sum(cur_sam * masks[j][k].cpu().numpy()),
-                                                       np.sum(cur_sam)))
-                iou[j].append(iou_numpy(cur_expected, cur_pred))
-
-        # measure accuracy and record loss
-        measure_accuracy(output.data, target)
-
+        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
         loss_sum = loss_main + loss_add
 
+        # measure metrics
+        measure_accuracy(output.data, target)
+        measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att, gradcam_miss_att)
+        measure_sam_metrics(sam_output, segm, sam_att_direct, sam_att_miss, iou)
         loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
         loss_main_stat.update(loss_main.item(), input_img.size(0))
         loss_sum_stat.update(loss_sum.item(), input_img.size(0))
@@ -642,14 +657,8 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
         loss_sum.backward()
         optimizer.step()
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
-
         if i % args.print_freq == 0:
             print(f'\nEpoch: [{epoch}][{i}/{len(train_loader)}]\t'
-                  f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  f'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   f'Loss {loss_sum_stat.val:.4f} ({loss_sum_stat.avg:.4f})')
             if i > 0:
                 print_metrics()
@@ -657,225 +666,48 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
 
 
 def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_criterion, sam_criterion_outer):
-    batch_time = AverageMeter()
     loss_sum_stat = AverageMeter()
     loss_add_stat = AverageMeter()
     loss_main_stat = AverageMeter()
+
     # switch to evaluate mode
     model.eval()
     global val_vis_image_names
-    end = time.time()
 
-    # sam_concat = [None for _ in range(SAM_AMOUNT)]
     global iou_val, sam_att_miss_val, sam_att_direct_val, gradcam_miss_att_val, gradcam_direct_att_val
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
         segm = dictionary['segm']
         if is_server:
-            # input_img = input_img.cuda()
             input_img = input_img.cuda(args.cuda_device)
-            # target = target.cuda()
             target = target.cuda(args.cuda_device)
-            # segm = segm.cuda()
             segm = segm.cuda(args.cuda_device)
 
-        maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-        maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-        maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-        # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
-        maxpool_segm0 = nn.MaxPool3d(kernel_size=(3, 1, 1))
-
-        processed_segm1 = maxpool_segm1(segm)
-        processed_segm2 = maxpool_segm2(segm)
-        processed_segm3 = maxpool_segm3(segm)
-        # processed_segm4 = maxpool_segm4(segm)
-        processed_segm0 = maxpool_segm0(segm)
-
-        processed_segm1_invert = 1 - processed_segm1
-        processed_segm2_invert = 1 - processed_segm2
-        processed_segm3_invert = 1 - processed_segm3
-        # processed_segm4_invert = (processed_segm4 + 1) % 2
-        true_mask_invert = (processed_segm0 + 1) % 2
-
-        invert_mask = [processed_segm1_invert, processed_segm2_invert, processed_segm3_invert]
-
-        mask = [processed_segm1, processed_segm2, processed_segm3]
-
-        # compute output
-        # with torch.no_grad():
-        #     output, sam_output = model(input_img)
-        # output = model(input_img)
-        # loss = criterion(output, target)
-        # loss = CB_loss(target, output)
-
+        # get gradcam mask + compute output
         target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
+        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
 
-        if args.number == -1:
-            gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, masks=invert_mask)
-        else:
-            gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
-
-        # measure attention metrics
-        true_mask_invert = true_mask_invert.detach().cpu().numpy()
-        true_mask = processed_segm0.detach().cpu().numpy()
-        no_norm_gc_mask_numpy = no_norm_gc_mask.detach().cpu().numpy()
-
-        assert true_mask.shape == true_mask_invert.shape
-        assert no_norm_gc_mask_numpy.shape == true_mask_invert.shape
-
-        for j in range(len(no_norm_gc_mask_numpy)):
-            cur_gc = no_norm_gc_mask_numpy[j]
-            cur_mask = true_mask[j]
-            cur_mask_inv = true_mask_invert[j]
-            # gradcam_miss_att_val.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_mask_inv)))
-            gradcam_miss_att_val.append(safe_division(np.sum(cur_gc * cur_mask_inv), np.sum(cur_gc)))
-            # gradcam_direct_att_val.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_mask)))
-            gradcam_direct_att_val.append(safe_division(np.sum(cur_gc * cur_mask), np.sum(cur_gc)))
-
+        # calculate loss
         loss_main = criterion(output, target)
-
-        assert len(processed_segm1) == len(processed_segm2) == len(processed_segm3)
-        loss_outer_sum1 = 0
-        loss_outer_sum2 = 0
-        loss_outer_sum3 = 0
-
-        loss_inv_sum1 = 0
-        loss_inv_sum2 = 0
-        loss_inv_sum3 = 0
-        for j in range(len(processed_segm1)):
-            loss_outer_sum1 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[0][j], processed_segm1[j]) * processed_segm1_invert[j]),
-                torch.sum(processed_segm1_invert[j]))
-
-            loss_inv_sum1 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[0][j], processed_segm1_invert[j]) * processed_segm1[j]),
-                torch.sum(processed_segm1[j]))
-
-            loss_outer_sum2 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[1][j], processed_segm2[j]) * processed_segm2_invert[j]),
-                torch.sum(processed_segm2_invert[j]))
-
-            loss_inv_sum2 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[1][j], processed_segm2_invert[j]) * processed_segm2[j]),
-                torch.sum(processed_segm2[j]))
-
-            loss_outer_sum3 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[2][j], processed_segm3[j]) * processed_segm3_invert[j]),
-                torch.sum(processed_segm3_invert[j]))
-
-            loss_inv_sum3 += safe_division(
-                torch.sum(sam_criterion_outer(sam_output[2][j], processed_segm3_invert[j]) * processed_segm3[j]),
-                torch.sum(processed_segm3[j]))
-
-        loss1_outer = args.lmbd * loss_outer_sum1 / args.batch_size
-        loss2_outer = args.lmbd * loss_outer_sum2 / args.batch_size
-        loss3_outer = args.lmbd * loss_outer_sum3 / args.batch_size
-
-        loss1_inv_outer = args.lmbd * loss_inv_sum1 / args.batch_size
-        loss2_inv_outer = args.lmbd * loss_inv_sum2 / args.batch_size
-        loss3_inv_outer = args.lmbd * loss_inv_sum3 / args.batch_size
-
-        loss1 = args.lmbd * sam_criterion(sam_output[0], processed_segm1)
-        loss2 = args.lmbd * sam_criterion(sam_output[1], processed_segm2)
-        loss3 = args.lmbd * sam_criterion(sam_output[2], processed_segm3)
-
-        loss1_inv = args.lmbd * sam_criterion(sam_output[0], processed_segm1_invert)
-        loss2_inv = args.lmbd * sam_criterion(sam_output[1], processed_segm2_invert)
-        loss3_inv = args.lmbd * sam_criterion(sam_output[2], processed_segm3_invert)
-
-        loss_add = 0
-        if args.number == 1:
-            loss_add = loss1
-        elif args.number == -1:
-            loss_add = loss1_inv
-        elif args.number == 2:
-            loss_add = loss2
-        elif args.number == -2:
-            loss_add = loss2_inv
-        elif args.number == 3:
-            loss_add = loss3
-        elif args.number == -3:
-            loss_add = loss3_inv
-        elif args.number == 5:
-            loss_add = loss1 + loss2 + loss3
-        elif args.number == -5:
-            loss_add = loss1_inv + loss2_inv + loss3_inv
-        elif args.number == 10:
-            loss_add = loss1_outer
-        elif args.number == -10:
-            loss_add = loss1_inv_outer
-        elif args.number == 20:
-            loss_add = loss2_outer
-        elif args.number == -20:
-            loss_add = loss2_inv_outer
-        elif args.number == 30:
-            loss_add = loss3_outer
-        elif args.number == -30:
-            loss_add = loss3_inv_outer
-        elif args.number == 50:
-            loss_add = loss1_outer + loss2_outer + loss3_outer
-        elif args.number == -50:
-            loss_add = loss1_inv_outer + loss2_inv_outer + loss3_inv_outer
-
-        for j in range(SAM_AMOUNT):
-            # sam_concat[j] = predicted_sam if sam_concat[j] is None \
-            #     else np.concatenate((sam_concat[j], predicted_sam), axis=0)
-
-            predicted_sam = sam_output[j].detach().cpu().numpy()
-
-            predicted = (sam_output[j] > 0.5).int()
-            predicted_np = predicted.detach().cpu().numpy()
-
-            expected = mask[j].int()
-            expected_np = expected.detach().cpu().numpy()
-            for k in range(len(predicted_sam)):
-                cur_sam = predicted_sam[k]
-                cur_pred = predicted_np[k]
-                cur_expected = expected_np[k]
-
-                # sam_att_miss_val[j].append(safe_division(np.sum(cur_sam * invert_mask[j][k].cpu().numpy()),
-                #                                          np.sum(invert_mask[j][k].cpu().numpy())))
-                sam_att_miss_val[j].append(safe_division(np.sum(cur_sam * invert_mask[j][k].cpu().numpy()),
-                                                         np.sum(cur_sam)))
-                # sam_att_direct_val[j].append(safe_division(np.sum(cur_sam * mask[j][k].cpu().numpy()),
-                #                                            np.sum(mask[j][k].cpu().numpy())))
-                sam_att_direct_val[j].append(safe_division(np.sum(cur_sam * mask[j][k].cpu().numpy()),
-                                                           np.sum(cur_sam)))
-                iou_val[j].append(iou_numpy(cur_expected, cur_pred))
-
-        # measure accuracy and record loss
-        measure_accuracy(output.data, target)
+        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
         loss_sum = loss_main + loss_add
-        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
+
+        # measure metrics
+        measure_accuracy(output.data, target)
+        measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att_val, gradcam_miss_att_val)
+        measure_sam_metrics(sam_output, segm, sam_att_direct_val, sam_att_miss_val, iou_val)
         loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
         loss_main_stat.update(loss_main.item(), input_img.size(0))
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
 
         if i % args.print_freq == 0:
             print(f'Validate: [{i}/{len(val_loader)}]\t'
-                  f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   f'Loss {loss_sum_stat.val:.4f} ({loss_sum_stat.avg:.4f})')
             if i != 0:
                 print_metrics()
-    # c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-    # if avg_f1 > avg_f1_val_best:
-    #     save_checkpoint({
-    #         'epoch': epoch,
-    #         'state_dict': model.state_dict(),
-    #         'optimizer': optimizer.state_dict()
-    #     }, args.run_name)
 
-    # for histograms:
-    # for j in range(SAM_AMOUNT):
-    #     values = sam_concat[j].ravel()
-    #     plt.close('all')
-    #     plt.hist(values)
-    #     plt.savefig(f'hists/SAM_{j + 1}/e{epoch + 1}.pdf')
     wandb_log_val(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
 
 
@@ -1415,14 +1247,19 @@ def save_checkpoint(state, prefix):
     #     shutil.copyfile(filename, './checkpoints/%s_model_best.pth.tar' % prefix)
 
 
-def iou_numpy(labels: np.array, outputs: np.array):
-    assert outputs.shape == labels.shape
+def calculate_iou(true_mask, sam_output):
+    """
+    @type sam_output: torch.Tensor SAM which contains only 0 and 1
+    @type true_mask: torch.Tensor - true mask
+    shapes: 1 x H x W
+    """
     SMOOTH = 1e-8
-    outputs = outputs.squeeze()
-    labels = labels.squeeze()
+    assert sam_output.shape == true_mask.shape
+    sam_output = sam_output.squeeze()
+    true_mask = true_mask.squeeze()
 
-    intersection = (outputs & labels).sum()
-    union = (outputs | labels).sum()
+    intersection = (sam_output & true_mask).sum()
+    union = (sam_output | true_mask).sum()
 
     iou_res = (intersection + SMOOTH) / (union + SMOOTH)
     rounded = np.round(iou_res, 5)
