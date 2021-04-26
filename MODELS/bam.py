@@ -45,12 +45,9 @@ class SpatialGate(nn.Module):
             self.gate_s.add_module('gate_s_relu_di_%d' % i, nn.ReLU())
         self.gate_s.add_module('gate_s_conv_final', nn.Conv2d(gate_channel // reduction_ratio, 1, kernel_size=1))
 
-    def forward(self, in_tensor, mask=None):
-        if mask is None:
-            sam_output = self.gate_s(in_tensor)
-            return sam_output.expand_as(in_tensor), torch.sigmoid(sam_output)
-        else:
-            return mask.expand_as(in_tensor), mask
+    def forward(self, in_tensor):
+        sam_output = self.gate_s(in_tensor)
+        return sam_output.expand_as(in_tensor), torch.sigmoid(sam_output)
 
 
 class BAM(nn.Module):
@@ -59,7 +56,7 @@ class BAM(nn.Module):
         self.channel_att = ChannelGate(gate_channel)
         self.spatial_att = SpatialGate(gate_channel)
 
-    def forward(self, in_tensor, mask=None):
-        sam_attention, sam_output = self.spatial_att(in_tensor, mask=mask)
+    def forward(self, in_tensor):
+        sam_attention, sam_output = self.spatial_att(in_tensor)
         att = 1 + torch.sigmoid(self.channel_att(in_tensor) * sam_attention)
         return att * in_tensor, sam_output

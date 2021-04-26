@@ -194,9 +194,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
         # return layers
 
-    def forward(self, x, masks=None):
-        if masks is None:
-            masks = [None, None, None]
+    def forward(self, x):
         sam_output = []
         x = self.conv1(x)
         x = self.bn1(x)
@@ -216,7 +214,7 @@ class ResNet(nn.Module):
 
         if self.bam1 is not None:
             # x = self.bam1(x)
-            x, sam1 = self.bam1(x, masks[0])
+            x, sam1 = self.bam1(x)
             sam_output.append(sam1)
 
         # x, sam3 = self.layer2[0](x, segm[1])
@@ -233,7 +231,7 @@ class ResNet(nn.Module):
 
         if self.bam2 is not None:
             # x = self.bam2(x)
-            x, sam2 = self.bam2(x, masks[1])
+            x, sam2 = self.bam2(x)
             sam_output.append(sam2)
 
         # x, sam7 = self.layer3[0](x, segm[2])
@@ -254,7 +252,7 @@ class ResNet(nn.Module):
 
         if self.bam3 is not None:
             # x = self.bam3(x)
-            x, sam3 = self.bam3(x, masks[2])
+            x, sam3 = self.bam3(x)
             sam_output.append(sam3)
 
         # x, sam13 = self.layer4[0](x, segm[3])
