@@ -159,7 +159,6 @@ class MetricsHolder:
                 self.__expected[j].append(cur_target[j])
                 self.__predicted[j].append(cur_output[j])
 
-    # TODO: actual types - List[List[float]]
     def update_sam_metrics(self, iou: List[float], sam_miss: List[float], sam_direct: List[float]):
         for i in range(SAM_AMOUNT):
             self.__iou_sum[i] += iou[i]
@@ -210,8 +209,8 @@ class BestMetricsHolder(MetricsHolder):
             self.sam_direct[i] = max(self.sam_direct[i], mh.sam_direct[i])
             self.iou[i] = max(self.iou[i], mh.iou[i])
 
-        self.gc_miss = min(self.gradcam_miss, mh.gc_miss)
-        self.gc_direct = max(self.gradcam_direct, mh.gc_direct)
+        self.gc_miss = min(self.gc_miss, mh.gc_miss)
+        self.gc_direct = max(self.gc_direct, mh.gc_direct)
 
 
 SAM_AMOUNT = 3
@@ -358,6 +357,17 @@ def main():
         False,
         transforms.CenterCrop(size0)
     )
+
+    test_dataset = DatasetISIC2018(
+        test_labels,
+        testdir,
+        segm_dir,
+        size0,
+        False,
+        False,
+        transforms.CenterCrop(size0)
+    )
+
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.batch_size, shuffle=False,
@@ -369,30 +379,23 @@ def main():
         batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True
     )
-
-    # test_dataset = DatasetISIC2018(
-    #     test_labels,
-    #     testdir,
-    #     False,
-    #     False,
-    #     transforms.CenterCrop(size0)
-    # )
-    # test_loader = torch.utils.data.DataLoader(
-    #     test_dataset,
-    #     batch_size=args.batch_size, shuffle=False,
-    #     num_workers=args.workers, pin_memory=True
-    # )
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=args.batch_size, shuffle=True,
+        num_workers=args.workers, pin_memory=True
+    )
 
     for epoch in range(start_epoch, start_epoch + args.epochs):
-        train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch)
+        train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
         validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
+        test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
 
     save_summary()
     if run is not None:
         run.finish()
 
 
-def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch):
+def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
     global best_metrics_train
     metrics_holder = MetricsHolder(TRAIN_AMOUNT)
     # switch to train mode
@@ -482,6 +485,51 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
     metrics_holder.calculate_all_metrcis()
     best_metrics_val.update(metrics_holder)
     wandb_log("val", epoch, metrics_holder)
+
+
+def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch):
+    global best_metrics_test
+    metrics_holder = MetricsHolder(TEST_AMOUNT)
+
+    th = 0.5
+    sigmoid = nn.Sigmoid()
+
+    # switch to evaluate mode
+    model.eval()
+    for i, dictionary in enumerate(test_loader):
+        input_img = dictionary['image']
+        target = dictionary['label']
+        segm = dictionary['segm']
+        if is_server:
+            input_img = input_img.cuda(args.cuda_device)
+            target = target.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
+
+        # get gradcam mask + compute output
+        target_layer = model.layer4
+        gradcam = GradCAM(model, target_layer=target_layer)
+        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
+
+        # calculate loss and update its metrics
+        loss_main = criterion(output, target)
+        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
+        loss_sum = loss_main + loss_add
+        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_sum)
+
+        # update classification metrics
+        activated_output = (sigmoid(output.data) > th).float()
+        metrics_holder.update_expected_predicted(target=target, output=activated_output)
+
+        # calculate and update SAM and gradcam metrics
+        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
+        metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
+
+        if i % args.print_freq == 0:
+            print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
+
+    metrics_holder.calculate_all_metrcis()
+    best_metrics_test.update(metrics_holder)
+    wandb_log("test", epoch, metrics_holder)
 
 
 def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Tensor):
