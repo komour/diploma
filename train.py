@@ -148,7 +148,6 @@ class MetricsHolder:
     def update_expected_predicted(self, target, output):
         # iterate over batch
         assert target.size() == output.size()
-        assert target.size(0) == args.batch_size
         for i in range(target.size(0)):
             cur_target = target[i]
             cur_output = output[i]
@@ -757,7 +756,7 @@ def make_dict_for_log(suffix: str, mh: MetricsHolder):
     Or converts MetricsHolder to dict.
     """
 
-    log_dict = {f'loss/combg_{suffix}': mh.loss_comb, f'loss/add_{suffix}': mh.loss_add,
+    log_dict = {f'loss/comb_{suffix}': mh.loss_comb, f'loss/add_{suffix}': mh.loss_add,
                 f'loss/main_{suffix}': mh.loss_main,
                 f'gradcam_miss_{suffix}': mh.gc_miss, f'gradcam_direct_{suffix}': mh.gc_direct}
 
