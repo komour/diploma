@@ -106,11 +106,6 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    # block = BottleNeck
-    # layers = [3, 4, 6, 3] (depth = 50)
-    # network_type = ImageNet
-    # num_classes = 5
-    # att_type = CBAM
     def __init__(self, block, layers, network_type, num_classes, att_type=None, image_size=256):
         self.inplanes = 64
         super(ResNet, self).__init__()
@@ -140,27 +135,6 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2, att_type=att_type)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2, att_type=att_type)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2, att_type=att_type)
-        # self.cbam_after_layer4 = CBAM(2048, 16)
-
-        # self.l0 = self.layerList1[0]
-        # self.l1 = self.layerList1[1]
-        # self.l2 = self.layerList1[2]
-        #
-        # self.l3 = self.layerList2[0]
-        # self.l4 = self.layerList2[1]
-        # self.l5 = self.layerList2[2]
-        # self.l6 = self.layerList2[3]
-        #
-        # self.l7 = self.layerList3[0]
-        # self.l8 = self.layerList3[1]
-        # self.l9 = self.layerList3[2]
-        # self.l10 = self.layerList3[3]
-        # self.l11 = self.layerList3[4]
-        # self.l12 = self.layerList3[5]
-        #
-        # self.l13 = self.layerList4[0]
-        # self.l14 = self.layerList4[1]
-        # self.l15 = self.layerList4[2]
 
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
@@ -202,70 +176,26 @@ class ResNet(nn.Module):
         if self.network_type == "ImageNet":  # true
             x = self.maxpool(x)
 
-        # x, sam0 = self.layer1[0](x, segm[0])
-        # sam_output.append(sam0)
-        # x, sam1 = self.layer1[1](x, segm[0])
-        # sam_output.append(sam1)
-        # x, sam2 = self.layer1[2](x, segm[0])
-        # sam_output.append(sam2)
-
         x = self.layer1(x)
-        # x, sam1 = self.layer1(x)
 
         if self.bam1 is not None:
-            # x = self.bam1(x)
             x, sam1 = self.bam1(x)
             sam_output.append(sam1)
 
-        # x, sam3 = self.layer2[0](x, segm[1])
-        # sam_output.append(sam3)
-        # x, sam4 = self.layer2[1](x, segm[1])
-        # sam_output.append(sam4)
-        # x, sam5 = self.layer2[2](x, segm[1])
-        # sam_output.append(sam5)
-        # x, sam6 = self.layer2[3](x, segm[1])
-        # sam_output.append(sam6)
-
         x = self.layer2(x)
-        # x, sam2 = self.layer2(x)
 
         if self.bam2 is not None:
-            # x = self.bam2(x)
             x, sam2 = self.bam2(x)
             sam_output.append(sam2)
 
-        # x, sam7 = self.layer3[0](x, segm[2])
-        # sam_output.append(sam7)
-        # x, sam8 = self.layer3[1](x, segm[2])
-        # sam_output.append(sam8)
-        # x, sam9 = self.layer3[2](x, segm[2])
-        # sam_output.append(sam9)
-        # x, sam10 = self.layer3[3](x, segm[2])
-        # sam_output.append(sam10)
-        # x, sam11 = self.layer3[4](x, segm[2])
-        # sam_output.append(sam11)
-        # x, sam12 = self.layer3[5](x, segm[2])
-        # sam_output.append(sam12)
-
-        # x, sam3 = self.layer3(x)
         x = self.layer3(x)
 
         if self.bam3 is not None:
-            # x = self.bam3(x)
             x, sam3 = self.bam3(x)
             sam_output.append(sam3)
 
-        # x, sam13 = self.layer4[0](x, segm[3])
-        # sam_output.append(sam13)
-        # x, sam14 = self.layer4[1](x, segm[3])
-        # sam_output.append(sam14)
-        # x, sam15 = self.layer4[2](x, segm[3])
-        # sam_output.append(sam15)
-
         x = self.layer4(x)
-        # x, sam4 = self.layer4(x)
 
-        # x, sam_add = self.cbam_after_layer4(x) #  added CBAM here
         if self.network_type == "ImageNet":
             x = self.avgpool(x)
         else:
@@ -276,8 +206,6 @@ class ResNet(nn.Module):
         return x, sam_output
 
 
-# att_type = CBAM
-# network_type = ImageNet
 def ResidualNet(network_type, depth, num_classes, att_type, image_size):
     assert network_type in ["ImageNet", "CIFAR10", "CIFAR100"], "network type should be ImageNet or CIFAR10 / CIFAR100"
     assert depth in [18, 34, 50, 101], 'network depth should be 18, 34, 50 or 101'
