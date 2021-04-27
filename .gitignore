@@ -1,4 +1,6 @@
 # .gitignore
+setup.cfg
+pyproject.toml
 # data/
 .DS_Store
 .idea/
