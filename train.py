@@ -180,11 +180,17 @@ class MetricsHolder:
         self.gc_direct = self.__gc_direct_sum / self.objects_amount
 
     def calculate_classification_metrics(self):
+        # strange things here, but it doesn't work w/o them
+        expected = [np.empty([1])] * CLASS_AMOUNT
+        predicted = [np.empty([1])] * CLASS_AMOUNT
         for i in range(CLASS_AMOUNT):
-            self.f1[i] = f1_score(self.__expected[i], self.__predicted[i], average="binary")
-            self.mAP[i] = average_precision_score(self.__expected[i], self.__predicted[i])
-            self.prec[i] = precision_score(self.__expected[i], self.__predicted[i], average="binary")
-            self.recall[i] = recall_score(self.__expected[i], self.__predicted[i], average="binary")
+            expected[i] = np.asarray(self.__expected[i]).astype(float)
+            predicted[i] = np.asarray(self.__predicted[i]).astype(float)
+        for i in range(CLASS_AMOUNT):
+            self.f1[i] = f1_score(expected[i], predicted[i], average="binary")
+            self.mAP[i] = average_precision_score(expected[i], predicted[i])
+            self.prec[i] = precision_score(expected[i], predicted[i], average="binary")
+            self.recall[i] = recall_score(expected[i], predicted[i], average="binary")
 
         # reminder: average value is in the last element of the list
         self.f1[-1] = sum([x for i, x in enumerate(self.f1) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
@@ -430,6 +436,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
         # calculate and update SAM and gradcam metrics
         metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
         metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
+        metrics_holder.calculate_all_metrcis()
 
         optimizer.zero_grad()
         loss_sum.backward()
