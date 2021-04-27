@@ -426,8 +426,8 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
         # calculate loss
         loss_main = criterion(output, target)
         loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
-        loss_sum = loss_main + loss_add
-        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_sum)
+        loss_comb = loss_main + loss_add
+        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
@@ -436,10 +436,9 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
         # calculate and update SAM and gradcam metrics
         metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
         metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
-        metrics_holder.calculate_all_metrcis()
 
         optimizer.zero_grad()
-        loss_sum.backward()
+        loss_comb.backward()
         optimizer.step()
 
         if i % args.print_freq == 0:
@@ -475,8 +474,8 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
         # calculate loss and update its metrics
         loss_main = criterion(output, target)
         loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
-        loss_sum = loss_main + loss_add
-        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_sum)
+        loss_comb = loss_main + loss_add
+        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
@@ -520,8 +519,8 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
         # calculate loss and update its metrics
         loss_main = criterion(output, target)
         loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
-        loss_sum = loss_main + loss_add
-        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_sum)
+        loss_comb = loss_main + loss_add
+        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
@@ -758,7 +757,7 @@ def make_dict_for_log(suffix: str, mh: MetricsHolder):
     Or converts MetricsHolder to dict.
     """
 
-    log_dict = {f'loss/sum_{suffix}': mh.loss_sum, f'loss/add_{suffix}': mh.loss_add,
+    log_dict = {f'loss/combg_{suffix}': mh.loss_comb, f'loss/add_{suffix}': mh.loss_add,
                 f'loss/main_{suffix}': mh.loss_main,
                 f'gradcam_miss_{suffix}': mh.gc_miss, f'gradcam_direct_{suffix}': mh.gc_direct}
 
