@@ -79,6 +79,9 @@ args = parser.parse_args()
 is_server = args.is_server == 1
 SAM_AMOUNT = 3
 CLASS_AMOUNT = 5
+TRAIN_AMOUNT = 1600
+VAL_AMOUNT = 400
+TEST_AMOUNT = 594
 
 if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
@@ -97,63 +100,19 @@ avg_recall_best = 0
 avg_recall_val_best = 0
 
 # +1 for average value
-f1_trn_best = [0 for _ in range(CLASS_AMOUNT + 1)]
-f1_val_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+f1_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
+f1_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
 
-mAP_trn_best = [0 for _ in range(CLASS_AMOUNT + 1)]
-mAP_val_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+mAP_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
+mAP_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
 
-prec_trn_best = [0 for _ in range(CLASS_AMOUNT + 1)]
-prec_val_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+prec_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
+prec_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
 
-recall_trn_best = [0 for _ in range(CLASS_AMOUNT + 1)]
-recall_val_best = [0 for _ in range(CLASS_AMOUNT + 1)]
+recall_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
+recall_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
 
-c1_f1_best = 0
-c1_f1_val_best = 0
-c2_f1_best = 0
-c2_f1_val_best = 0
-c3_f1_best = 0
-c3_f1_val_best = 0
-c4_f1_best = 0
-c4_f1_val_best = 0
-c5_f1_best = 0
-c5_f1_val_best = 0
-
-c1_mAP_best = 0
-c1_mAP_val_best = 0
-c2_mAP_best = 0
-c2_mAP_val_best = 0
-c3_mAP_best = 0
-c3_mAP_val_best = 0
-c4_mAP_best = 0
-c4_mAP_val_best = 0
-c5_mAP_best = 0
-c5_mAP_val_best = 0
-
-c1_prec_best = 0
-c1_prec_val_best = 0
-c2_prec_best = 0
-c2_prec_val_best = 0
-c3_prec_best = 0
-c3_prec_val_best = 0
-c4_prec_best = 0
-c4_prec_val_best = 0
-c5_prec_best = 0
-c5_prec_val_best = 0
-
-c1_recall_best = 0
-c1_recall_val_best = 0
-c2_recall_best = 0
-c2_recall_val_best = 0
-c3_recall_best = 0
-c3_recall_val_best = 0
-c4_recall_best = 0
-c4_recall_val_best = 0
-c5_recall_best = 0
-c5_recall_val_best = 0
-
-# SAM miss attention metric
+# SAM miss attention metrics
 sam_att_miss = [[] for _ in range(SAM_AMOUNT)]
 sam_att_direct = [[] for _ in range(SAM_AMOUNT)]
 
@@ -367,9 +326,6 @@ def main():
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True
     )
-    if args.evaluate:
-        validate(val_loader, model, criterion, 0, optimizer, args.epochs)
-        return
 
     train_dataset = DatasetISIC2018(
         train_labels,
@@ -414,9 +370,11 @@ def main():
         clear_expected_predicted()
         validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_criterion, sam_criterion_outer)
         epoch_number += 1
+        break
 
     save_summary()
-    run.finish()
+    if run is not None:
+        run.finish()
 
 
 def measure_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Tensor, gradcam_direct: List[float],
@@ -547,7 +505,6 @@ def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_
     loss_outer_inv = [None for _ in range(SAM_AMOUNT)]
 
     for i in range(SAM_AMOUNT):
-
         loss[i] = args.lmbd * sam_criterion(sam_output[i], true_masks[i])
         loss_inv[i] = args.lmbd * sam_criterion(sam_output[i], invert_masks[i])
 
@@ -606,7 +563,8 @@ def choose_add_loss(loss: list, loss_inv: list, loss_outer: list, loss_outer_inv
     return loss_add
 
 
-def calculate_and_choose_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_criterion, sam_criterion_outer):
+def calculate_and_choose_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_criterion,
+                                         sam_criterion_outer):
     """
     Calculate all add loss and select required one for the current run. The choice depends on the args.number.
 
@@ -657,12 +615,11 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
         optimizer.zero_grad()
         loss_sum.backward()
         optimizer.step()
+        if i == 10:
+            break
 
         if i % args.print_freq == 0:
-            print(f'\nEpoch: [{epoch}][{i}/{len(train_loader)}]\t'
-                  f'Loss {loss_sum_stat.val:.4f} ({loss_sum_stat.avg:.4f})')
-            if i > 0:
-                print_metrics()
+            print(f'Train: [{epoch}][{i}/{len(train_loader)}]')
     wandb_log_train(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
 
 
@@ -703,11 +660,11 @@ def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_c
         loss_main_stat.update(loss_main.item(), input_img.size(0))
         loss_sum_stat.update(loss_sum.item(), input_img.size(0))
 
+        if i == 10:
+            break
+
         if i % args.print_freq == 0:
-            print(f'Validate: [{i}/{len(val_loader)}]\t'
-                  f'Loss {loss_sum_stat.val:.4f} ({loss_sum_stat.avg:.4f})')
-            if i != 0:
-                print_metrics()
+            print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
 
     wandb_log_val(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
 
@@ -763,107 +720,59 @@ def clear_expected_predicted():
 
 
 def count_mAP():
-    mAP_per_class = [-1.0 for _ in range(CLASS_AMOUNT)]
+    mAP_per_class = [-1. for _ in range(CLASS_AMOUNT)]
     for i in range(CLASS_AMOUNT):
         mAP_per_class[i] = average_precision_score(epochs_expected[i], epochs_predicted[i])
     avg_mAP = sum(mAP_per_class) / CLASS_AMOUNT
-    return tuple(mAP_per_class) + (avg_mAP,)
+    return mAP_per_class + [avg_mAP]
 
 
 def count_precision():
-    prec_per_class = [-1.0 for _ in range(CLASS_AMOUNT)]
+    prec_per_class = [-1. for _ in range(CLASS_AMOUNT)]
     for i in range(CLASS_AMOUNT):
         prec_per_class[i] = precision_score(epochs_expected[i], epochs_predicted[i], average="binary")
     avg_prec = sum(prec_per_class) / CLASS_AMOUNT
-    return tuple(prec_per_class) + (avg_prec,)
+    return prec_per_class + [avg_prec]
 
 
 def count_recall():
-    recall_per_class = [-1.0 for _ in range(CLASS_AMOUNT)]
+    recall_per_class = [-1. for _ in range(CLASS_AMOUNT)]
     for i in range(CLASS_AMOUNT):
         recall_per_class[i] = recall_score(epochs_expected[i], epochs_predicted[i], average="binary")
     avg_recall = sum(recall_per_class) / CLASS_AMOUNT
-    return tuple(recall_per_class) + (avg_recall,)
+    return recall_per_class + [avg_recall]
 
 
 def count_f1():
-    f1_per_class = [-1.0 for _ in range(CLASS_AMOUNT)]
+    f1_per_class = [-1. for _ in range(CLASS_AMOUNT)]
     for i in range(CLASS_AMOUNT):
         f1_per_class[i] = f1_score(epochs_expected[i], epochs_predicted[i], average="binary")
     avg_f1 = sum(f1_per_class) / CLASS_AMOUNT
-    return tuple(f1_per_class) + (avg_f1,)
+    return f1_per_class + [avg_f1]
 
 
 def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
     if not is_server:
         return
 
-    global c1_f1_best, c2_f1_best, c3_f1_best, c4_f1_best, c5_f1_best
-    global c1_mAP_best, c2_mAP_best, c3_mAP_best, c4_mAP_best, c5_mAP_best
-    global c1_recall_best, c2_recall_best, c3_recall_best, c4_recall_best, c5_recall_best
-    global c1_prec_best, c2_prec_best, c3_prec_best, c4_prec_best, c5_prec_best
-    global avg_f1_best, avg_mAP_best, avg_recall_best, avg_prec_best
+    global f1_trn_best, mAP_trn_best, prec_trn_best, recall_trn_best
     global sam_att_miss, sam_att_miss_best, iou, iou_best, gradcam_miss_att, gradcam_miss_att_best
     global sam_att_direct, sam_att_direct_best
     global gradcam_direct_att, gradcam_direct_att_best
 
-    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-    c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
-    c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
-    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    mAP_list = count_mAP()
+    prec_list = count_precision()
+    recall_list = count_recall()
+    f1_list = count_f1()
 
-    if avg_f1 > avg_f1_best:
-        avg_f1_best = avg_f1
-    if avg_mAP > avg_mAP_best:
-        avg_mAP_best = avg_mAP
-    if avg_recall > avg_recall_best:
-        avg_recall_best = avg_recall
-    if avg_prec > avg_prec_best:
-        avg_prec_best = avg_prec
+    # lists contains metric value of each class + average value as the last element
+    assert len(f1_list) == len(recall_list) == len(prec_list) == len(mAP_list) == CLASS_AMOUNT + 1
 
-    if c1_mAP > c1_mAP_best:
-        c1_mAP_best = c1_mAP
-    if c2_mAP > c2_mAP_best:
-        c2_mAP_best = c2_mAP
-    if c3_mAP > c3_mAP_best:
-        c3_mAP_best = c3_mAP
-    if c4_mAP > c4_mAP_best:
-        c4_mAP_best = c4_mAP
-    if c5_mAP > c5_mAP_best:
-        c5_mAP_best = c5_mAP
-
-    if c1_prec > c1_prec_best:
-        c1_prec_best = c1_prec
-    if c2_prec > c2_prec_best:
-        c2_prec_best = c2_prec
-    if c3_prec > c3_prec_best:
-        c3_prec_best = c3_prec
-    if c4_prec > c4_prec_best:
-        c4_prec_best = c4_prec
-    if c5_prec > c5_prec_best:
-        c5_prec_best = c5_prec
-
-    if c1_recall > c1_recall_best:
-        c1_recall_best = c1_recall
-    if c2_recall > c2_recall_best:
-        c2_recall_best = c2_recall
-    if c3_recall > c3_recall_best:
-        c3_recall_best = c3_recall
-    if c4_recall > c4_recall_best:
-        c4_recall_best = c4_recall
-    if c5_recall > c5_recall_best:
-        c5_recall_best = c5_recall
-
-    if c1_f1 > c1_f1_best:
-        c1_f1_best = c1_f1
-    if c2_f1 > c2_f1_best:
-        c2_f1_best = c2_f1
-    if c3_f1 > c3_f1_best:
-        c3_f1_best = c3_f1
-    if c4_f1 > c4_f1_best:
-        c4_f1_best = c4_f1
-    if c5_f1 > c5_f1_best:
-        c5_f1_best = c5_f1
+    for i in range(CLASS_AMOUNT + 1):
+        f1_trn_best[i] = max(f1_list[i], f1_trn_best[i])
+        mAP_trn_best[i] = max(mAP_list[i], mAP_trn_best[i])
+        prec_trn_best[i] = max(prec_list[i], prec_trn_best[i])
+        recall_trn_best[i] = max(recall_list[i], recall_trn_best[i])
 
     # attention metrics
     iou_avg = [-1. for _ in range(SAM_AMOUNT)]
@@ -871,126 +780,87 @@ def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
     sam_att_direct_avg = [-1. for _ in range(SAM_AMOUNT)]
 
     for j in range(SAM_AMOUNT):
-        assert len(iou[j]) == 1600
-        assert len(sam_att_miss[j]) == 1600
-        assert len(sam_att_direct[j]) == 1600
+        assert len(iou[j]) == TRAIN_AMOUNT
+        assert len(sam_att_miss[j]) == TRAIN_AMOUNT
+        assert len(sam_att_direct[j]) == TRAIN_AMOUNT
 
         iou_avg[j] = sum(iou[j]) / len(iou[j])
         sam_att_miss_avg[j] = sum(sam_att_miss[j]) / len(sam_att_miss[j])
         sam_att_direct_avg[j] = sum(sam_att_direct[j]) / len(sam_att_direct[j])
 
     for j in range(SAM_AMOUNT):
-        iou[j] = []
-        sam_att_miss[j] = []
-        sam_att_direct[j] = []
-
-    for j in range(SAM_AMOUNT):
         iou_best[j] = max(iou_best[j], iou_avg[j])
         sam_att_miss_best[j] = min(sam_att_miss_best[j], sam_att_miss_avg[j])
         sam_att_direct_best[j] = max(sam_att_direct_best[j], sam_att_direct_avg[j])
 
-    assert len(gradcam_direct_att) == len(gradcam_miss_att) == 1600
+    assert len(gradcam_direct_att) == len(gradcam_miss_att) == TRAIN_AMOUNT
     avg_gradcam_miss_att = sum(gradcam_miss_att) / len(gradcam_miss_att)
     avg_gradcam_direct_att = sum(gradcam_direct_att) / len(gradcam_direct_att)
 
     gradcam_miss_att_best = min(gradcam_miss_att_best, avg_gradcam_miss_att)
     gradcam_direct_att_best = max(gradcam_direct_att_best, avg_gradcam_direct_att)
 
-    gradcam_miss_att = []
-    gradcam_direct_att = []
+    for j in range(SAM_AMOUNT):
+        iou[j].clear()
+        sam_att_miss[j].clear()
+        sam_att_direct[j].clear()
 
-    wandb.log({"loss/sum_trn": loss_sum, "loss/add_trn": loss_add, "loss/main_trn": loss_main,
-               "mAP/с1_trn": c1_mAP, "mAP/с2_trn": c2_mAP, "mAP/с3_trn": c3_mAP, "mAP/с4_trn": c4_mAP,
-               "mAP/с5_trn": c5_mAP,
-               "mAP/avg_trn": avg_mAP,
-               "prec/c1_trn": c1_prec, "prec/c2_trn": c2_prec, "prec/c3_trn": c3_prec,
-               "prec/c4_trn": c4_prec, "prec/c5_trn": c5_prec, "prec/avg_trn": avg_prec,
-               "recall/c1_trn": c1_recall, "recall/c2_trn": c2_recall, "recall/c3_trn": c3_recall,
-               "recall/c4_trn": c4_recall,
-               "recall/c5_trn": c5_recall, "recall/avg_trn": avg_recall,
-               "f1/c1_trn": c1_f1, "f1/c2_trn": c2_f1, "f1/c3_trn": c3_f1, "f1/c4_trn": c4_f1, "f1/c5_trn": c5_f1,
-               "f1/avg_trn": avg_f1,
-               "IoU/1_trn": iou_avg[0], "IoU/2_trn": iou_avg[1], "IoU/3_trn": iou_avg[2],  # , "IoU/4_trn": iou_avg[3],
-               "sam_att_miss/1_trn": sam_att_miss_avg[0], "sam_att_miss/2_trn": sam_att_miss_avg[1],
-               "sam_att_miss/3_trn": sam_att_miss_avg[2],
-               "sam_att_direct/1_trn": sam_att_direct_avg[0], "sam_att_direct/2_trn": sam_att_direct_avg[1],
-               "sam_att_direct/3_trn": sam_att_direct_avg[2],
-               "gradcam_miss_trn": avg_gradcam_miss_att,
-               "gradcam_direct_trn": avg_gradcam_direct_att
-               },
-              step=epoch)
+    gradcam_miss_att.clear()
+    gradcam_direct_att.clear()
+    dict_for_log = make_dict_for_log(suffix="trn", loss_sum=loss_sum, loss_add=loss_add, loss_main=loss_main,
+                                     mAP_list=mAP_list, prec_list=prec_list, recall_list=recall_list, f1_list=f1_list,
+                                     jaccard=iou_avg, sam_miss=sam_att_direct_avg, sam_direct=sam_att_direct_avg,
+                                     gc_miss=avg_gradcam_miss_att, gc_direct=avg_gradcam_direct_att)
+    wandb.log(dict_for_log, step=epoch)
+
+
+def make_dict_for_log(suffix: str, loss_sum: float, loss_add: float, loss_main: float, mAP_list: List[float],
+                      prec_list: List[float], recall_list: List[float], f1_list: List[float], jaccard: List[float],
+                      sam_miss: List[float], sam_direct: List[float], gc_miss: float, gc_direct: float):
+    """Takes all metrics and makes dictionary for wand_log"""
+    log_dict = {f'loss/sum_{suffix}': loss_sum, f'loss/add_{suffix}': loss_add, f'loss/main_{suffix}': loss_main,
+                f'gradcam_miss_{suffix}': gc_miss, f'gradcam_direct_{suffix}': gc_direct}
+
+    assert len(f1_list) == len(recall_list) == len(prec_list) == len(mAP_list) == CLASS_AMOUNT + 1
+    for i in range(CLASS_AMOUNT):
+        log_dict[f'f1/c{i + 1}_{suffix}'] = f1_list[i]
+        log_dict[f'mAP/c{i + 1}_{suffix}'] = mAP_list[i]
+        log_dict[f'prec/c{i + 1}_{suffix}'] = prec_list[i]
+        log_dict[f'recall/c{i + 1}_{suffix}'] = recall_list[i]
+    log_dict[f'f1/avg_{suffix}'] = f1_list[-1]
+    log_dict[f'mAP/avg_{suffix}'] = mAP_list[-1]
+    log_dict[f'recall/avg_{suffix}'] = recall_list[-1]
+    log_dict[f'prec/avg_{suffix}'] = prec_list[-1]
+
+    assert len(jaccard) == len(sam_miss) == len(sam_direct) == SAM_AMOUNT
+    for i in range(SAM_AMOUNT):
+        log_dict[f'IoU/{i + 1}_{suffix}'] = jaccard[i]
+        log_dict[f'sam_miss/{i + 1}_{suffix}'] = sam_miss[i]  # previous metric name was "sam_att_miss"
+        log_dict[f'sam_direct/{i + 1}_{suffix}'] = sam_direct[i]  # previous metric name was "sam_att_direct"
+    return log_dict
 
 
 def wandb_log_val(epoch, loss_sum, loss_add, loss_main):
     if not is_server:
         return
-
-    global c1_f1_val_best, c2_f1_val_best, c3_f1_val_best, c4_f1_val_best, c5_f1_val_best
-    global c1_mAP_val_best, c2_mAP_val_best, c3_mAP_val_best, c4_mAP_val_best, c5_mAP_val_best
-    global c1_recall_val_best, c2_recall_val_best, c3_recall_val_best, c4_recall_val_best, c5_recall_val_best
-    global c1_prec_val_best, c2_prec_val_best, c3_prec_val_best, c4_prec_val_best, c5_prec_val_best
-    global avg_f1_val_best, avg_mAP_val_best, avg_recall_val_best, avg_prec_val_best
+    global f1_val_best, mAP_val_best, prec_val_best, recall_val_best
     global sam_att_miss_val, sam_att_miss_val_best, iou_val, iou_val_best, gradcam_miss_att_val, gradcam_miss_att_val_best
     global sam_att_direct_val, sam_att_direct_val_best
     global gradcam_direct_att_val, gradcam_direct_att_val_best
 
-    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-    c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
-    c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
-    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
+    mAP_list = count_mAP()
+    prec_list = count_precision()
+    recall_list = count_recall()
+    f1_list = count_f1()
 
-    if avg_f1 > avg_f1_val_best:
-        avg_f1_val_best = avg_f1
-    if avg_mAP > avg_mAP_val_best:
-        avg_mAP_val_best = avg_mAP
-    if avg_recall > avg_recall_val_best:
-        avg_recall_val_best = avg_recall
-    if avg_prec > avg_prec_val_best:
-        avg_prec_val_best = avg_prec
+    # lists contains metric value of each class + average value on the last slot
+    assert len(f1_list) == len(recall_list) == len(prec_list) == len(mAP_list) == CLASS_AMOUNT + 1
 
-    if c1_mAP > c1_mAP_val_best:
-        c1_mAP_val_best = c1_mAP
-    if c2_mAP > c2_mAP_val_best:
-        c2_mAP_val_best = c2_mAP
-    if c3_mAP > c3_mAP_val_best:
-        c3_mAP_val_best = c3_mAP
-    if c4_mAP > c4_mAP_val_best:
-        c4_mAP_val_best = c4_mAP
-    if c5_mAP > c5_mAP_val_best:
-        c5_mAP_val_best = c5_mAP
-
-    if c1_prec > c1_prec_val_best:
-        c1_prec_val_best = c1_prec
-    if c2_prec > c2_prec_val_best:
-        c2_prec_val_best = c2_prec
-    if c3_prec > c3_prec_val_best:
-        c3_prec_val_best = c3_prec
-    if c4_prec > c4_prec_val_best:
-        c4_prec_val_best = c4_prec
-    if c5_prec > c5_prec_val_best:
-        c5_prec_val_best = c5_prec
-
-    if c1_recall > c1_recall_val_best:
-        c1_recall_val_best = c1_recall
-    if c2_recall > c2_recall_val_best:
-        c2_recall_val_best = c2_recall
-    if c3_recall > c3_recall_val_best:
-        c3_recall_val_best = c3_recall
-    if c4_recall > c4_recall_val_best:
-        c4_recall_val_best = c4_recall
-    if c5_recall > c5_recall_val_best:
-        c5_recall_val_best = c5_recall
-
-    if c1_f1 > c1_f1_val_best:
-        c1_f1_val_best = c1_f1
-    if c2_f1 > c2_f1_val_best:
-        c2_f1_val_best = c2_f1
-    if c3_f1 > c3_f1_val_best:
-        c3_f1_val_best = c3_f1
-    if c4_f1 > c4_f1_val_best:
-        c4_f1_val_best = c4_f1
-    if c5_f1 > c5_f1_val_best:
-        c5_f1_val_best = c5_f1
+    for i in range(CLASS_AMOUNT + 1):
+        f1_val_best[i] = max(f1_list[i], f1_val_best[i])
+        mAP_val_best[i] = max(mAP_list[i], mAP_val_best[i])
+        prec_val_best[i] = max(prec_list[i], prec_val_best[i])
+        recall_val_best[i] = max(recall_list[i], recall_val_best[i])
 
     # attention metrics
     iou_avg = [-1. for _ in range(SAM_AMOUNT)]
@@ -998,55 +868,39 @@ def wandb_log_val(epoch, loss_sum, loss_add, loss_main):
     sam_att_direct_avg = [-1. for _ in range(SAM_AMOUNT)]
 
     for j in range(SAM_AMOUNT):
-        assert len(iou_val[j]) == 400
-        assert len(sam_att_miss_val[j]) == 400
-        assert len(sam_att_direct_val[j]) == 400
+        assert len(iou_val[j]) == VAL_AMOUNT
+        assert len(sam_att_miss_val[j]) == VAL_AMOUNT
+        assert len(sam_att_direct_val[j]) == VAL_AMOUNT
 
         iou_avg[j] = sum(iou_val[j]) / len(iou_val[j])
         sam_att_miss_avg[j] = sum(sam_att_miss_val[j]) / len(sam_att_miss_val[j])
         sam_att_direct_avg[j] = sum(sam_att_direct_val[j]) / len(sam_att_direct_val[j])
 
     for j in range(SAM_AMOUNT):
-        iou_val[j] = []
-        sam_att_miss_val[j] = []
-        sam_att_direct_val[j] = []
-
-    for j in range(SAM_AMOUNT):
         iou_val_best[j] = max(iou_val_best[j], iou_avg[j])
         sam_att_miss_val_best[j] = min(sam_att_miss_val_best[j], sam_att_miss_avg[j])
         sam_att_direct_val_best[j] = max(sam_att_direct_val_best[j], sam_att_direct_avg[j])
 
-    assert len(gradcam_direct_att_val) == len(gradcam_miss_att_val) == 400
+    assert len(gradcam_direct_att_val) == len(gradcam_miss_att_val) == VAL_AMOUNT
     avg_gradcam_miss_att = sum(gradcam_miss_att_val) / len(gradcam_miss_att_val)
     avg_gradcam_direct_att = sum(gradcam_direct_att_val) / len(gradcam_direct_att_val)
 
     gradcam_miss_att_val_best = min(gradcam_miss_att_val_best, avg_gradcam_miss_att)
     gradcam_direct_att_val_best = max(gradcam_direct_att_val_best, avg_gradcam_direct_att)
 
-    gradcam_miss_att_val = []
-    gradcam_direct_att_val = []
+    for j in range(SAM_AMOUNT):
+        iou_val[j].clear()
+        sam_att_miss_val[j].clear()
+        sam_att_direct_val[j].clear()
 
-    wandb.log({"loss/sum_val": loss_sum, "loss/add_val": loss_add, "loss/main_val": loss_main,
-               "mAP/c1_val": c1_mAP, "mAP/c2_val": c2_mAP, "mAP/c3_val": c3_mAP, "mAP/c4_val": c4_mAP,
-               "mAP/c5_val": c5_mAP,
-               "mAP/avg_val": avg_mAP,
-               "prec/c1_val": c1_prec, "prec/c2_val": c2_prec, "prec/c3_val": c3_prec,
-               "prec/c4_val": c4_prec, "prec/c5_val": c5_prec,
-               "prec/avg_val": avg_prec,
-               "recall/c1_val": c1_recall, "recall/c2_val": c2_recall, "recall/c3_val": c3_recall,
-               "recall/c4_val": c4_recall,
-               "recall/c5_val": c5_recall, "recall/avg_val": avg_recall,
-               "f1/c1_val": c1_f1, "f1/c2_val": c2_f1, "f1/c3_val": c3_f1, "f1/c4_val": c4_f1, "f1/c5_val": c5_f1,
-               "f1/avg_val": avg_f1,
-               "IoU/1_val": iou_avg[0], "IoU/2_val": iou_avg[1], "IoU/3_val": iou_avg[2],  # "IoU/4_val": iou_avg[3],
-               "sam_att_miss/1_val": sam_att_miss_avg[0], "sam_att_miss/2_val": sam_att_miss_avg[1],
-               "sam_att_miss/3_val": sam_att_miss_avg[2],
-               "sam_att_direct/1_val": sam_att_direct_avg[0], "sam_att_direct/2_val": sam_att_direct_avg[1],
-               "sam_att_direct/3_val": sam_att_direct_avg[2],
-               "gradcam_miss_val": avg_gradcam_miss_att,
-               "gradcam_direct_val": avg_gradcam_direct_att
-               },
-              step=epoch)
+    gradcam_miss_att_val.clear()
+    gradcam_direct_att_val.clear()
+
+    dict_for_log = make_dict_for_log("val", loss_sum=loss_sum, loss_add=loss_add, loss_main=loss_main,
+                                     mAP_list=mAP_list, prec_list=prec_list, recall_list=recall_list, f1_list=f1_list,
+                                     jaccard=iou_avg, sam_miss=sam_att_miss_avg, sam_direct=sam_att_direct_avg,
+                                     gc_miss=avg_gradcam_miss_att, gc_direct=avg_gradcam_direct_att)
+    wandb.log(dict_for_log, step=epoch)
 
 
 def save_summary():
@@ -1054,68 +908,28 @@ def save_summary():
         return
     print("saving summary..")
     # train
-    run.summary["f1/avg_trn'"] = avg_f1_best
-    run.summary["mAP/avg_trn'"] = avg_mAP_best
-    run.summary["recall/avg_trn'"] = avg_recall_best
-    run.summary["prec/avg_trn'"] = avg_prec_best
+    for i in range(SAM_AMOUNT):
+        run.summary[f"f1/с{i + 1}_trn'"] = f1_trn_best[i]
+        run.summary[f"mAP/с{i + 1}_trn'"] = mAP_trn_best[i]
+        run.summary[f"prec/с{i + 1}_trn'"] = prec_trn_best[i]
+        run.summary[f"recall/с{i + 1}_trn'"] = recall_trn_best[i]
 
-    run.summary["mAP/с1_trn'"] = c1_mAP_best
-    run.summary["mAP/с2_trn'"] = c2_mAP_best
-    run.summary["mAP/с3_trn'"] = c3_mAP_best
-    run.summary["mAP/с4_trn'"] = c4_mAP_best
-    run.summary["mAP/с5_trn'"] = c5_mAP_best
-    # print(f'mAP/с5_trn = {c5_mAP_best}')
-
-    run.summary["prec/c1_trn'"] = c1_prec_best
-    run.summary["prec/c2_trn'"] = c2_prec_best
-    run.summary["prec/c3_trn'"] = c3_prec_best
-    run.summary["prec/c4_trn'"] = c4_prec_best
-    run.summary["prec/c5_trn'"] = c5_prec_best
-    # print(f'prec/c5_trn = {c5_prec_best}')
-
-    run.summary["recall/c1_trn'"] = c1_recall_best
-    run.summary["recall/c2_trn'"] = c2_recall_best
-    run.summary["recall/c3_trn'"] = c3_recall_best
-    run.summary["recall/c4_trn'"] = c4_recall_best
-    run.summary["recall/c5_trn'"] = c5_recall_best
-    # print(f'recall/c5_trn = {c5_recall_best}')
-
-    run.summary["f1/c1_trn'"] = c1_f1_best
-    run.summary["f1/c2_trn'"] = c2_f1_best
-    run.summary["f1/c3_trn'"] = c3_f1_best
-    run.summary["f1/c4_trn'"] = c4_f1_best
-    run.summary["f1/c5_trn'"] = c5_f1_best
-    # print(f'f1/c5_trn = {c5_f1_best}')
+    run.summary["f1/avg_trn'"] = f1_trn_best[-1]
+    run.summary["mAP/avg_trn'"] = mAP_trn_best[-1]
+    run.summary["prec/avg_trn'"] = prec_trn_best[-1]
+    run.summary["recall/avg_trn'"] = recall_trn_best[-1]
 
     # val
-    run.summary["f1/avg_val'"] = avg_f1_val_best
-    run.summary["mAP/avg_val'"] = avg_mAP_val_best
-    run.summary["recall/avg_val'"] = avg_recall_val_best
-    run.summary["prec/avg_val'"] = avg_prec_val_best
+    for i in range(SAM_AMOUNT):
+        run.summary[f"f1/с{i + 1}_val'"] = f1_val_best[i]
+        run.summary[f"mAP/с{i + 1}_val'"] = mAP_val_best[i]
+        run.summary[f"prec/с{i + 1}_val'"] = prec_val_best[i]
+        run.summary[f"recall/с{i + 1}_val'"] = recall_val_best[i]
 
-    run.summary["mAP/c1_val'"] = c1_mAP_val_best
-    run.summary["mAP/c2_val'"] = c2_mAP_val_best
-    run.summary["mAP/c3_val'"] = c3_mAP_val_best
-    run.summary["mAP/c4_val'"] = c4_mAP_val_best
-    run.summary["mAP/c5_val'"] = c5_mAP_val_best
-
-    run.summary["prec/c1_val'"] = c1_prec_val_best
-    run.summary["prec/c2_val'"] = c2_prec_val_best
-    run.summary["prec/c3_val'"] = c3_prec_val_best
-    run.summary["prec/c4_val'"] = c4_prec_val_best
-    run.summary["prec/c5_val'"] = c5_prec_val_best
-
-    run.summary["recall/c1_val'"] = c1_recall_val_best
-    run.summary["recall/c2_val'"] = c2_recall_val_best
-    run.summary["recall/c3_val'"] = c3_recall_val_best
-    run.summary["recall/c4_val'"] = c4_recall_val_best
-    run.summary["recall/c5_val'"] = c5_recall_val_best
-
-    run.summary["f1/c1_val'"] = c1_f1_val_best
-    run.summary["f1/c2_val'"] = c2_f1_val_best
-    run.summary["f1/c3_val'"] = c3_f1_val_best
-    run.summary["f1/c4_val'"] = c4_f1_val_best
-    run.summary["f1/c5_val'"] = c5_f1_val_best
+    run.summary["f1/avg_val'"] = f1_val_best[-1]
+    run.summary["mAP/avg_val'"] = mAP_val_best[-1]
+    run.summary["prec/avg_val'"] = prec_val_best[-1]
+    run.summary["recall/avg_val'"] = recall_val_best[-1]
 
     for j in range(SAM_AMOUNT):
         run.summary[f"sam_att_miss/{j + 1}_trn'"] = sam_att_miss_best[j]
@@ -1134,31 +948,12 @@ def save_summary():
     run.summary["gradcam_direct_val'"] = gradcam_direct_att_val_best
 
 
-def print_metrics():
-    c1_mAP, c2_mAP, c3_mAP, c4_mAP, c5_mAP, avg_mAP = count_mAP()
-    c1_prec, c2_prec, c3_prec, c4_prec, c5_prec, avg_prec = count_precision()
-    c1_recall, c2_recall, c3_recall, c4_recall, c5_recall, avg_recall = count_recall()
-    c1_f1, c2_f1, c3_f1, c4_f1, c5_f1, avg_f1 = count_f1()
-    print(f'mAP {c1_mAP:.3f} {c2_mAP:.3f} {c3_mAP:.3f} {c4_mAP:.3f} {c5_mAP:.3f} ({avg_mAP:.3f})\n'
-          f'precision {c1_prec:.3f} {c2_prec:.3f} {c3_prec:.3f} {c4_prec:.3f} {c5_prec:.3f} ({avg_prec:.3f})\n'
-          f'recall {c1_recall:.3f} {c2_recall:.3f} {c3_recall:.3f} {c4_recall:.3f} {c5_recall:.3f} ({avg_recall:.3f})\n'
-          f'f1 {c1_f1:.3f} {c2_f1:.3f} {c3_f1:.3f} {c4_f1:.3f} {c5_f1:.3f} ({avg_f1:.3f})\n'
-          )
-
-
 def measure_accuracy(output, target):
     th = 0.5
     sigmoid = nn.Sigmoid()
     activated_output = sigmoid(output)
     activated_output = (activated_output > th).float()
     write_expected_predicted(target, activated_output)
-
-
-def save_checkpoint(state, prefix):
-    filename = f'./checkpoints/{prefix}_checkpoint.pth'
-    torch.save(state, filename)
-    # if is_best:
-    #     shutil.copyfile(filename, './checkpoints/%s_model_best.pth.tar' % prefix)
 
 
 def calculate_iou(true_mask, sam_output):
