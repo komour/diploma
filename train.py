@@ -791,7 +791,7 @@ def save_summary():
     summary_dict_test = make_dict_for_log("test", best_metrics_test)
     run.summary.update(summary_dict_train)
     run.summary.update(summary_dict_val)
-    runsummary.update(summary_dict_test)
+    run.summary.update(summary_dict_test)
 
 
 def calculate_iou(true_mask, sam_output):
