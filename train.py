@@ -206,21 +206,6 @@ def main():
 
     start_epoch = 0
 
-    # code to load my own checkpoints:
-    # if args.resume:
-    #     if os.path.isfile(args.resume):
-    #         print(f"=> loading checkpoint '{args.resume}'")
-    #         checkpoint = torch.load(args.resume)
-    #         state_dict = checkpoint['state_dict']
-    #
-    #         model.load_state_dict(state_dict)
-    #         print(f"=> loaded checkpoint '{args.resume}'")
-    #         print(f"epoch = {checkpoint['epoch']}")
-    #         start_epoch = checkpoint['epoch']
-    #     else:
-    #         print(f"=> no checkpoint found at '{args.resume}'")
-    #         return -1
-
     config = dict(
         architecture=f"{args.arch}{args.depth}" if args.arch == "resnet" else args.arch,
         learning_rate=args.lr,
@@ -243,54 +228,22 @@ def main():
         # model = model.cuda()
         model = model.cuda(args.cuda_device)
 
-    # code to load imagenet checkpoint:
-    # create dummy layer to init weights in the state_dict
-    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
-    torch.nn.init.xavier_uniform_(dummy_fc.weight)
-    # optionally resume from a checkpoint
+    # code to load ImageNet checkpoints:
     if args.resume:
         if os.path.isfile(args.resume):
-            print(f"=> loading checkpoint '{args.resume}'")
-            checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
-            state_dict = checkpoint['state_dict']
+            # load ImageNet checkpoints:
+            load_foreign_checkpoint(model)
 
-            state_dict['module.fc.weight'] = dummy_fc.weight
-            state_dict['module.fc.bias'] = dummy_fc.bias
-
-            # remove `module.` prefix because we don't use torch.nn.DataParallel
-
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                name = k[7:]  # remove `module.`
-                new_state_dict[name] = v
-
-            #  load weights to the new added cbam module from the nearest cbam module in checkpoint
-            # new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.weight']
-            # new_state_dict["cbam_after_layer4.ChannelGate.mlp.1.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.1.bias']
-            # new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.weight"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.weight']
-            # new_state_dict["cbam_after_layer4.ChannelGate.mlp.3.bias"] = new_state_dict['layer4.2.cbam.ChannelGate.mlp.3.bias']
-            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.conv.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.conv.weight']
-            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.weight"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.weight']
-            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.bias"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.bias']
-            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_mean"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_mean']
-            # new_state_dict["cbam_after_layer4.SpatialGate.spatial.bn.running_var"] = new_state_dict['layer4.2.cbam.SpatialGate.spatial.bn.running_var']
-
-            model.load_state_dict(new_state_dict)
-
-            # model.load_state_dict(state_dict)
-            print(f"=> loaded checkpoint '{args.resume}'")
-            # print(f"epoch = {checkpoint['epoch']}")
+            # load my own checkpoints:
+            # start_epoch = load_checkpoint(model)
         else:
             print(f"=> no checkpoint found at '{args.resume}'")
             return -1
 
     if is_server:
         wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
-    # print("model")
-    # print(model)
-    # get the number of model parameters
-    print('Number of model parameters: {}'.format(
-        sum([p.data.nelement() for p in model.parameters()])))
+
+    print(f'Number of model parameters: {sum([p.data.nelement() for p in model.parameters()])}')
 
     cudnn.benchmark = True
     # Data loading code
@@ -994,6 +947,42 @@ def create_needed_folders_for_hists():
 
 def safe_division(a, b):
     return 0 if b == 0 else a / b
+
+
+def load_foreign_checkpoint(model):
+    print(f"=> loading checkpoint '{args.resume}'")
+
+    # create dummy layer to init weights in the state_dict
+    dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
+    torch.nn.init.xavier_uniform_(dummy_fc.weight)
+
+    checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
+    # checkpoint = torch.load(args.resume, map_location='cpu')
+    state_dict = checkpoint['state_dict']
+
+    state_dict['module.fc.weight'] = dummy_fc.weight
+    state_dict['module.fc.bias'] = dummy_fc.bias
+
+    # remove `module.` prefix because we don't use torch.nn.DataParallel
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:]  # remove `module.`
+        new_state_dict[name] = v
+
+    model.load_state_dict(new_state_dict)
+    print(f"=> loaded checkpoint '{args.resume}'")
+
+
+def load_checkpoint(model):
+    print(f"=> loading checkpoint '{args.resume}'")
+    checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
+    # checkpoint = torch.load(args.resume, map_location='cpu')
+    state_dict = checkpoint['state_dict']
+
+    model.load_state_dict(state_dict)
+    print(f"=> loaded checkpoint '{args.resume}'")
+    print(f"epoch = {checkpoint['epoch']}")
+    return checkpoint['epoch']
 
 
 if __name__ == '__main__':
