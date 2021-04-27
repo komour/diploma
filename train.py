@@ -1,44 +1,40 @@
 import argparse
+import math
 import os
-import shutil
 import random
-
-import torch
-import torch.nn as nn
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.optim
-import torch.utils.data
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-import torchvision.models as models
-from MODELS.model_resnet import *
-from PIL import ImageFile
-import numpy as np
-import torch.nn.functional as F
-
-from sklearn.metrics import average_precision_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score
-from sklearn.metrics import jaccard_score
+import shutil
+import sys
+from collections import OrderedDict
+from typing import List
 
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torch.backends.cudnn as cudnn
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.nn.parallel
+import torch.optim
+import torch.utils.data
+import torchvision.datasets as datasets
+import torchvision.models as models
+import torchvision.transforms as transforms
+import wandb
+from PIL import ImageFile
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    jaccard_score,
+    precision_score,
+    recall_score,
+)
+from torchvision.utils import make_grid, save_image
 
 from custom_dataset import DatasetISIC2018
-
-import wandb
-
-from collections import OrderedDict
-
-from gradcam.utils import visualize_cam
 from gradcam import GradCAM, GradCAMpp
+from gradcam.utils import visualize_cam
 from MODELS.model_resnet import *
-from torchvision.utils import make_grid, save_image
-import math
-import sys
 
-from typing import List
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 

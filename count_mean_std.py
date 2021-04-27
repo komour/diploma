@@ -1,11 +1,13 @@
-from custom_dataset import DatasetISIC2018
-from torchvision import transforms
-import torch
-import numpy as np
-import torch.nn as nn
 import os
+
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torch.nn as nn
 from PIL import Image
+from torchvision import transforms
+
+from custom_dataset import DatasetISIC2018
 
 valdir = os.path.join('data', 'val')
 val_labels = os.path.join('data', 'val', 'images_onehot_val.txt')

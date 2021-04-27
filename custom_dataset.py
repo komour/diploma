@@ -1,11 +1,12 @@
 import os
-from torch.utils.data.dataset import Dataset
-import torch
-from PIL import Image
-import numpy as np
-from torchvision import transforms
-import torchvision.transforms.functional as TF
 import random
+
+import numpy as np
+import torch
+import torchvision.transforms.functional as TF
+from PIL import Image
+from torch.utils.data.dataset import Dataset
+from torchvision import transforms
 
 
 def label_to_tensor(label):
