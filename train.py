@@ -336,8 +336,8 @@ def main():
     train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
     valdir = os.path.join(root_dir, 'val')
     val_labels = os.path.join(root_dir, 'val', 'images_onehot_val.txt')
-    # testdir = os.path.join(args.data, 'test')
-    # test_labels = os.path.join(args.data, 'test', 'images_onehot_test.txt')
+    testdir = os.path.join(root_dir, 'test')
+    test_labels = os.path.join(root_dir, 'test', 'images_onehot_test.txt')
 
     train_dataset = DatasetISIC2018(
         train_labels,
