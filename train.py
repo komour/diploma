@@ -180,9 +180,9 @@ class MetricsHolder:
             self.sam_miss[i] = self.__sam_miss_sum[i] / self.objects_amount
             self.sam_direct[i] = self.__sam_direct_sum[i] / self.objects_amount
 
-    def update_gradcam_metrics(self, gc_miss, gc_direct):
-        self.__gc_miss_sum += gc_miss
-        self.__gc_direct_sum += gc_direct
+    def update_gradcam_metrics(self, gc_miss_sum: float, gc_direct_sum: float):
+        self.__gc_miss_sum += gc_miss_sum
+        self.__gc_direct_sum += gc_direct_sum
 
     def calculate_gc_metrcis(self):
         self.gc_miss = self.__gc_miss_sum / self.objects_amount
@@ -233,10 +233,6 @@ CLASS_AMOUNT = 5
 TRAIN_AMOUNT = 1600
 VAL_AMOUNT = 400
 TEST_AMOUNT = 594
-
-if not os.path.exists('./checkpoints'):
-    os.mkdir('./checkpoints')
-label_file = 'images-onehot.txt'
 
 best_metrics_val = BestMetricsHolder(VAL_AMOUNT)
 best_metrics_test = BestMetricsHolder(TEST_AMOUNT)
@@ -438,7 +434,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
 
         # calculate and update SAM and gradcam metrics
         metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
-        metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
 
         optimizer.zero_grad()
         loss_comb.backward()
@@ -486,7 +482,7 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
 
         # calculate and update SAM and gradcam metrics
         metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
-        metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
 
         if i % args.print_freq == 0:
             print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
@@ -531,7 +527,7 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
 
         # calculate and update SAM and gradcam metrics
         metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
-        metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
 
         if i % args.print_freq == 0:
             print(f'Test: [{epoch}][{i}/{len(test_loader)}]')
@@ -559,8 +555,8 @@ def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.T
     true_mask = true_mask.detach().clone().cpu()
     gradcam_mask = no_norm_gc_mask_numpy.detach().clone().cpu()
 
-    res_miss = 0.
-    res_direct = 0.
+    gradcam_miss_sum = 0.
+    gradcam_direct_sum = 0.
     # iterate over batch to calculate metrics on each image of the batch
     assert gradcam_mask.size() == true_mask.size() == true_mask_invert.size()
     for i in range(gradcam_mask.size(0)):
@@ -568,12 +564,12 @@ def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.T
         cur_mask = true_mask[i]
         cur_mask_inv = true_mask_invert[i]
 
-        res_miss += safe_division(torch.sum(cur_gc * cur_mask_inv), torch.sum(cur_gc))
-        res_direct += safe_division(torch.sum(cur_gc * cur_mask), torch.sum(cur_gc))
-    return res_miss, res_direct
+        gradcam_miss_sum += safe_division(torch.sum(cur_gc * cur_mask_inv), torch.sum(cur_gc))
+        gradcam_direct_sum += safe_division(torch.sum(cur_gc * cur_mask), torch.sum(cur_gc))
+    return gradcam_miss_sum, gradcam_direct_sum
 
 
-def measure_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
+def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
     """
     Measure SAM attention metrics and IoU
 
