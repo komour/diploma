@@ -1,20 +1,15 @@
 import argparse
 import os
-from collections import OrderedDict
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 import wandb
-from torch.autograd import Function
-from torchvision import models, transforms
-from torchvision.utils import make_grid, save_image
+from torchvision import transforms
 
+from MODELS.model_resnet import *
 from custom_dataset import DatasetISIC2018
 from gradcam import GradCAM, GradCAMpp
 from gradcam.utils import visualize_cam
-from MODELS.model_resnet import *
-
 
 parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Visualization')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
