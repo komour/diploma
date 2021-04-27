@@ -786,9 +786,9 @@ def save_summary():
 
     global run
     global best_metrics_train, best_metrics_val, best_metrics_test
-    summary_dict_train = make_dict_for_log("trn", best_metrics_train)
-    summary_dict_val = make_dict_for_log("val", best_metrics_val)
-    summary_dict_test = make_dict_for_log("test", best_metrics_test)
+    summary_dict_train = make_dict_for_log("trn'", best_metrics_train)
+    summary_dict_val = make_dict_for_log("val'", best_metrics_val)
+    summary_dict_test = make_dict_for_log("test'", best_metrics_test)
     run.summary.update(summary_dict_train)
     run.summary.update(summary_dict_val)
     run.summary.update(summary_dict_test)
