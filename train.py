@@ -1,22 +1,16 @@
 import argparse
+import enum
 import math
 import os
 import random
-import shutil
-import sys
 from collections import OrderedDict
 from typing import List
 
-import matplotlib.pyplot as plt
 import numpy as np
-import torch
 import torch.backends.cudnn as cudnn
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.nn.parallel
 import torch.optim
 import torch.utils.data
-import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
 import wandb
@@ -24,21 +18,41 @@ from PIL import ImageFile
 from sklearn.metrics import (
     average_precision_score,
     f1_score,
-    jaccard_score,
     precision_score,
     recall_score,
 )
-from torchvision.utils import make_grid, save_image
 
-from custom_dataset import DatasetISIC2018
-from gradcam import GradCAM, GradCAMpp
-from gradcam.utils import visualize_cam
 from MODELS.model_resnet import *
-
+from custom_dataset import DatasetISIC2018
+from gradcam import GradCAM
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-parser = argparse.ArgumentParser(description='PyTorch ResNet+CBAM ISIC2018 Training')
+
+class RunType(enum.Enum):
+    BASELINE = "baseline"
+    SAM_1 = "SAM-1"
+    SAM_2 = "SAM-2"
+    SAM_3 = "SAM-3"
+    SAM_ALL = "SAM-all"
+
+    OUTER_SAM_1 = "outer-SAM-1"
+    OUTER_SAM_2 = "outer-SAM-2"
+    OUTER_SAM_3 = "outer-SAM-3"
+    OUTER_SAM_ALL = "outer-SAM-all"
+
+    INV_SAM_1 = "inv-SAM-1"
+    INV_SAM_2 = "inv-SAM-2"
+    INV_SAM_3 = "inv-SAM-3"
+    INV_SAM_ALL = "inv-SAM-all"
+
+    INV_OUTER_SAM_1 = "inv-outer-SAM-1"
+    INV_OUTER_SAM_2 = "inv-outer-SAM-2"
+    INV_OUTER_SAM_3 = "inv-outer-SAM-3"
+    INV_OUTER_SAM_ALL = "inv-outer-SAM-all"
+
+
+parser = argparse.ArgumentParser(description='PyTorch ResNet+BAM ISIC2018 Training')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet')
 parser.add_argument('--depth', default=50, type=int, metavar='D', help='model depth')
 parser.add_argument('--workers', default=4, type=int, metavar='N',
@@ -67,7 +81,7 @@ parser.add_argument('--cuda-device', type=int, default=0)
 parser.add_argument('--run-name', type=str, default='noname run', help='run name on the W&B service')
 parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
-parser.add_argument('--number', type=int, default=0, help='number of run in the run pool')
+parser.add_argument('--run-type', type=RunType, default=RunType.BASELINE, help='type of the current run')
 parser.add_argument('--lmbd', type=int, default=1, help='coefficient for additional loss')
 parser.add_argument('--image-size', type=int, default=256, help='coefficient for additional loss')
 args = parser.parse_args()
@@ -229,12 +243,6 @@ best_metrics_test = BestMetricsHolder(TEST_AMOUNT)
 best_metrics_train = BestMetricsHolder(TRAIN_AMOUNT)
 
 run = None
-
-train_vis_file = open('vis_train.txt')
-train_vis_image_names = train_vis_file.readlines()
-
-val_vis_file = open('vis_val.txt')
-val_vis_image_names = val_vis_file.readlines()
 
 
 def main():
@@ -671,7 +679,7 @@ def get_processed_masks(segm: torch.Tensor):
 
 def choose_add_loss(loss: list, loss_inv: list, loss_outer: list, loss_outer_inv: list):
     """
-    The choice of additional loss depends on args.number.
+    The choice of additional loss depends on args.run_type.
     Arguments - lists of already calculated losses, len of the list equals SAM_AMOUNT
 
     @param loss - default SAM-loss
@@ -679,42 +687,42 @@ def choose_add_loss(loss: list, loss_inv: list, loss_outer: list, loss_outer_inv
     @param loss_outer: outer SAM-loss
     @param loss_outer_inv: outer SAM-loss calculated with invert mask
     """
-    if args.number == 0:
+    if args.run_type == RunType.BASELINE:
         return 0
     assert len(loss) == len(loss_inv) == len(loss_outer) == len(loss_outer_inv) == SAM_AMOUNT
 
     loss_add = None
-    if args.number == 1:
+    if args.run_type == RunType.SAM_1:
         loss_add = loss[0]
-    elif args.number == -1:
+    elif args.run_type == RunType.INV_SAM_1:
         loss_add = loss_inv[0]
-    elif args.number == 2:
+    elif args.run_type == RunType.SAM_2:
         loss_add = loss[1]
-    elif args.number == -2:
+    elif args.run_type == RunType.INV_SAM_2:
         loss_add = loss_inv[1]
-    elif args.number == 3:
+    elif args.run_type == RunType.SAM_3:
         loss_add = loss[2]
-    elif args.number == -3:
+    elif args.run_type == RunType.INV_SAM_3:
         loss_add = loss_inv[2]
-    elif args.number == 5:
+    elif args.run_type == RunType.SAM_ALL:
         loss_add = sum(loss)
-    elif args.number == -5:
+    elif args.run_type == RunType.INV_SAM_ALL:
         loss_add = sum(loss_inv)
-    elif args.number == 10:
+    elif args.run_type == RunType.OUTER_SAM_1:
         loss_add = loss_outer[0]
-    elif args.number == -10:
+    elif args.run_type == RunType.INV_OUTER_SAM_1:
         loss_add = loss_outer_inv[0]
-    elif args.number == 20:
+    elif args.run_type == RunType.OUTER_SAM_2:
         loss_add = loss_outer[1]
-    elif args.number == -20:
+    elif args.run_type == RunType.INV_OUTER_SAM_2:
         loss_add = loss_outer_inv[1]
-    elif args.number == 30:
+    elif args.run_type == RunType.OUTER_SAM_3:
         loss_add = loss_outer[2]
-    elif args.number == -30:
+    elif args.run_type == RunType.INV_OUTER_SAM_3:
         loss_add = loss_outer_inv[2]
-    elif args.number == 50:
+    elif args.run_type == RunType.OUTER_SAM_ALL:
         loss_add = sum(loss_outer)
-    elif args.number == -50:
+    elif args.run_type == RunType.INV_OUTER_SAM_ALL:
         loss_add = sum(loss_outer_inv)
     return loss_add
 
@@ -722,7 +730,7 @@ def choose_add_loss(loss: list, loss_inv: list, loss_outer: list, loss_outer_inv
 def calculate_and_choose_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_criterion,
                                          sam_criterion_outer):
     """
-    Calculate all add loss and select required one for the current run. The choice depends on the args.number.
+    Calculate all add loss and select required one for the current run. The choice depends on the args.run_type.
 
     @param segm: true mask, shape B x 3 x H x W
     @param sam_output[i] - SAM-output #i
@@ -775,6 +783,7 @@ def make_dict_for_log(suffix: str, mh: MetricsHolder):
     return log_dict
 
 
+# noinspection PyUnresolvedReferences
 def save_summary():
     if not is_server:
         return
