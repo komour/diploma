@@ -69,14 +69,11 @@ class DatasetISIC2018(Dataset):
             self.pil_images_segm.append(segm)
 
     def __getitem__(self, idx):
-        # img_path = os.path.join(self.root_dir,
-        #                         self.image_names[idx] + jpg)
-        # segm_path = segm_dir + self.image_names[idx] + segm_suffix + png
-        # img = Image.open(img_path).convert('RGB')
-        # segm = Image.open(segm_path).convert('RGB')
         img = self.pil_images[idx]
         segm = self.pil_images_segm[idx]
-        if self.perform_flips:  # same random transformations for image and mask
+
+        # same random transformations for image and mask
+        if self.perform_flips:
             if random.random() > 0.5:
                 img = TF.hflip(img)
                 segm = TF.hflip(segm)
@@ -84,17 +81,12 @@ class DatasetISIC2018(Dataset):
                 img = TF.vflip(img)
                 segm = TF.vflip(segm)
         if self.perform_crop:
-            scale = (0.08, 1.0)  # for conda
-            # scale = [0.08, 1.0]  # for pip
-            ratio = (3. / 4., 4. / 3.)  # for conda
-            # ratio = [3. / 4., 4. / 3.]  # for pip
+            scale = (0.08, 1.0)
+            ratio = (3. / 4., 4. / 3.)
             i, j, h, w = transforms.RandomResizedCrop.get_params(img, scale, ratio)
-            # size = (self.size0, self.size0)  # for conda
-            size = [self.size0, self.size0]  # for pip
-            img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)  # for conda
-            # img = TF.resized_crop(img, i, j, h, w, size, TF.InterpolationMode.BILINEAR)  # for pip
-            segm = TF.resized_crop(segm, i, j, h, w, size, Image.NEAREST)  # for conda
-            # segm = TF.resized_crop(segm, i, j, h, w, size, TF.InterpolationMode.NEAREST)  # for pip
+            size = (self.size0, self.size0)
+            img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)
+            segm = TF.resized_crop(segm, i, j, h, w, size, Image.NEAREST)
         if self.transform:
             img = self.transform(img)
             segm = self.transform(segm)
