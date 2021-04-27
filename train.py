@@ -344,11 +344,10 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
         measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att, gradcam_miss_att)
         measure_sam_metrics(sam_output, segm, sam_att_direct, sam_att_miss, iou)
 
-        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
-        loss_main_stat.update(loss_main.item(), input_img.size(0))
-        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
+        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add)
+        loss_main_stat.update(loss_main.item())
+        loss_sum_stat.update(loss_sum.item())
 
-        # compute gradient and do SGD step
         optimizer.zero_grad()
         loss_sum.backward()
         optimizer.step()
@@ -397,9 +396,9 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
         measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att_val, gradcam_miss_att_val)
         measure_sam_metrics(sam_output, segm, sam_att_direct_val, sam_att_miss_val, iou_val)
 
-        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
-        loss_main_stat.update(loss_main.item(), input_img.size(0))
-        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
+        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add)
+        loss_main_stat.update(loss_main.item())
+        loss_sum_stat.update(loss_sum.item())
 
         if i % args.print_freq == 0:
             print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
@@ -607,21 +606,21 @@ class AverageMeter(object):
     """Computes and stores the average and current value"""
 
     def __init__(self):
-        self.val = 0
+        self.last_value = 0
         self.avg = 0
         self.sum = 0
         self.count = 0
 
     def reset(self):
-        self.val = 0
+        self.last_value = 0
         self.avg = 0
         self.sum = 0
         self.count = 0
 
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
+    def update(self, value):
+        self.last_value = value
+        self.sum += value
+        self.count += 1
         self.avg = self.sum / self.count
 
 
