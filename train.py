@@ -90,15 +90,6 @@ label_file = 'images-onehot.txt'
 epochs_predicted = [[] for _ in range(CLASS_AMOUNT)]
 epochs_expected = [[] for _ in range(CLASS_AMOUNT)]
 
-avg_f1_best = 0
-avg_f1_val_best = 0
-avg_mAP_best = 0
-avg_mAP_val_best = 0
-avg_prec_best = 0
-avg_prec_val_best = 0
-avg_recall_best = 0
-avg_recall_val_best = 0
-
 # +1 for average value
 f1_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
 f1_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
@@ -157,6 +148,8 @@ def main():
     if is_server:
         wandb.login()
     global args, run
+
+    # parse args and set seed
     args = parser.parse_args()
     print("args", args)
     if args.resume is None:
@@ -164,7 +157,8 @@ def main():
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
-    # create model
+
+    # choose model
     if args.arch == "resnet34":
         model = models.resnet34(pretrained=True)
         model.fc = nn.Linear(512, CLASS_AMOUNT)
@@ -185,26 +179,31 @@ def main():
     else:
         model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM', args.image_size)
 
-    # model = torch.nn.DataParallel(model, device_ids=list(range(4)), output_device=args.cuda_device)
-
     # define loss function (criterion) and optimizer
     pos_weight_train = torch.Tensor(
         [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
     if is_server:
-        # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda()
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
-        # sam_criterion_outer = nn.BCELoss(reduction='none').cuda()
         sam_criterion_outer = nn.BCELoss(reduction='none').cuda(args.cuda_device)
-        # sam_criterion = nn.BCELoss().cuda()
         sam_criterion = nn.BCELoss().cuda(args.cuda_device)
     else:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
         sam_criterion_outer = nn.BCELoss(reduction='none')
         sam_criterion = nn.BCELoss()
-    # optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
+    # load checkpoint
     start_epoch = 0
+    if args.resume:
+        if os.path.isfile(args.resume):
+            # load ImageNet checkpoints:
+            load_foreign_checkpoint(model)
+
+            # load my own checkpoints:
+            # start_epoch = load_checkpoint(model)
+        else:
+            print(f"=> no checkpoint found at '{args.resume}'")
+            return -1
 
     config = dict(
         architecture=f"{args.arch}{args.depth}" if args.arch == "resnet" else args.arch,
@@ -223,29 +222,14 @@ def main():
     )
     if is_server:
         run = wandb.init(config=config, project="vol.7", name=args.run_name, tags=args.tags)
-
     if is_server:
-        # model = model.cuda()
         model = model.cuda(args.cuda_device)
-
-    # code to load ImageNet checkpoints:
-    if args.resume:
-        if os.path.isfile(args.resume):
-            # load ImageNet checkpoints:
-            load_foreign_checkpoint(model)
-
-            # load my own checkpoints:
-            # start_epoch = load_checkpoint(model)
-        else:
-            print(f"=> no checkpoint found at '{args.resume}'")
-            return -1
-
     if is_server:
         wandb.watch(model, criterion, log="all", log_freq=args.print_freq)
 
     print(f'Number of model parameters: {sum([p.data.nelement() for p in model.parameters()])}')
-
     cudnn.benchmark = True
+
     # Data loading code
     if args.image_size == 256:
         root_dir = 'data/'
@@ -263,8 +247,15 @@ def main():
     # testdir = os.path.join(args.data, 'test')
     # test_labels = os.path.join(args.data, 'test', 'images_onehot_test.txt')
 
-    # import pdb
-    # pdb.set_trace()
+    train_dataset = DatasetISIC2018(
+        train_labels,
+        traindir,
+        segm_dir,
+        size0,
+        True,  # perform flips
+        True  # perform random resized crop with size = 224
+    )
+
     val_dataset = DatasetISIC2018(
         val_labels,
         valdir,
@@ -280,13 +271,10 @@ def main():
         num_workers=args.workers, pin_memory=True
     )
 
-    train_dataset = DatasetISIC2018(
-        train_labels,
-        traindir,
-        segm_dir,
-        size0,
-        True,  # perform flips
-        True  # perform random resized crop with size = 224
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=args.batch_size, shuffle=True,
+        num_workers=args.workers, pin_memory=True
     )
 
     # test_dataset = DatasetISIC2018(
@@ -301,15 +289,6 @@ def main():
     #     batch_size=args.batch_size, shuffle=False,
     #     num_workers=args.workers, pin_memory=True
     # )
-    train_sampler = None
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler
-    )
-
-    # need to do visualization with loading from checkpoint (e.g. every 10 epochs)
-    epoch_number = 0
 
     # create_needed_folders_for_hists()
     for epoch in range(start_epoch, start_epoch + args.epochs):
@@ -317,17 +296,115 @@ def main():
 
         # train for one epoch
         clear_expected_predicted()
-        train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch, epoch_number)
+        train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch)
 
         # evaluate on validation set
         clear_expected_predicted()
-        validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_criterion, sam_criterion_outer)
-        epoch_number += 1
-        break
+        validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
 
     save_summary()
     if run is not None:
         run.finish()
+
+
+def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch):
+    loss_sum_stat = AverageMeter()
+    loss_main_stat = AverageMeter()
+    loss_add_stat = AverageMeter()
+    # switch to train mode
+    model.train()
+
+    th = 0.5
+    sigmoid = nn.Sigmoid()
+
+    global iou, sam_att_miss, sam_att_direct, gradcam_miss_att, gradcam_direct_att
+    for i, dictionary in enumerate(train_loader):
+        input_img = dictionary['image']
+        target = dictionary['label']
+        segm = dictionary['segm']
+        if is_server:
+            input_img = input_img.cuda(args.cuda_device)
+            target = target.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
+
+        # get gradcam mask + compute output
+        target_layer = model.layer4
+        gradcam = GradCAM(model, target_layer=target_layer)
+        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
+
+        # calculate loss
+        loss_main = criterion(output, target)
+        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
+        loss_sum = loss_main + loss_add
+
+        # measure metrics
+        activated_output = (sigmoid(output.data) > th).float()
+        write_expected_predicted(target, activated_output)
+
+        measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att, gradcam_miss_att)
+        measure_sam_metrics(sam_output, segm, sam_att_direct, sam_att_miss, iou)
+
+        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
+        loss_main_stat.update(loss_main.item(), input_img.size(0))
+        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
+
+        # compute gradient and do SGD step
+        optimizer.zero_grad()
+        loss_sum.backward()
+        optimizer.step()
+
+        if i % args.print_freq == 0:
+            print(f'Train: [{epoch}][{i}/{len(train_loader)}]')
+    wandb_log_train(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
+
+
+def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch):
+    loss_sum_stat = AverageMeter()
+    loss_add_stat = AverageMeter()
+    loss_main_stat = AverageMeter()
+
+    th = 0.5
+    sigmoid = nn.Sigmoid()
+
+    # switch to evaluate mode
+    model.eval()
+    global val_vis_image_names
+
+    global iou_val, sam_att_miss_val, sam_att_direct_val, gradcam_miss_att_val, gradcam_direct_att_val
+    for i, dictionary in enumerate(val_loader):
+        input_img = dictionary['image']
+        target = dictionary['label']
+        segm = dictionary['segm']
+        if is_server:
+            input_img = input_img.cuda(args.cuda_device)
+            target = target.cuda(args.cuda_device)
+            segm = segm.cuda(args.cuda_device)
+
+        # get gradcam mask + compute output
+        target_layer = model.layer4
+        gradcam = GradCAM(model, target_layer=target_layer)
+        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
+
+        # calculate loss
+        loss_main = criterion(output, target)
+        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
+        loss_sum = loss_main + loss_add
+
+        # measure metrics
+        activated_output = (sigmoid(output.data) > th).float()
+        write_expected_predicted(target, activated_output)
+
+        measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att_val, gradcam_miss_att_val)
+        measure_sam_metrics(sam_output, segm, sam_att_direct_val, sam_att_miss_val, iou_val)
+
+        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
+        loss_main_stat.update(loss_main.item(), input_img.size(0))
+        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
+
+        if i % args.print_freq == 0:
+            print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
+
+    wandb_log_val(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
 
 
 def measure_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Tensor, gradcam_direct: List[float],
@@ -373,21 +450,7 @@ def measure_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor, sam_
     @param jaccard - list of iou metric values for current epoch for each SAM (e.g. jaccard[0] - for SAM-0)
     """
 
-    # initial segm size = [1, 3, 224, 224]
-    maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-    maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-    maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-
-    true_mask1 = maxpool_segm1(segm)
-    true_mask2 = maxpool_segm2(segm)
-    true_mask3 = maxpool_segm3(segm)
-
-    true_mask_inv1 = 1 - true_mask1
-    true_mask_inv2 = 1 - true_mask2
-    true_mask_inv3 = 1 - true_mask3
-
-    true_masks = [true_mask1, true_mask2, true_mask3]
-    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+    true_masks, invert_masks = get_processed_masks(segm)
 
     # measure SAM attention metrics
     for i in range(SAM_AMOUNT):
@@ -416,20 +479,8 @@ def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_
     @param sam_criterion - nn.BCELoss() (witch or w/o CUDA)
     @param sam_criterion_outer - nn.BCELoss(reduction='none') (witch or w/o CUDA)
     """
-    maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-    maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-    maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
 
-    true_mask1 = maxpool_segm1(segm)
-    true_mask2 = maxpool_segm2(segm)
-    true_mask3 = maxpool_segm3(segm)
-
-    true_mask_inv1 = 1 - true_mask1
-    true_mask_inv2 = 1 - true_mask2
-    true_mask_inv3 = 1 - true_mask3
-
-    true_masks = [true_mask1, true_mask2, true_mask3]
-    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+    true_masks, invert_masks = get_processed_masks(segm)
 
     loss_outer_sum = [0 for _ in range(SAM_AMOUNT)]
     loss_inv_sum = [0 for _ in range(SAM_AMOUNT)]
@@ -464,6 +515,29 @@ def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_
         loss_outer[i] = args.lmbd * loss_outer_sum[i] / args.batch_size
         loss_outer_inv[i] = args.lmbd * loss_inv_sum[i] / args.batch_size
     return loss, loss_inv, loss_outer, loss_outer_inv
+
+
+def get_processed_masks(segm: torch.Tensor):
+    """
+    @param segm has shape B x 3 x H x W
+    @return two lists with true_masks and invert masks for every SAM output
+    """
+    maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+    maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+    maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+
+    true_mask1 = maxpool_segm1(segm)
+    true_mask2 = maxpool_segm2(segm)
+    true_mask3 = maxpool_segm3(segm)
+
+    true_mask_inv1 = 1 - true_mask1
+    true_mask_inv2 = 1 - true_mask2
+    true_mask_inv3 = 1 - true_mask3
+
+    true_masks = [true_mask1, true_mask2, true_mask3]
+    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+
+    return true_masks, invert_masks
 
 
 def choose_add_loss(loss: list, loss_inv: list, loss_outer: list, loss_outer_inv: list):
@@ -529,99 +603,6 @@ def calculate_and_choose_additional_loss(segm: torch.Tensor, sam_output: torch.T
     return choose_add_loss(*calculate_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer))
 
 
-def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch, epoch_number):
-    loss_sum_stat = AverageMeter()
-    loss_main_stat = AverageMeter()
-    loss_add_stat = AverageMeter()
-    # switch to train mode
-    model.train()
-
-    global iou, sam_att_miss, sam_att_direct, gradcam_miss_att, gradcam_direct_att
-    for i, dictionary in enumerate(train_loader):
-        input_img = dictionary['image']
-        target = dictionary['label']
-        segm = dictionary['segm']
-        if is_server:
-            input_img = input_img.cuda(args.cuda_device)
-            target = target.cuda(args.cuda_device)
-            segm = segm.cuda(args.cuda_device)
-
-        # get gradcam mask + compute output
-        target_layer = model.layer4
-        gradcam = GradCAM(model, target_layer=target_layer)
-        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
-
-        # calculate loss
-        loss_main = criterion(output, target)
-        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
-        loss_sum = loss_main + loss_add
-
-        # measure metrics
-        measure_accuracy(output.data, target)
-        measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att, gradcam_miss_att)
-        measure_sam_metrics(sam_output, segm, sam_att_direct, sam_att_miss, iou)
-        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
-        loss_main_stat.update(loss_main.item(), input_img.size(0))
-        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
-
-        # compute gradient and do SGD step
-        optimizer.zero_grad()
-        loss_sum.backward()
-        optimizer.step()
-        if i == 10:
-            break
-
-        if i % args.print_freq == 0:
-            print(f'Train: [{epoch}][{i}/{len(train_loader)}]')
-    wandb_log_train(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
-
-
-def validate(val_loader, model, criterion, epoch, optimizer, epoch_number, sam_criterion, sam_criterion_outer):
-    loss_sum_stat = AverageMeter()
-    loss_add_stat = AverageMeter()
-    loss_main_stat = AverageMeter()
-
-    # switch to evaluate mode
-    model.eval()
-    global val_vis_image_names
-
-    global iou_val, sam_att_miss_val, sam_att_direct_val, gradcam_miss_att_val, gradcam_direct_att_val
-    for i, dictionary in enumerate(val_loader):
-        input_img = dictionary['image']
-        target = dictionary['label']
-        segm = dictionary['segm']
-        if is_server:
-            input_img = input_img.cuda(args.cuda_device)
-            target = target.cuda(args.cuda_device)
-            segm = segm.cuda(args.cuda_device)
-
-        # get gradcam mask + compute output
-        target_layer = model.layer4
-        gradcam = GradCAM(model, target_layer=target_layer)
-        gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
-
-        # calculate loss
-        loss_main = criterion(output, target)
-        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
-        loss_sum = loss_main + loss_add
-
-        # measure metrics
-        measure_accuracy(output.data, target)
-        measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att_val, gradcam_miss_att_val)
-        measure_sam_metrics(sam_output, segm, sam_att_direct_val, sam_att_miss_val, iou_val)
-        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add, input_img.size(0))
-        loss_main_stat.update(loss_main.item(), input_img.size(0))
-        loss_sum_stat.update(loss_sum.item(), input_img.size(0))
-
-        if i == 10:
-            break
-
-        if i % args.print_freq == 0:
-            print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
-
-    wandb_log_val(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
-
-
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -642,13 +623,6 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-
-
-def adjust_learning_rate(optimizer, epoch):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 30))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
 
 
 def write_expected_predicted(target, output):
@@ -767,32 +741,6 @@ def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
     wandb.log(dict_for_log, step=epoch)
 
 
-def make_dict_for_log(suffix: str, loss_sum: float, loss_add: float, loss_main: float, mAP_list: List[float],
-                      prec_list: List[float], recall_list: List[float], f1_list: List[float], jaccard: List[float],
-                      sam_miss: List[float], sam_direct: List[float], gc_miss: float, gc_direct: float):
-    """Takes all metrics and makes dictionary for wand_log"""
-    log_dict = {f'loss/sum_{suffix}': loss_sum, f'loss/add_{suffix}': loss_add, f'loss/main_{suffix}': loss_main,
-                f'gradcam_miss_{suffix}': gc_miss, f'gradcam_direct_{suffix}': gc_direct}
-
-    assert len(f1_list) == len(recall_list) == len(prec_list) == len(mAP_list) == CLASS_AMOUNT + 1
-    for i in range(CLASS_AMOUNT):
-        log_dict[f'f1/c{i + 1}_{suffix}'] = f1_list[i]
-        log_dict[f'mAP/c{i + 1}_{suffix}'] = mAP_list[i]
-        log_dict[f'prec/c{i + 1}_{suffix}'] = prec_list[i]
-        log_dict[f'recall/c{i + 1}_{suffix}'] = recall_list[i]
-    log_dict[f'f1/avg_{suffix}'] = f1_list[-1]
-    log_dict[f'mAP/avg_{suffix}'] = mAP_list[-1]
-    log_dict[f'recall/avg_{suffix}'] = recall_list[-1]
-    log_dict[f'prec/avg_{suffix}'] = prec_list[-1]
-
-    assert len(jaccard) == len(sam_miss) == len(sam_direct) == SAM_AMOUNT
-    for i in range(SAM_AMOUNT):
-        log_dict[f'IoU/{i + 1}_{suffix}'] = jaccard[i]
-        log_dict[f'sam_miss/{i + 1}_{suffix}'] = sam_miss[i]  # previous metric name was "sam_att_miss"
-        log_dict[f'sam_direct/{i + 1}_{suffix}'] = sam_direct[i]  # previous metric name was "sam_att_direct"
-    return log_dict
-
-
 def wandb_log_val(epoch, loss_sum, loss_add, loss_main):
     if not is_server:
         return
@@ -856,6 +804,32 @@ def wandb_log_val(epoch, loss_sum, loss_add, loss_main):
     wandb.log(dict_for_log, step=epoch)
 
 
+def make_dict_for_log(suffix: str, loss_sum: float, loss_add: float, loss_main: float, mAP_list: List[float],
+                      prec_list: List[float], recall_list: List[float], f1_list: List[float], jaccard: List[float],
+                      sam_miss: List[float], sam_direct: List[float], gc_miss: float, gc_direct: float):
+    """Takes all metrics and makes dictionary for wand_log"""
+    log_dict = {f'loss/sum_{suffix}': loss_sum, f'loss/add_{suffix}': loss_add, f'loss/main_{suffix}': loss_main,
+                f'gradcam_miss_{suffix}': gc_miss, f'gradcam_direct_{suffix}': gc_direct}
+
+    assert len(f1_list) == len(recall_list) == len(prec_list) == len(mAP_list) == CLASS_AMOUNT + 1
+    for i in range(CLASS_AMOUNT):
+        log_dict[f'f1/c{i + 1}_{suffix}'] = f1_list[i]
+        log_dict[f'mAP/c{i + 1}_{suffix}'] = mAP_list[i]
+        log_dict[f'prec/c{i + 1}_{suffix}'] = prec_list[i]
+        log_dict[f'recall/c{i + 1}_{suffix}'] = recall_list[i]
+    log_dict[f'f1/avg_{suffix}'] = f1_list[-1]
+    log_dict[f'mAP/avg_{suffix}'] = mAP_list[-1]
+    log_dict[f'recall/avg_{suffix}'] = recall_list[-1]
+    log_dict[f'prec/avg_{suffix}'] = prec_list[-1]
+
+    assert len(jaccard) == len(sam_miss) == len(sam_direct) == SAM_AMOUNT
+    for i in range(SAM_AMOUNT):
+        log_dict[f'IoU/{i + 1}_{suffix}'] = jaccard[i]
+        log_dict[f'sam_miss/{i + 1}_{suffix}'] = sam_miss[i]  # previous metric name was "sam_att_miss"
+        log_dict[f'sam_direct/{i + 1}_{suffix}'] = sam_direct[i]  # previous metric name was "sam_att_direct"
+    return log_dict
+
+
 def save_summary():
     if not is_server:
         return
@@ -899,14 +873,6 @@ def save_summary():
 
     run.summary["gradcam_direct_trn'"] = gradcam_direct_att_best
     run.summary["gradcam_direct_val'"] = gradcam_direct_att_val_best
-
-
-def measure_accuracy(output, target):
-    th = 0.5
-    sigmoid = nn.Sigmoid()
-    activated_output = sigmoid(output)
-    activated_output = (activated_output > th).float()
-    write_expected_predicted(target, activated_output)
 
 
 def calculate_iou(true_mask, sam_output):
