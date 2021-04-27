@@ -35,7 +35,7 @@ from gradcam.utils import visualize_cam
 from gradcam import GradCAM, GradCAMpp
 from MODELS.model_resnet import *
 from torchvision.utils import make_grid, save_image
-from math import inf, isnan
+import math
 import sys
 
 from typing import List
@@ -74,9 +74,146 @@ parser.add_argument("--tags", nargs='+', default=['default-tag'])
 parser.add_argument('--number', type=int, default=0, help='number of run in the run pool')
 parser.add_argument('--lmbd', type=int, default=1, help='coefficient for additional loss')
 parser.add_argument('--image-size', type=int, default=256, help='coefficient for additional loss')
-
 args = parser.parse_args()
 is_server = args.is_server == 1
+
+
+class MetricsHolder:
+    """
+    Holds all metrics for the current epoch.
+    After logging resets all metrics.
+    """
+
+    def __init__(self, objects_amount):
+        self.objects_amount = objects_amount
+
+        # Classification metrics
+        # +1 for average value on the last slot
+        self.f1 = [0.] * (CLASS_AMOUNT + 1)
+        self.mAP = [0.] * (CLASS_AMOUNT + 1)
+        self.prec = [0.] * (CLASS_AMOUNT + 1)
+        self.recall = [0.] * (CLASS_AMOUNT + 1)
+
+        # SAM attention metrcis
+        self.sam_miss = [math.inf] * SAM_AMOUNT
+        self.sam_direct = [-math.inf] * SAM_AMOUNT
+        self.iou = [-math.inf] * SAM_AMOUNT
+
+        # GradCam attention metric
+        self.gc_miss = math.inf
+        self.gc_direct = -math.inf
+
+        self.loss_add = -1.
+        self.loss_main = -1.
+        self.loss_comb = -1.
+
+        self.__expected = [[] for _ in range(CLASS_AMOUNT)]
+        self.__predicted = [[] for _ in range(CLASS_AMOUNT)]
+
+        self.__gc_miss_sum = 0.
+        self.__gc_direct_sum = 0.
+
+        self.__iou_sum = [0.] * SAM_AMOUNT
+        self.__sam_miss_sum = [0.] * SAM_AMOUNT
+        self.__sam_direct_sum = [0.] * SAM_AMOUNT
+
+        self.__loss_add_sum = 0.
+        self.__loss_main_sum = 0.
+        self.__loss_comb_sum = 0.
+
+    def calculate_all_metrcis(self):
+        """
+        Set actual value for the every metric
+        @return: void
+        """
+        self.calculate_gc_metrcis()
+        self.calculate_sam_metrics()
+        self.calculate_classification_metrics()
+        self.calculate_losses()
+
+    def reset(self):
+        self.__init__(self.objects_amount)
+
+    def update_losses(self, loss_add, loss_main, loss_comb):
+        self.__loss_add_sum += loss_add
+        self.__loss_main_sum += loss_main
+        self.__loss_comb_sum += loss_comb
+
+    def calculate_losses(self):
+        batch_amount = math.ceil(self.objects_amount / args.batch_size)
+        self.loss_add = self.__loss_add_sum / batch_amount
+        self.loss_main = self.__loss_main_sum / batch_amount
+        self.loss_comb = self.__loss_comb_sum / batch_amount
+
+    def update_expected_predicted(self, target, output):
+        # iterate over batch
+        assert target.size() == output.size()
+        assert target.size(0) == args.batch_size
+        for i in range(target.size(0)):
+            cur_target = target[i]
+            cur_output = output[i]
+
+            # iterate over classes
+            assert cur_target.size(0) == CLASS_AMOUNT
+            for j in range(CLASS_AMOUNT):
+                self.__expected[j].append(cur_target[j])
+                self.__predicted[j].append(cur_output[j])
+
+    # TODO: actual types - List[List[float]]
+    def update_sam_metrics(self, iou: List[float], sam_miss: List[float], sam_direct: List[float]):
+        for i in range(SAM_AMOUNT):
+            self.__iou_sum[i] += iou[i]
+            self.__sam_miss_sum[i] += sam_miss[i]
+            self.__sam_direct_sum[i] += sam_direct[i]
+
+    def calculate_sam_metrics(self):
+        for i in range(SAM_AMOUNT):
+            self.iou[i] = self.__iou_sum[i] / self.objects_amount
+            self.sam_miss[i] = self.__sam_miss_sum[i] / self.objects_amount
+            self.sam_direct[i] = self.__sam_direct_sum[i] / self.objects_amount
+
+    def update_gradcam_metrics(self, gc_miss, gc_direct):
+        self.__gc_miss_sum += gc_miss
+        self.__gc_direct_sum += gc_direct
+
+    def calculate_gc_metrcis(self):
+        self.gc_miss = self.__gc_miss_sum / self.objects_amount
+        self.gc_direct = self.__gc_direct_sum / self.objects_amount
+
+    def calculate_classification_metrics(self):
+        for i in range(CLASS_AMOUNT):
+            self.f1[i] = f1_score(self.__expected[i], self.__predicted[i], average="binary")
+            self.mAP[i] = average_precision_score(self.__expected[i], self.__predicted[i])
+            self.prec[i] = precision_score(self.__expected[i], self.__predicted[i], average="binary")
+            self.recall[i] = recall_score(self.__expected[i], self.__predicted[i], average="binary")
+
+        # reminder: average value is in the last element of the list
+        self.f1[-1] = sum([x for i, x in enumerate(self.f1) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
+        self.mAP[-1] = sum([x for i, x in enumerate(self.mAP) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
+        self.prec[-1] = sum([x for i, x in enumerate(self.prec) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
+        self.recall[-1] = sum([x for i, x in enumerate(self.recall) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
+
+
+class BestMetricsHolder(MetricsHolder):
+    def __init__(self, objects_amount):
+        super().__init__(objects_amount)
+
+    def update(self, mh: MetricsHolder):
+        for i in range(CLASS_AMOUNT + 1):
+            self.f1[i] = max(self.f1[i], mh.f1[i])
+            self.mAP[i] = max(self.mAP[i], mh.mAP[i])
+            self.prec[i] = max(self.prec[i], mh.prec[i])
+            self.recall[i] = max(self.recall[i], mh.recall[i])
+
+        for i in range(SAM_AMOUNT):
+            self.sam_miss[i] = min(self.sam_miss[i], mh.sam_miss[i])
+            self.sam_direct[i] = max(self.sam_direct[i], mh.sam_direct[i])
+            self.iou[i] = max(self.iou[i], mh.iou[i])
+
+        self.gc_miss = min(self.gradcam_miss, mh.gc_miss)
+        self.gc_direct = max(self.gradcam_direct, mh.gc_direct)
+
+
 SAM_AMOUNT = 3
 CLASS_AMOUNT = 5
 TRAIN_AMOUNT = 1600
@@ -87,53 +224,9 @@ if not os.path.exists('./checkpoints'):
     os.mkdir('./checkpoints')
 label_file = 'images-onehot.txt'
 
-epochs_predicted = [[] for _ in range(CLASS_AMOUNT)]
-epochs_expected = [[] for _ in range(CLASS_AMOUNT)]
-
-# +1 for average value
-f1_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
-f1_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
-
-mAP_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
-mAP_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
-
-prec_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
-prec_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
-
-recall_trn_best = [0. for _ in range(CLASS_AMOUNT + 1)]
-recall_val_best = [0. for _ in range(CLASS_AMOUNT + 1)]
-
-# SAM miss attention metrics
-sam_att_miss = [[] for _ in range(SAM_AMOUNT)]
-sam_att_direct = [[] for _ in range(SAM_AMOUNT)]
-
-sam_att_miss_best = [inf for _ in range(SAM_AMOUNT)]
-sam_att_direct_best = [-inf for _ in range(SAM_AMOUNT)]
-
-sam_att_miss_val = [[] for _ in range(SAM_AMOUNT)]
-sam_att_direct_val = [[] for _ in range(SAM_AMOUNT)]
-
-sam_att_miss_val_best = [inf for _ in range(SAM_AMOUNT)]
-sam_att_direct_val_best = [-inf for _ in range(SAM_AMOUNT)]
-
-iou = [[] for _ in range(SAM_AMOUNT)]
-iou_best = [-inf for _ in range(SAM_AMOUNT)]
-
-iou_val = [[] for _ in range(SAM_AMOUNT)]
-iou_val_best = [-inf for _ in range(SAM_AMOUNT)]
-
-# GradCam miss attention metric
-gradcam_miss_att = []
-gradcam_miss_att_best = inf
-
-gradcam_direct_att = []
-gradcam_direct_att_best = -inf
-
-gradcam_miss_att_val = []
-gradcam_miss_att_val_best = inf
-
-gradcam_direct_att_val = []
-gradcam_direct_att_val_best = -inf
+best_metrics_val = BestMetricsHolder(VAL_AMOUNT)
+best_metrics_test = BestMetricsHolder(TEST_AMOUNT)
+best_metrics_train = BestMetricsHolder(TRAIN_AMOUNT)
 
 run = None
 
@@ -290,16 +383,8 @@ def main():
     #     num_workers=args.workers, pin_memory=True
     # )
 
-    # create_needed_folders_for_hists()
     for epoch in range(start_epoch, start_epoch + args.epochs):
-        # adjust_learning_rate(optimizer, epoch)
-
-        # train for one epoch
-        clear_expected_predicted()
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch)
-
-        # evaluate on validation set
-        clear_expected_predicted()
         validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
 
     save_summary()
@@ -308,16 +393,13 @@ def main():
 
 
 def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, optimizer, epoch):
-    loss_sum_stat = AverageMeter()
-    loss_main_stat = AverageMeter()
-    loss_add_stat = AverageMeter()
+    global best_metrics_train
+    metrics_holder = MetricsHolder(TRAIN_AMOUNT)
     # switch to train mode
     model.train()
 
     th = 0.5
     sigmoid = nn.Sigmoid()
-
-    global iou, sam_att_miss, sam_att_direct, gradcam_miss_att, gradcam_direct_att
     for i, dictionary in enumerate(train_loader):
         input_img = dictionary['image']
         target = dictionary['label']
@@ -336,17 +418,15 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
         loss_main = criterion(output, target)
         loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
         loss_sum = loss_main + loss_add
+        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_sum)
 
-        # measure metrics
+        # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
-        write_expected_predicted(target, activated_output)
+        metrics_holder.update_expected_predicted(target=target, output=activated_output)
 
-        measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att, gradcam_miss_att)
-        measure_sam_metrics(sam_output, segm, sam_att_direct, sam_att_miss, iou)
-
-        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add)
-        loss_main_stat.update(loss_main.item())
-        loss_sum_stat.update(loss_sum.item())
+        # calculate and update SAM and gradcam metrics
+        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
+        metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
 
         optimizer.zero_grad()
         loss_sum.backward()
@@ -354,22 +434,20 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, op
 
         if i % args.print_freq == 0:
             print(f'Train: [{epoch}][{i}/{len(train_loader)}]')
-    wandb_log_train(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
+    metrics_holder.calculate_all_metrcis()
+    best_metrics_train.update(metrics_holder)
+    wandb_log("trn", epoch, metrics_holder)
 
 
 def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch):
-    loss_sum_stat = AverageMeter()
-    loss_add_stat = AverageMeter()
-    loss_main_stat = AverageMeter()
+    global best_metrics_val
+    metrics_holder = MetricsHolder(VAL_AMOUNT)
 
     th = 0.5
     sigmoid = nn.Sigmoid()
 
     # switch to evaluate mode
     model.eval()
-    global val_vis_image_names
-
-    global iou_val, sam_att_miss_val, sam_att_direct_val, gradcam_miss_att_val, gradcam_direct_att_val
     for i, dictionary in enumerate(val_loader):
         input_img = dictionary['image']
         target = dictionary['label']
@@ -384,37 +462,35 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
         gradcam = GradCAM(model, target_layer=target_layer)
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
 
-        # calculate loss
+        # calculate loss and update its metrics
         loss_main = criterion(output, target)
         loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
         loss_sum = loss_main + loss_add
+        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_sum)
 
-        # measure metrics
+        # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
-        write_expected_predicted(target, activated_output)
+        metrics_holder.update_expected_predicted(target=target, output=activated_output)
 
-        measure_gradcam_metrics(no_norm_gc_mask, segm, gradcam_direct_att_val, gradcam_miss_att_val)
-        measure_sam_metrics(sam_output, segm, sam_att_direct_val, sam_att_miss_val, iou_val)
-
-        loss_add_stat.update(loss_add.item() if loss_add != 0 else loss_add)
-        loss_main_stat.update(loss_main.item())
-        loss_sum_stat.update(loss_sum.item())
+        # calculate and update SAM and gradcam metrics
+        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
+        metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
 
         if i % args.print_freq == 0:
             print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
 
-    wandb_log_val(epoch, loss_sum_stat.avg, loss_add_stat.avg, loss_main_stat.avg)
+    metrics_holder.calculate_all_metrcis()
+    best_metrics_val.update(metrics_holder)
+    wandb_log("val", epoch, metrics_holder)
 
 
-def measure_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Tensor, gradcam_direct: List[float],
-                            gradcam_miss: List[float]):
+def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Tensor):
     """
     Measure gradcam metric
 
     @param segm - true mask, shape B x 3 x H x W
     @param no_norm_gc_mask_numpy - Grad-CAM output w/o normalization, shape B x 1 x H x W
-    @param gradcam_direct - list of gradcam_direct metric value for current epoch
-    @param gradcam_miss - list of gradcam_miss metric value for current epoch
+    @return sum of gradcam attention of every image in the batch (miss and direct)
     """
 
     # initial segm size = [1, 3, 224, 224]
@@ -426,6 +502,8 @@ def measure_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Ten
     true_mask = true_mask.detach().clone().cpu()
     gradcam_mask = no_norm_gc_mask_numpy.detach().clone().cpu()
 
+    res_miss = 0.
+    res_direct = 0.
     # iterate over batch to calculate metrics on each image of the batch
     assert gradcam_mask.size() == true_mask.size() == true_mask_invert.size()
     for i in range(gradcam_mask.size(0)):
@@ -433,23 +511,25 @@ def measure_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Ten
         cur_mask = true_mask[i]
         cur_mask_inv = true_mask_invert[i]
 
-        gradcam_miss.append(safe_division(torch.sum(cur_gc * cur_mask_inv), torch.sum(cur_gc)))
-        gradcam_direct.append(safe_division(torch.sum(cur_gc * cur_mask), torch.sum(cur_gc)))
+        res_miss += safe_division(torch.sum(cur_gc * cur_mask_inv), torch.sum(cur_gc))
+        res_direct += safe_division(torch.sum(cur_gc * cur_mask), torch.sum(cur_gc))
+    return res_miss, res_direct
 
 
-def measure_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor, sam_direct: List[List[float]],
-                        sam_miss: List[List[float]], jaccard: List[List[float]]):
+def measure_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
     """
     Measure SAM attention metrics and IoU
 
     @param sam_output[i] - SAM-output #i
     @param segm - true mask, shape B x 3 x H x W
-    @param sam_miss - list of sam_att_miss metric values for current epoch for each SAM (e.g. sam_miss[0] - for SAM-0)
-    @param sam_direct - list of sam_att_direct metric values for current epoch for each SAM (e.g. sam_direct[0] - for SAM-0)
-    @param jaccard - list of iou metric values for current epoch for each SAM (e.g. jaccard[0] - for SAM-0)
+    @return sum for the every metric of every image in the batch
     """
 
     true_masks, invert_masks = get_processed_masks(segm)
+
+    iou_sum = [0.] * SAM_AMOUNT
+    sam_miss_sum = [0.] * SAM_AMOUNT
+    sam_direct_sum = [0.] * SAM_AMOUNT
 
     # measure SAM attention metrics
     for i in range(SAM_AMOUNT):
@@ -464,11 +544,12 @@ def measure_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor, sam_
             cur_mask = cur_mask_batch[j]
             cur_mask_inv = cur_mask_inv_batch[j]
 
-            sam_miss[i].append(safe_division(torch.sum(cur_sam * cur_mask_inv),
-                                             torch.sum(cur_sam)))
-            sam_direct[i].append(safe_division(torch.sum(cur_sam * cur_mask),
-                                               torch.sum(cur_sam)))
-            jaccard[i].append(calculate_iou((cur_sam > 0.5).int(), cur_mask.int()))
+            sam_miss_sum[i] += safe_division(torch.sum(cur_sam * cur_mask_inv),
+                                             torch.sum(cur_sam))
+            sam_direct_sum[i] += safe_division(torch.sum(cur_sam * cur_mask),
+                                               torch.sum(cur_sam))
+            iou_sum[i] += calculate_iou((cur_sam > 0.5).int(), cur_mask.int())
+    return iou_sum, sam_miss_sum, sam_direct_sum
 
 
 def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_criterion, sam_criterion_outer):
@@ -602,230 +683,46 @@ def calculate_and_choose_additional_loss(segm: torch.Tensor, sam_output: torch.T
     return choose_add_loss(*calculate_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer))
 
 
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-
-    def __init__(self):
-        self.last_value = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def reset(self):
-        self.last_value = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, value):
-        self.last_value = value
-        self.sum += value
-        self.count += 1
-        self.avg = self.sum / self.count
-
-
-def write_expected_predicted(target, output):
-    # iterate over batch
-    assert target.size() == output.size()
-    for i in range(target.size(0)):
-        cur_target = target[i]
-        cur_output = output[i]
-
-        # iterate over classes
-        assert cur_target.size(0) == CLASS_AMOUNT
-        for j in range(CLASS_AMOUNT):
-            epochs_expected[j].append(cur_target[j])
-            epochs_predicted[j].append(cur_output[j])
-
-
-def clear_expected_predicted():
-    for exp in epochs_expected:
-        exp.clear()
-    for pred in epochs_predicted:
-        pred.clear()
-
-
-def count_mAP():
-    mAP_per_class = [-1. for _ in range(CLASS_AMOUNT)]
-    for i in range(CLASS_AMOUNT):
-        mAP_per_class[i] = average_precision_score(epochs_expected[i], epochs_predicted[i])
-    avg_mAP = sum(mAP_per_class) / CLASS_AMOUNT
-    return mAP_per_class + [avg_mAP]
-
-
-def count_precision():
-    prec_per_class = [-1. for _ in range(CLASS_AMOUNT)]
-    for i in range(CLASS_AMOUNT):
-        prec_per_class[i] = precision_score(epochs_expected[i], epochs_predicted[i], average="binary")
-    avg_prec = sum(prec_per_class) / CLASS_AMOUNT
-    return prec_per_class + [avg_prec]
-
-
-def count_recall():
-    recall_per_class = [-1. for _ in range(CLASS_AMOUNT)]
-    for i in range(CLASS_AMOUNT):
-        recall_per_class[i] = recall_score(epochs_expected[i], epochs_predicted[i], average="binary")
-    avg_recall = sum(recall_per_class) / CLASS_AMOUNT
-    return recall_per_class + [avg_recall]
-
-
-def count_f1():
-    f1_per_class = [-1. for _ in range(CLASS_AMOUNT)]
-    for i in range(CLASS_AMOUNT):
-        f1_per_class[i] = f1_score(epochs_expected[i], epochs_predicted[i], average="binary")
-    avg_f1 = sum(f1_per_class) / CLASS_AMOUNT
-    return f1_per_class + [avg_f1]
-
-
-def wandb_log_train(epoch, loss_sum, loss_add, loss_main):
+def wandb_log(suffix: str, epoch: int, metrics_holder: MetricsHolder):
+    """
+    Log all metrcis of the current epoch to the W&B
+    @param suffix: trn, val or test
+    @param epoch: epoch number to log
+    @param metrics_holder: MetricsHolder object which contains ALL ALREADY CALCULATED METRICS
+    @return: void
+    """
     if not is_server:
         return
-
-    global f1_trn_best, mAP_trn_best, prec_trn_best, recall_trn_best
-    global sam_att_miss, sam_att_miss_best, iou, iou_best, gradcam_miss_att, gradcam_miss_att_best
-    global sam_att_direct, sam_att_direct_best
-    global gradcam_direct_att, gradcam_direct_att_best
-
-    mAP_list = count_mAP()
-    prec_list = count_precision()
-    recall_list = count_recall()
-    f1_list = count_f1()
-
-    # lists contains metric value of each class + average value as the last element
-    assert len(f1_list) == len(recall_list) == len(prec_list) == len(mAP_list) == CLASS_AMOUNT + 1
-
-    for i in range(CLASS_AMOUNT + 1):
-        f1_trn_best[i] = max(f1_list[i], f1_trn_best[i])
-        mAP_trn_best[i] = max(mAP_list[i], mAP_trn_best[i])
-        prec_trn_best[i] = max(prec_list[i], prec_trn_best[i])
-        recall_trn_best[i] = max(recall_list[i], recall_trn_best[i])
-
-    # attention metrics
-    iou_avg = [-1. for _ in range(SAM_AMOUNT)]
-    sam_att_miss_avg = [-1. for _ in range(SAM_AMOUNT)]
-    sam_att_direct_avg = [-1. for _ in range(SAM_AMOUNT)]
-
-    for j in range(SAM_AMOUNT):
-        assert len(iou[j]) == TRAIN_AMOUNT
-        assert len(sam_att_miss[j]) == TRAIN_AMOUNT
-        assert len(sam_att_direct[j]) == TRAIN_AMOUNT
-
-        iou_avg[j] = sum(iou[j]) / len(iou[j])
-        sam_att_miss_avg[j] = sum(sam_att_miss[j]) / len(sam_att_miss[j])
-        sam_att_direct_avg[j] = sum(sam_att_direct[j]) / len(sam_att_direct[j])
-
-    for j in range(SAM_AMOUNT):
-        iou_best[j] = max(iou_best[j], iou_avg[j])
-        sam_att_miss_best[j] = min(sam_att_miss_best[j], sam_att_miss_avg[j])
-        sam_att_direct_best[j] = max(sam_att_direct_best[j], sam_att_direct_avg[j])
-
-    assert len(gradcam_direct_att) == len(gradcam_miss_att) == TRAIN_AMOUNT
-    avg_gradcam_miss_att = sum(gradcam_miss_att) / len(gradcam_miss_att)
-    avg_gradcam_direct_att = sum(gradcam_direct_att) / len(gradcam_direct_att)
-
-    gradcam_miss_att_best = min(gradcam_miss_att_best, avg_gradcam_miss_att)
-    gradcam_direct_att_best = max(gradcam_direct_att_best, avg_gradcam_direct_att)
-
-    for j in range(SAM_AMOUNT):
-        iou[j].clear()
-        sam_att_miss[j].clear()
-        sam_att_direct[j].clear()
-
-    gradcam_miss_att.clear()
-    gradcam_direct_att.clear()
-    dict_for_log = make_dict_for_log(suffix="trn", loss_sum=loss_sum, loss_add=loss_add, loss_main=loss_main,
-                                     mAP_list=mAP_list, prec_list=prec_list, recall_list=recall_list, f1_list=f1_list,
-                                     jaccard=iou_avg, sam_miss=sam_att_direct_avg, sam_direct=sam_att_direct_avg,
-                                     gc_miss=avg_gradcam_miss_att, gc_direct=avg_gradcam_direct_att)
+    dict_for_log = make_dict_for_log(suffix=suffix, mh=metrics_holder)
     wandb.log(dict_for_log, step=epoch)
 
 
-def wandb_log_val(epoch, loss_sum, loss_add, loss_main):
-    if not is_server:
-        return
-    global f1_val_best, mAP_val_best, prec_val_best, recall_val_best
-    global sam_att_miss_val, sam_att_miss_val_best, iou_val, iou_val_best, gradcam_miss_att_val, gradcam_miss_att_val_best
-    global sam_att_direct_val, sam_att_direct_val_best
-    global gradcam_direct_att_val, gradcam_direct_att_val_best
+def make_dict_for_log(suffix: str, mh: MetricsHolder):
+    """
+    Takes all metrics via MetrcisHolder object and makes dictionary for wandb_log.
+    Or converts MetricsHolder to dict.
+    """
 
-    mAP_list = count_mAP()
-    prec_list = count_precision()
-    recall_list = count_recall()
-    f1_list = count_f1()
+    log_dict = {f'loss/sum_{suffix}': mh.loss_sum, f'loss/add_{suffix}': mh.loss_add,
+                f'loss/main_{suffix}': mh.loss_main,
+                f'gradcam_miss_{suffix}': mh.gc_miss, f'gradcam_direct_{suffix}': mh.gc_direct}
 
-    # lists contains metric value of each class + average value on the last slot
-    assert len(f1_list) == len(recall_list) == len(prec_list) == len(mAP_list) == CLASS_AMOUNT + 1
-
-    for i in range(CLASS_AMOUNT + 1):
-        f1_val_best[i] = max(f1_list[i], f1_val_best[i])
-        mAP_val_best[i] = max(mAP_list[i], mAP_val_best[i])
-        prec_val_best[i] = max(prec_list[i], prec_val_best[i])
-        recall_val_best[i] = max(recall_list[i], recall_val_best[i])
-
-    # attention metrics
-    iou_avg = [-1. for _ in range(SAM_AMOUNT)]
-    sam_att_miss_avg = [-1. for _ in range(SAM_AMOUNT)]
-    sam_att_direct_avg = [-1. for _ in range(SAM_AMOUNT)]
-
-    for j in range(SAM_AMOUNT):
-        assert len(iou_val[j]) == VAL_AMOUNT
-        assert len(sam_att_miss_val[j]) == VAL_AMOUNT
-        assert len(sam_att_direct_val[j]) == VAL_AMOUNT
-
-        iou_avg[j] = sum(iou_val[j]) / len(iou_val[j])
-        sam_att_miss_avg[j] = sum(sam_att_miss_val[j]) / len(sam_att_miss_val[j])
-        sam_att_direct_avg[j] = sum(sam_att_direct_val[j]) / len(sam_att_direct_val[j])
-
-    for j in range(SAM_AMOUNT):
-        iou_val_best[j] = max(iou_val_best[j], iou_avg[j])
-        sam_att_miss_val_best[j] = min(sam_att_miss_val_best[j], sam_att_miss_avg[j])
-        sam_att_direct_val_best[j] = max(sam_att_direct_val_best[j], sam_att_direct_avg[j])
-
-    assert len(gradcam_direct_att_val) == len(gradcam_miss_att_val) == VAL_AMOUNT
-    avg_gradcam_miss_att = sum(gradcam_miss_att_val) / len(gradcam_miss_att_val)
-    avg_gradcam_direct_att = sum(gradcam_direct_att_val) / len(gradcam_direct_att_val)
-
-    gradcam_miss_att_val_best = min(gradcam_miss_att_val_best, avg_gradcam_miss_att)
-    gradcam_direct_att_val_best = max(gradcam_direct_att_val_best, avg_gradcam_direct_att)
-
-    for j in range(SAM_AMOUNT):
-        iou_val[j].clear()
-        sam_att_miss_val[j].clear()
-        sam_att_direct_val[j].clear()
-
-    gradcam_miss_att_val.clear()
-    gradcam_direct_att_val.clear()
-
-    dict_for_log = make_dict_for_log("val", loss_sum=loss_sum, loss_add=loss_add, loss_main=loss_main,
-                                     mAP_list=mAP_list, prec_list=prec_list, recall_list=recall_list, f1_list=f1_list,
-                                     jaccard=iou_avg, sam_miss=sam_att_miss_avg, sam_direct=sam_att_direct_avg,
-                                     gc_miss=avg_gradcam_miss_att, gc_direct=avg_gradcam_direct_att)
-    wandb.log(dict_for_log, step=epoch)
-
-
-def make_dict_for_log(suffix: str, loss_sum: float, loss_add: float, loss_main: float, mAP_list: List[float],
-                      prec_list: List[float], recall_list: List[float], f1_list: List[float], jaccard: List[float],
-                      sam_miss: List[float], sam_direct: List[float], gc_miss: float, gc_direct: float):
-    """Takes all metrics and makes dictionary for wand_log"""
-    log_dict = {f'loss/sum_{suffix}': loss_sum, f'loss/add_{suffix}': loss_add, f'loss/main_{suffix}': loss_main,
-                f'gradcam_miss_{suffix}': gc_miss, f'gradcam_direct_{suffix}': gc_direct}
-
-    assert len(f1_list) == len(recall_list) == len(prec_list) == len(mAP_list) == CLASS_AMOUNT + 1
+    assert len(mh.f1) == len(mh.recall) == len(mh.prec) == len(mh.mAP) == CLASS_AMOUNT + 1
     for i in range(CLASS_AMOUNT):
-        log_dict[f'f1/c{i + 1}_{suffix}'] = f1_list[i]
-        log_dict[f'mAP/c{i + 1}_{suffix}'] = mAP_list[i]
-        log_dict[f'prec/c{i + 1}_{suffix}'] = prec_list[i]
-        log_dict[f'recall/c{i + 1}_{suffix}'] = recall_list[i]
-    log_dict[f'f1/avg_{suffix}'] = f1_list[-1]
-    log_dict[f'mAP/avg_{suffix}'] = mAP_list[-1]
-    log_dict[f'recall/avg_{suffix}'] = recall_list[-1]
-    log_dict[f'prec/avg_{suffix}'] = prec_list[-1]
+        log_dict[f'f1/c{i + 1}_{suffix}'] = mh.f1[i]
+        log_dict[f'mAP/c{i + 1}_{suffix}'] = mh.mAP[i]
+        log_dict[f'prec/c{i + 1}_{suffix}'] = mh.prec[i]
+        log_dict[f'recall/c{i + 1}_{suffix}'] = mh.recall[i]
+    log_dict[f'f1/avg_{suffix}'] = mh.f1[-1]
+    log_dict[f'mAP/avg_{suffix}'] = mh.mAP[-1]
+    log_dict[f'prec/avg_{suffix}'] = mh.prec[-1]
+    log_dict[f'recall/avg_{suffix}'] = mh.recall[-1]
 
-    assert len(jaccard) == len(sam_miss) == len(sam_direct) == SAM_AMOUNT
+    assert len(mh.iou) == len(mh.sam_miss) == len(mh.sam_direct) == SAM_AMOUNT
     for i in range(SAM_AMOUNT):
-        log_dict[f'IoU/{i + 1}_{suffix}'] = jaccard[i]
-        log_dict[f'sam_miss/{i + 1}_{suffix}'] = sam_miss[i]  # previous metric name was "sam_att_miss"
-        log_dict[f'sam_direct/{i + 1}_{suffix}'] = sam_direct[i]  # previous metric name was "sam_att_direct"
+        log_dict[f'IoU/{i + 1}_{suffix}'] = mh.iou[i]
+        log_dict[f'sam_miss/{i + 1}_{suffix}'] = mh.sam_miss[i]  # previous metric name was "sam_att_miss"
+        log_dict[f'sam_direct/{i + 1}_{suffix}'] = mh.sam_direct[i]  # previous metric name was "sam_att_direct"
     return log_dict
 
 
@@ -833,45 +730,15 @@ def save_summary():
     if not is_server:
         return
     print("saving summary..")
-    # train
-    for i in range(SAM_AMOUNT):
-        run.summary[f"f1/с{i + 1}_trn'"] = f1_trn_best[i]
-        run.summary[f"mAP/с{i + 1}_trn'"] = mAP_trn_best[i]
-        run.summary[f"prec/с{i + 1}_trn'"] = prec_trn_best[i]
-        run.summary[f"recall/с{i + 1}_trn'"] = recall_trn_best[i]
 
-    run.summary["f1/avg_trn'"] = f1_trn_best[-1]
-    run.summary["mAP/avg_trn'"] = mAP_trn_best[-1]
-    run.summary["prec/avg_trn'"] = prec_trn_best[-1]
-    run.summary["recall/avg_trn'"] = recall_trn_best[-1]
-
-    # val
-    for i in range(SAM_AMOUNT):
-        run.summary[f"f1/с{i + 1}_val'"] = f1_val_best[i]
-        run.summary[f"mAP/с{i + 1}_val'"] = mAP_val_best[i]
-        run.summary[f"prec/с{i + 1}_val'"] = prec_val_best[i]
-        run.summary[f"recall/с{i + 1}_val'"] = recall_val_best[i]
-
-    run.summary["f1/avg_val'"] = f1_val_best[-1]
-    run.summary["mAP/avg_val'"] = mAP_val_best[-1]
-    run.summary["prec/avg_val'"] = prec_val_best[-1]
-    run.summary["recall/avg_val'"] = recall_val_best[-1]
-
-    for j in range(SAM_AMOUNT):
-        run.summary[f"sam_att_miss/{j + 1}_trn'"] = sam_att_miss_best[j]
-        run.summary[f"sam_att_direct/{j + 1}_trn'"] = sam_att_direct_best[j]
-
-        run.summary[f"sam_att_miss/{j + 1}_val'"] = sam_att_miss_val_best[j]
-        run.summary[f"sam_att_direct/{j + 1}_val'"] = sam_att_direct_val_best[j]
-
-        run.summary[f"IoU/{j + 1}_trn'"] = iou_best[j]
-        run.summary[f"IoU/{j + 1}_val'"] = iou_val_best[j]
-
-    run.summary["gradcam_miss_trn'"] = gradcam_miss_att_best
-    run.summary["gradcam_miss_val'"] = gradcam_miss_att_val_best
-
-    run.summary["gradcam_direct_trn'"] = gradcam_direct_att_best
-    run.summary["gradcam_direct_val'"] = gradcam_direct_att_val_best
+    global run
+    global best_metrics_train, best_metrics_val, best_metrics_test
+    summary_dict_train = make_dict_for_log("trn", best_metrics_train)
+    summary_dict_val = make_dict_for_log("val", best_metrics_val)
+    summary_dict_test = make_dict_for_log("test", best_metrics_test)
+    run.summary.update(summary_dict_train)
+    run.summary.update(summary_dict_val)
+    runsummary.update(summary_dict_test)
 
 
 def calculate_iou(true_mask, sam_output):
