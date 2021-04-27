@@ -525,7 +525,7 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
         metrics_holder.update_sam_metrics(*measure_sam_metrics(sam_output, segm))
 
         if i % args.print_freq == 0:
-            print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
+            print(f'Test: [{epoch}][{i}/{len(test_loader)}]')
 
     metrics_holder.calculate_all_metrcis()
     best_metrics_test.update(metrics_holder)
