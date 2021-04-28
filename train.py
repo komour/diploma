@@ -876,8 +876,10 @@ def load_foreign_checkpoint(model):
     dummy_fc = torch.nn.Linear(512 * 4, CLASS_AMOUNT)
     torch.nn.init.xavier_uniform_(dummy_fc.weight)
 
-    checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
-    # checkpoint = torch.load(args.resume, map_location='cpu')
+    if is_server:
+        checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
+    else:
+        checkpoint = torch.load(args.resume, map_location='cpu')
     state_dict = checkpoint['state_dict']
 
     state_dict['module.fc.weight'] = dummy_fc.weight
@@ -895,8 +897,10 @@ def load_foreign_checkpoint(model):
 
 def load_checkpoint(model):
     print(f"=> loading checkpoint '{args.resume}'")
-    checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
-    # checkpoint = torch.load(args.resume, map_location='cpu')
+    if is_server:
+        checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
+    else:
+        checkpoint = torch.load(args.resume, map_location='cpu')
     state_dict = checkpoint['state_dict']
 
     model.load_state_dict(state_dict)
