@@ -105,11 +105,15 @@ class MetricsHolder:
         self.recall = [0.] * (CLASS_AMOUNT + 1)
 
         # SAM attention metrcis
+        self.sam_miss_rel = [math.inf] * SAM_AMOUNT
+        self.sam_direct_rel = [-math.inf] * SAM_AMOUNT
         self.sam_miss = [math.inf] * SAM_AMOUNT
         self.sam_direct = [-math.inf] * SAM_AMOUNT
         self.iou = [-math.inf] * SAM_AMOUNT
 
         # GradCam attention metric
+        self.gc_miss_rel = math.inf
+        self.gc_direct_rel = -math.inf
         self.gc_miss = math.inf
         self.gc_direct = -math.inf
 
@@ -120,10 +124,14 @@ class MetricsHolder:
         self.__expected = [[] for _ in range(CLASS_AMOUNT)]
         self.__predicted = [[] for _ in range(CLASS_AMOUNT)]
 
+        self.__gc_miss_rel_sum = 0.
+        self.__gc_direct_rel_sum = 0.
         self.__gc_miss_sum = 0.
         self.__gc_direct_sum = 0.
 
         self.__iou_sum = [0.] * SAM_AMOUNT
+        self.__sam_miss_rel_sum = [0.] * SAM_AMOUNT
+        self.__sam_direct_rel_sum = [0.] * SAM_AMOUNT
         self.__sam_miss_sum = [0.] * SAM_AMOUNT
         self.__sam_direct_sum = [0.] * SAM_AMOUNT
 
@@ -140,9 +148,6 @@ class MetricsHolder:
         self.calculate_sam_metrics()
         self.calculate_classification_metrics()
         self.calculate_losses()
-
-    def reset(self):
-        self.__init__(self.objects_amount)
 
     def update_losses(self, loss_add, loss_main, loss_comb):
         self.__loss_add_sum += loss_add
@@ -168,23 +173,33 @@ class MetricsHolder:
                 self.__expected[j].append(cur_target[j])
                 self.__predicted[j].append(cur_output[j])
 
-    def update_sam_metrics(self, iou: List[float], sam_miss: List[float], sam_direct: List[float]):
+    def update_sam_metrics(self, iou: List[float], sam_miss_rel: List[float], sam_direct_rel: List[float],
+                           sam_miss: List[float], sam_direct: List[float]):
         for i in range(SAM_AMOUNT):
             self.__iou_sum[i] += iou[i]
+            self.__sam_miss_rel_sum[i] += sam_miss_rel[i]
+            self.__sam_direct_rel_sum[i] += sam_direct_rel[i]
             self.__sam_miss_sum[i] += sam_miss[i]
             self.__sam_direct_sum[i] += sam_direct[i]
 
     def calculate_sam_metrics(self):
         for i in range(SAM_AMOUNT):
             self.iou[i] = self.__iou_sum[i] / self.objects_amount
+            self.sam_miss_rel[i] = self.__sam_miss_rel_sum[i] / self.objects_amount
+            self.sam_direct_rel[i] = self.__sam_direct_rel_sum[i] / self.objects_amount
             self.sam_miss[i] = self.__sam_miss_sum[i] / self.objects_amount
             self.sam_direct[i] = self.__sam_direct_sum[i] / self.objects_amount
 
-    def update_gradcam_metrics(self, gc_miss_sum: float, gc_direct_sum: float):
+    def update_gradcam_metrics(self, gc_miss_rel_sum: float, gc_direct_rel_sum: float, gc_miss_sum: float,
+                               gc_direct_sum: float):
+        self.__gc_miss_rel_sum += gc_miss_rel_sum
+        self.__gc_direct_rel_sum += gc_direct_rel_sum
         self.__gc_miss_sum += gc_miss_sum
         self.__gc_direct_sum += gc_direct_sum
 
     def calculate_gc_metrcis(self):
+        self.gc_miss_rel = self.__gc_miss_rel_sum / self.objects_amount
+        self.gc_direct_rel = self.__gc_direct_rel_sum / self.objects_amount
         self.gc_miss = self.__gc_miss_sum / self.objects_amount
         self.gc_direct = self.__gc_direct_sum / self.objects_amount
 
@@ -220,10 +235,14 @@ class BestMetricsHolder(MetricsHolder):
             self.recall[i] = max(self.recall[i], mh.recall[i])
 
         for i in range(SAM_AMOUNT):
+            self.sam_miss_rel[i] = min(self.sam_miss_rel[i], mh.sam_miss_rel[i])
+            self.sam_direct_rel[i] = max(self.sam_direct_rel[i], mh.sam_direct_rel[i])
             self.sam_miss[i] = min(self.sam_miss[i], mh.sam_miss[i])
             self.sam_direct[i] = max(self.sam_direct[i], mh.sam_direct[i])
             self.iou[i] = max(self.iou[i], mh.iou[i])
 
+        self.gc_miss_rel = min(self.gc_miss_rel, mh.gc_miss_rel)
+        self.gc_direct_rel = max(self.gc_direct_rel, mh.gc_direct_rel)
         self.gc_miss = min(self.gc_miss, mh.gc_miss)
         self.gc_direct = max(self.gc_direct, mh.gc_direct)
 
@@ -318,7 +337,7 @@ def main():
         lmbd=args.lmbd
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.7", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.8", name=args.run_name, tags=args.tags)
     if is_server:
         model = model.cuda(args.cuda_device)
     if is_server:
@@ -345,32 +364,33 @@ def main():
     test_labels = os.path.join(root_dir, 'test', 'images_onehot_test.txt')
 
     train_dataset = DatasetISIC2018(
-        train_labels,
-        traindir,
-        segm_dir,
-        size0,
-        True,  # perform flips
-        True  # perform random resized crop with size = 224
+        label_file=train_labels,
+        root_dir=traindir,
+        segm_dir=segm_dir,
+        size0=size0,
+        perform_flips=True,  # perform flips
+        perform_crop=True,  # perform random resized crop with size = 224
+        transform=None
     )
 
     val_dataset = DatasetISIC2018(
-        val_labels,
-        valdir,
-        segm_dir,
-        size0,
-        False,
-        False,
-        transforms.CenterCrop(size0)
+        label_file=val_labels,
+        root_dir=valdir,
+        segm_dir=segm_dir,
+        size0=size0,
+        perform_flips=False,
+        perform_crop=False,
+        transform=transforms.CenterCrop(size0)
     )
 
     test_dataset = DatasetISIC2018(
-        test_labels,
-        testdir,
-        segm_dir,
-        size0,
-        False,
-        False,
-        transforms.CenterCrop(size0)
+        label_file=test_labels,
+        root_dir=testdir,
+        segm_dir=segm_dir,
+        size0=size0,
+        perform_flips=False,
+        perform_crop=False,
+        transform=transforms.CenterCrop(size0)
     )
 
     val_loader = torch.utils.data.DataLoader(
@@ -555,8 +575,10 @@ def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.T
     true_mask = true_mask.detach().clone().cpu()
     gradcam_mask = no_norm_gc_mask_numpy.detach().clone().cpu()
 
-    gradcam_miss_sum = 0.
-    gradcam_direct_sum = 0.
+    gc_miss_rel_sum = 0.
+    gc_direct_rel_sum = 0.
+    gc_miss_sum = 0.
+    gc_direct_sum = 0.
     # iterate over batch to calculate metrics on each image of the batch
     assert gradcam_mask.size() == true_mask.size() == true_mask_invert.size()
     for i in range(gradcam_mask.size(0)):
@@ -564,9 +586,11 @@ def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.T
         cur_mask = true_mask[i]
         cur_mask_inv = true_mask_invert[i]
 
-        gradcam_miss_sum += safe_division(torch.sum(cur_gc * cur_mask_inv), torch.sum(cur_gc))
-        gradcam_direct_sum += safe_division(torch.sum(cur_gc * cur_mask), torch.sum(cur_gc))
-    return gradcam_miss_sum, gradcam_direct_sum
+        gc_miss_rel_sum += safe_division(torch.sum(cur_gc * cur_mask_inv), torch.sum(cur_gc))
+        gc_direct_rel_sum += safe_division(torch.sum(cur_gc * cur_mask), torch.sum(cur_gc))
+        gc_miss_sum += safe_division(torch.sum(cur_gc * cur_mask_inv), torch.sum(cur_mask_inv))
+        gc_direct_sum += safe_division(torch.sum(cur_gc * cur_mask), torch.sum(cur_mask))
+    return gc_miss_rel_sum, gc_direct_rel_sum, gc_miss_sum, gc_direct_sum
 
 
 def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
@@ -581,6 +605,8 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
     true_masks, invert_masks = get_processed_masks(segm)
 
     iou_sum = [0.] * SAM_AMOUNT
+    sam_miss_rel_sum = [0.] * SAM_AMOUNT
+    sam_direct_rel_sum = [0.] * SAM_AMOUNT
     sam_miss_sum = [0.] * SAM_AMOUNT
     sam_direct_sum = [0.] * SAM_AMOUNT
 
@@ -597,12 +623,16 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
             cur_mask = cur_mask_batch[j]
             cur_mask_inv = cur_mask_inv_batch[j]
 
+            sam_miss_rel_sum[i] += safe_division(torch.sum(cur_sam * cur_mask_inv),
+                                                 torch.sum(cur_sam))
+            sam_direct_rel_sum[i] += safe_division(torch.sum(cur_sam * cur_mask),
+                                                   torch.sum(cur_sam))
             sam_miss_sum[i] += safe_division(torch.sum(cur_sam * cur_mask_inv),
-                                             torch.sum(cur_sam))
+                                             torch.sum(cur_mask_inv))
             sam_direct_sum[i] += safe_division(torch.sum(cur_sam * cur_mask),
-                                               torch.sum(cur_sam))
+                                               torch.sum(cur_mask))
             iou_sum[i] += calculate_iou((cur_sam > 0.5).int(), cur_mask.int())
-    return iou_sum, sam_miss_sum, sam_direct_sum
+    return iou_sum, sam_miss_rel_sum, sam_direct_rel_sum, sam_miss_sum, sam_direct_sum
 
 
 def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_criterion, sam_criterion_outer):
@@ -758,7 +788,8 @@ def make_dict_for_log(suffix: str, mh: MetricsHolder):
 
     log_dict = {f'loss/comb_{suffix}': mh.loss_comb, f'loss/add_{suffix}': mh.loss_add,
                 f'loss/main_{suffix}': mh.loss_main,
-                f'gradcam_miss_{suffix}': mh.gc_miss, f'gradcam_direct_{suffix}': mh.gc_direct}
+                f'gradcam/miss_rel_{suffix}': mh.gc_miss_rel, f'gradcam/direct_rel_{suffix}': mh.gc_direct_rel,
+                f'gradcam/miss_{suffix}': mh.gc_miss, f'gradcam/direct_{suffix}': mh.gc_direct}
 
     assert len(mh.f1) == len(mh.recall) == len(mh.prec) == len(mh.mAP) == CLASS_AMOUNT + 1
     for i in range(CLASS_AMOUNT):
@@ -771,11 +802,14 @@ def make_dict_for_log(suffix: str, mh: MetricsHolder):
     log_dict[f'prec/avg_{suffix}'] = mh.prec[-1]
     log_dict[f'recall/avg_{suffix}'] = mh.recall[-1]
 
-    assert len(mh.iou) == len(mh.sam_miss) == len(mh.sam_direct) == SAM_AMOUNT
+    assert len(mh.iou) == len(mh.sam_miss_rel) == len(mh.sam_direct_rel) == SAM_AMOUNT == len(mh.sam_miss) == \
+           len(mh.sam_direct)
     for i in range(SAM_AMOUNT):
         log_dict[f'IoU/{i + 1}_{suffix}'] = mh.iou[i]
-        log_dict[f'sam_miss/{i + 1}_{suffix}'] = mh.sam_miss[i]  # previous metric name was "sam_att_miss"
-        log_dict[f'sam_direct/{i + 1}_{suffix}'] = mh.sam_direct[i]  # previous metric name was "sam_att_direct"
+        log_dict[f'sam_miss_rel/{i + 1}_{suffix}'] = mh.sam_miss_rel[i]
+        log_dict[f'sam_direct_rel/{i + 1}_{suffix}'] = mh.sam_direct_rel[i]
+        log_dict[f'sam_miss/{i + 1}_{suffix}'] = mh.sam_miss[i]
+        log_dict[f'sam_direct/{i + 1}_{suffix}'] = mh.sam_direct[i]
     return log_dict
 
 
