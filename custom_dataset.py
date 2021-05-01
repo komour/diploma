@@ -23,7 +23,8 @@ png = '.png'
 class DatasetISIC2018(Dataset):
     """ISIC2018 dataset."""
 
-    def __init__(self, label_file, root_dir, segm_dir, size0=224, perform_flips=False, perform_crop=False, perform_rotate=False, transform=None):
+    def __init__(self, label_file, root_dir, segm_dir, size0=224, perform_flips=False, perform_crop=False,
+                 perform_rotate=False, perform_jitter=False, transform=None):
         """
         Args:
             label_file (string): Path to the txt file with annotations.
@@ -37,10 +38,12 @@ class DatasetISIC2018(Dataset):
         self.perform_crop = perform_crop
         self.perform_flips = perform_flips
         self.perform_rotate = perform_rotate
+        self.perform_jitter = perform_jitter
         self.image_to_onehot = {}
         self.image_names = []
         self.root_dir = root_dir
         self.to_tensor = transforms.ToTensor()
+        self.color_jitter = transforms.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0.35)
 
         # DEFAULT_MEAN = [0.70843003, 0.58212194, 0.53605963]
         # DEFAULT_STD = [0.15741858, 0.1656929, 0.18091279]
@@ -83,6 +86,8 @@ class DatasetISIC2018(Dataset):
                 segm = TF.vflip(segm)
         if self.perform_rotate:
             img, segm = rotate_image_and_mask(img, segm)
+        if self.perform_jitter:
+            img = self.color_jitter(img)
         if self.perform_crop:
             scale = (0.08, 1.0)
             ratio = (3. / 4., 4. / 3.)

@@ -371,6 +371,7 @@ def main():
         perform_flips=True,  # perform flips
         perform_crop=True,  # perform random resized crop with size = 224
         perform_rotate=True,
+        perform_jitter=True,
         transform=None
     )
 
@@ -382,6 +383,7 @@ def main():
         perform_flips=False,
         perform_crop=False,
         perform_rotate=False,
+        perform_jitter=False,
         transform=transforms.CenterCrop(size0)
     )
 
@@ -393,6 +395,7 @@ def main():
         perform_flips=False,
         perform_crop=False,
         perform_rotate=False,
+        perform_jitter=False,
         transform=transforms.CenterCrop(size0)
     )
 
