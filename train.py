@@ -424,7 +424,6 @@ def main():
 
     for epoch in range(start_epoch, start_epoch + args.epochs):
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
-        break
         validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
         test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
 
@@ -449,8 +448,6 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
             segm = segm.cuda(args.cuda_device)
-        if i == 2:
-            break
         # get gradcam mask + compute output
         target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)
