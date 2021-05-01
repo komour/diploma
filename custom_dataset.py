@@ -23,7 +23,7 @@ png = '.png'
 class DatasetISIC2018(Dataset):
     """ISIC2018 dataset."""
 
-    def __init__(self, label_file, root_dir, segm_dir, size0=224, perform_flips=False, perform_crop=False, transform=None):
+    def __init__(self, label_file, root_dir, segm_dir, size0=224, perform_flips=False, perform_crop=False, perform_rotate=False, transform=None):
         """
         Args:
             label_file (string): Path to the txt file with annotations.
@@ -36,6 +36,7 @@ class DatasetISIC2018(Dataset):
         self.size0 = size0
         self.perform_crop = perform_crop
         self.perform_flips = perform_flips
+        self.perform_rotate = perform_rotate
         self.image_to_onehot = {}
         self.image_names = []
         self.root_dir = root_dir
@@ -80,6 +81,8 @@ class DatasetISIC2018(Dataset):
             if random.random() > 0.5:
                 img = TF.vflip(img)
                 segm = TF.vflip(segm)
+        if self.perform_rotate:
+            img, segm = rotate_image_and_mask(img, segm)
         if self.perform_crop:
             scale = (0.08, 1.0)
             ratio = (3. / 4., 4. / 3.)
@@ -100,3 +103,16 @@ class DatasetISIC2018(Dataset):
 
     def __len__(self):
         return len(self.image_to_onehot)
+
+
+def rotate_image_and_mask(image, mask):
+    r = random.random()
+    if 0 <= r < 0.33:
+        degrees = 90
+    elif 0.33 <= r < 0.66:
+        degrees = 180
+    else:
+        degrees = 270
+    image = TF.rotate(image, degrees)
+    mask = TF.rotate(mask, degrees)
+    return image, mask
