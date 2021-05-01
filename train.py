@@ -368,10 +368,12 @@ def main():
         root_dir=traindir,
         segm_dir=segm_dir,
         size0=size0,
-        perform_flips=True,  # perform flips
+        perform_flips=False,  # perform flips
         perform_crop=True,  # perform random resized crop with size = 224
-        perform_rotate=True,
-        perform_jitter=True,
+        perform_rotate=False,
+        perform_jitter=False,
+        perform_gaussian_noise=True,
+        perform_iaa_augs=True,
         transform=None
     )
 
@@ -384,6 +386,8 @@ def main():
         perform_crop=False,
         perform_rotate=False,
         perform_jitter=False,
+        perform_gaussian_noise=False,
+        perform_iaa_augs=False,
         transform=transforms.CenterCrop(size0)
     )
 
@@ -396,6 +400,8 @@ def main():
         perform_crop=False,
         perform_rotate=False,
         perform_jitter=False,
+        perform_gaussian_noise=False,
+        perform_iaa_augs=False,
         transform=transforms.CenterCrop(size0)
     )
 
@@ -418,6 +424,7 @@ def main():
 
     for epoch in range(start_epoch, start_epoch + args.epochs):
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
+        break
         validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
         test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
 
@@ -442,7 +449,8 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
             input_img = input_img.cuda(args.cuda_device)
             target = target.cuda(args.cuda_device)
             segm = segm.cuda(args.cuda_device)
-
+        if i == 2:
+            break
         # get gradcam mask + compute output
         target_layer = model.layer4
         gradcam = GradCAM(model, target_layer=target_layer)

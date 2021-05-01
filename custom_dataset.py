@@ -6,6 +6,10 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 from torch.utils.data.dataset import Dataset
 from torchvision import transforms
+import matplotlib.pyplot as plt
+import numpy as np
+import imgaug.augmenters as iaa
+import imgaug as ia
 
 
 def label_to_tensor(label):
@@ -24,7 +28,8 @@ class DatasetISIC2018(Dataset):
     """ISIC2018 dataset."""
 
     def __init__(self, label_file, root_dir, segm_dir, size0=224, perform_flips=False, perform_crop=False,
-                 perform_rotate=False, perform_jitter=False, transform=None):
+                 perform_rotate=False, perform_jitter=False, perform_gaussian_noise=False, perform_iaa_augs=False,
+                 transform=None):
         """
         Args:
             label_file (string): Path to the txt file with annotations.
@@ -44,6 +49,11 @@ class DatasetISIC2018(Dataset):
         self.root_dir = root_dir
         self.to_tensor = transforms.ToTensor()
         self.color_jitter = transforms.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0.35)
+        self.perform_iaa_augs = perform_iaa_augs
+        self.perform_gaussian_noise = perform_gaussian_noise
+
+        self.iaa_aug = ImgAugTransform()
+        self.gaussian_noise = ImgAugGaussianNoise()
 
         # DEFAULT_MEAN = [0.70843003, 0.58212194, 0.53605963]
         # DEFAULT_STD = [0.15741858, 0.1656929, 0.18091279]
@@ -86,8 +96,6 @@ class DatasetISIC2018(Dataset):
                 segm = TF.vflip(segm)
         if self.perform_rotate:
             img, segm = rotate_image_and_mask(img, segm)
-        if self.perform_jitter:
-            img = self.color_jitter(img)
         if self.perform_crop:
             scale = (0.08, 1.0)
             ratio = (3. / 4., 4. / 3.)
@@ -95,11 +103,31 @@ class DatasetISIC2018(Dataset):
             size = (self.size0, self.size0)
             img = TF.resized_crop(img, i, j, h, w, size, Image.BILINEAR)
             segm = TF.resized_crop(segm, i, j, h, w, size, Image.NEAREST)
-        if self.transform:
+        if self.transform:  # only used for CenterCrop in val/test datasets
             img = self.transform(img)
             segm = self.transform(segm)
+
+        no_norm_image = self.to_tensor(img.copy())
+
+        if self.perform_jitter:
+            if random.random() > 0.1:
+                img = self.color_jitter(img)
+        if self.perform_gaussian_noise:
+            if random.random() > 0.1:
+                img = self.gaussian_noise(img)
+        # plt.imshow(img)
+        # plt.show()
+        # plt.imshow(segm)
+        # plt.show()
+        if self.perform_iaa_augs:
+            if random.random() > 0.05:
+                img, segm = self.iaa_aug(img, segm)
+        # plt.imshow(img)
+        # plt.show()
+        # plt.imshow(segm)
+        # plt.show()
         img = self.to_tensor(img)
-        no_norm_image = img.detach().clone()
+
         img = self.normalize(img)
         segm = self.to_tensor(segm)
         label = label_to_tensor(self.image_to_onehot[self.image_names[idx]])
@@ -121,3 +149,37 @@ def rotate_image_and_mask(image, mask):
     image = TF.rotate(image, degrees)
     mask = TF.rotate(mask, degrees)
     return image, mask
+
+
+class ImgAugGaussianNoise:
+    def __init__(self):
+        self.aug = iaa.Sequential([
+            iaa.AdditiveGaussianNoise(scale=(0.0, 0.05 * 255), per_channel=0.5)
+        ])
+
+    def __call__(self, img):
+        img = np.array(img)
+        return self.aug.augment_image(img)
+
+
+class ImgAugTransform:
+    def __init__(self):
+        self.seq_img = iaa.Sequential([
+            iaa.Affine(scale=(0.4, 2), order=1, cval=0, mode=["constant", "edge"], name="MyAffine")
+        ])
+        self.seq_mask = iaa.Sequential([
+            iaa.Affine(scale=(0.4, 2), order=0, cval=0, mode=["constant", "edge"], name="MyAffine")
+        ])
+
+    def __call__(self, img, mask):
+        # code to perform same random augmentation on image and mask
+        seq_img = self.seq_img.localize_random_state()
+        seq_img_i = seq_img.to_deterministic()
+        seq_mask_i = self.seq_mask.to_deterministic()
+
+        seq_mask_i = seq_mask_i.copy_random_state(seq_img_i, matching="name")
+
+        img = np.array(img)
+        mask = np.array(mask)
+
+        return seq_img_i.augment_image(img), seq_mask_i.augment_image(mask)
