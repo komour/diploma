@@ -368,10 +368,10 @@ def main():
         root_dir=traindir,
         segm_dir=segm_dir,
         size0=size0,
-        perform_flips=False,  # perform flips
+        perform_flips=True,  # perform flips
         perform_crop=True,  # perform random resized crop with size = 224
-        perform_rotate=False,
-        perform_jitter=False,
+        perform_rotate=True,
+        perform_jitter=True,
         perform_gaussian_noise=True,
         perform_iaa_augs=True,
         transform=None

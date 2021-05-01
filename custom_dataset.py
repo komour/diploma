@@ -9,7 +9,6 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 import numpy as np
 import imgaug.augmenters as iaa
-import imgaug as ia
 
 
 def label_to_tensor(label):
@@ -85,7 +84,6 @@ class DatasetISIC2018(Dataset):
     def __getitem__(self, idx):
         img = self.pil_images[idx]
         segm = self.pil_images_segm[idx]
-
         # same random transformations for image and mask
         if self.perform_flips:
             if random.random() > 0.5:
@@ -165,10 +163,10 @@ class ImgAugGaussianNoise:
 class ImgAugTransform:
     def __init__(self):
         self.seq_img = iaa.Sequential([
-            iaa.Affine(scale=(0.4, 2), order=1, cval=0, mode=["constant", "edge"], name="MyAffine")
+            iaa.Affine(scale={"x": (0.4, 2), "y": (0.4, 2)}, rotate=(-45, 45), order=1, cval=0, mode=["constant", "edge"], name="MyAffine")
         ])
         self.seq_mask = iaa.Sequential([
-            iaa.Affine(scale=(0.4, 2), order=0, cval=0, mode=["constant", "edge"], name="MyAffine")
+            iaa.Affine(scale={"x": (0.4, 2), "y": (0.4, 2)}, rotate=(-45, 45), order=0, cval=0, mode=["constant", "edge"], name="MyAffine")
         ])
 
     def __call__(self, img, mask):
