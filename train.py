@@ -372,7 +372,7 @@ def main():
         perform_crop=True,  # perform random resized crop with size = 224
         perform_rotate=True,
         perform_jitter=True,
-        perform_gaussian_noise=True,
+        perform_gaussian_noise=False,
         perform_iaa_augs=True,
         transform=None
     )
