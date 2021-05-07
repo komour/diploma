@@ -248,7 +248,7 @@ class BestMetricsHolder(MetricsHolder):
         self.gc_direct = max(self.gc_direct, mh.gc_direct)
 
 
-SAM_AMOUNT = 3
+SAM_AMOUNT = 1
 CLASS_AMOUNT = 5
 TRAIN_AMOUNT = 1600
 VAL_AMOUNT = 400
@@ -662,7 +662,7 @@ def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_
     loss_outer_sum = [0 for _ in range(SAM_AMOUNT)]
     loss_inv_sum = [0 for _ in range(SAM_AMOUNT)]
 
-    assert len(true_masks) == SAM_AMOUNT
+    # assert len(true_masks) == SAM_AMOUNT
     # iterate over SAM number
     for i in range(SAM_AMOUNT):
         # iterate over batch
