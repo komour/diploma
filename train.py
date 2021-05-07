@@ -23,6 +23,7 @@ from sklearn.metrics import (
 )
 
 from MODELS.model_resnet import *
+from MODELS.resnet18_bam import ResNet18BAM
 from custom_dataset import DatasetISIC2018
 from gradcam import GradCAM
 
@@ -278,6 +279,8 @@ def main():
     if args.arch == "resnet34":
         model = models.resnet34(pretrained=True)
         model.fc = nn.Linear(512, CLASS_AMOUNT)
+    elif args.arch == "ResNet18BAM":
+        model = ResNet18BAM(pretrained=True)
     elif args.arch == "resnet50":
         model = models.resnet50(pretrained=True)
         model.fc = nn.Linear(2048, CLASS_AMOUNT)
@@ -337,7 +340,7 @@ def main():
         lmbd=args.lmbd
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.8", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.9", name=args.run_name, tags=args.tags)
     if is_server:
         model = model.cuda(args.cuda_device)
     if is_server:
