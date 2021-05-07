@@ -5,15 +5,21 @@ from .bam import *
 
 class ResNet18BAM(ResNet):
 
-    def __init__(self, pretrained=True):
+    def __init__(self, pretrained=True, sam_instead_bam=False):
+        self.sam_instead_bam = sam_instead_bam
         super(ResNet18BAM, self).__init__(BasicBlock, [2, 2, 2, 2])
         self.load_state_dict(models.resnet18(pretrained=pretrained).state_dict())
 
         CLASS_AMOUNT = 5
         self.fc = nn.Linear(512, CLASS_AMOUNT)
-        self.bam1 = BAM(64 * BasicBlock.expansion)
-        self.bam2 = BAM(128 * BasicBlock.expansion)
-        self.bam3 = BAM(256 * BasicBlock.expansion)
+        if self.sam_instead_bam:
+            self.sam1 = SpatialGate(64 * BasicBlock.expansion)
+            self.sam2 = SpatialGate(128 * BasicBlock.expansion)
+            self.sam3 = SpatialGate(256 * BasicBlock.expansion)
+        else:
+            self.bam1 = BAM(64 * BasicBlock.expansion)
+            self.bam2 = BAM(128 * BasicBlock.expansion)
+            self.bam3 = BAM(256 * BasicBlock.expansion)
 
     def forward(self, x):
         sam_output = []
@@ -23,16 +29,31 @@ class ResNet18BAM(ResNet):
         x = self.maxpool(x)
 
         x = self.layer1(x)
-        x, sam1 = self.bam1(x)
-        sam_output.append(sam1)
+        if self.sam_instead_bam:
+            _, sam_o1 = self.sam1(x)
+            x = x * (1 + sam_o1)
+            sam_output.append(sam_o1)
+        else:
+            x, sam_o1 = self.bam1(x)
+            sam_output.append(sam_o1)
 
         x = self.layer2(x)
-        x, sam2 = self.bam2(x)
-        sam_output.append(sam2)
+        if self.sam_instead_bam:
+            _, sam_o2 = self.sam2(x)
+            x = x * (1 + sam_o2)
+            sam_output.append(sam_o2)
+        else:
+            x, sam_o2 = self.bam2(x)
+            sam_output.append(sam_o2)
 
         x = self.layer3(x)
-        x, sam3 = self.bam3(x)
-        sam_output.append(sam3)
+        if self.sam_instead_bam:
+            _, sam_o3 = self.sam3(x)
+            x = x * (1 + sam_o3)
+            sam_output.append(sam_o3)
+        else:
+            x, sam_o3 = self.bam3(x)
+            sam_output.append(sam_o3)
 
         x = self.layer4(x)
 

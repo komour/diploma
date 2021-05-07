@@ -280,7 +280,7 @@ def main():
         model = models.resnet34(pretrained=True)
         model.fc = nn.Linear(512, CLASS_AMOUNT)
     elif args.arch == "ResNet18BAM":
-        model = ResNet18BAM(pretrained=True)
+        model = ResNet18BAM(pretrained=True, sam_instead_bam=True)
     elif args.arch == "resnet50":
         model = models.resnet50(pretrained=True)
         model.fc = nn.Linear(2048, CLASS_AMOUNT)
