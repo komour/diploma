@@ -22,6 +22,7 @@ class ResNet18BAM(ResNet):
             self.bam1 = BAM(64 * BasicBlock.expansion)
             self.bam2 = BAM(128 * BasicBlock.expansion)
             self.bam3 = BAM(256 * BasicBlock.expansion)
+            self.bam4 = None
 
     def forward(self, x):
         sam_output = []
@@ -66,6 +67,10 @@ class ResNet18BAM(ResNet):
             if self.sam4 is not None:
                 _, sam_o4 = self.sam4(x)
                 x = x * (1 + sam_o4)
+                sam_output.append(sam_o4)
+        else:
+            if self.bam4 is not None:
+                x, sam_o4 = self.bam4(x)
                 sam_output.append(sam_o4)
 
         x = self.avgpool(x)
