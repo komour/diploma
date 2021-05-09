@@ -30,6 +30,12 @@ from gradcam import GradCAM
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
+class DataType(enum.Enum):
+    ISIC256 = "ISIC256"
+    ISIC512 = "ISIC512"
+    HAM256 = "HAM256"
+
+
 class RunType(enum.Enum):
     BASELINE = "baseline"
     SAM_1 = "SAM-1"
@@ -84,7 +90,7 @@ parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
 parser.add_argument('--run-type', type=RunType, default=RunType.BASELINE, help='type of the current run')
 parser.add_argument('--lmbd', type=int, default=1, help='coefficient for additional loss')
-parser.add_argument('--image-size', type=int, default=256, help='coefficient for additional loss')
+parser.add_argument('--data-type', type=DataType, default=DataType.HAM256, help='choice of the dataset')
 args = parser.parse_args()
 is_server = args.is_server == 1
 
@@ -249,10 +255,13 @@ class BestMetricsHolder(MetricsHolder):
 
 
 SAM_AMOUNT = 1
-CLASS_AMOUNT = 5
-TRAIN_AMOUNT = 1600
-VAL_AMOUNT = 400
-TEST_AMOUNT = 594
+CLASS_AMOUNT = 7 if args.data_type == DataType.HAM256 else 5
+# TRAIN_AMOUNT = 1600
+TRAIN_AMOUNT = 6195
+# VAL_AMOUNT = 400
+VAL_AMOUNT = 1550
+# TEST_AMOUNT = 594
+TEST_AMOUNT = 2270
 
 best_metrics_val = BestMetricsHolder(VAL_AMOUNT)
 best_metrics_test = BestMetricsHolder(TEST_AMOUNT)
@@ -265,7 +274,7 @@ def main():
     if is_server:
         wandb.login()
     global args, run
-
+    image_size = 256 if args.data_type == DataType.ISIC256 or args.data_type == DataType.HAM256 else 512
     # parse args and set seed
     args = parser.parse_args()
     print("args", args)
@@ -294,13 +303,19 @@ def main():
         model = models.vgg16(pretrained=True)
         model.classifier[6] = nn.Linear(4096, CLASS_AMOUNT)
     elif args.arch == "BAM":
-        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'BAM', args.image_size)
+        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'BAM', image_size)
     else:
-        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM', args.image_size)
+        model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM', image_size)
 
     # define loss function (criterion) and optimizer
-    pos_weight_train = torch.Tensor(
-        [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
+    if args.data_type == DataType.HAM256:
+        pos_weight_train = torch.Tensor([[0.49313087490961677, 8.00436046511628, 8.110294117647058, 18.4811320754717,
+                                          29.668316831683168, 70.20689655172414,
+                                          86.25352112676056]])
+    else:
+        pos_weight_train = torch.Tensor(
+            [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
+
     if is_server:
         criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
         sam_criterion_outer = nn.BCELoss(reduction='none').cuda(args.cuda_device)
@@ -350,14 +365,18 @@ def main():
     cudnn.benchmark = True
 
     # Data loading code
-    if args.image_size == 256:
+    if args.data_type == DataType.ISIC256:
         root_dir = 'data/'
         segm_dir = "images/256ISIC2018_Task1_Training_GroundTruth/"
         size0 = 224
-    else:
+    elif args.data_type == DataType.ISIC512:
         root_dir = 'data512/'
         segm_dir = "images/512ISIC2018_Task1_Training_GroundTruth/"
         size0 = 448
+    else:
+        root_dir = 'ham_data/'
+        segm_dir = "images/256HAM_SEGM/"
+        size0 = 224
 
     traindir = os.path.join(root_dir, 'train')
     train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
