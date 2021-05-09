@@ -74,8 +74,8 @@ parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
-parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
-                    metavar='W', help='weight decay (default: 1e-4)')
+parser.add_argument('--weight-decay', '--wd', default=0.01, type=float,
+                    metavar='W', help='weight decay (default: 0.9)')
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default=None, type=str, metavar='PATH',
@@ -151,17 +151,17 @@ class MetricsHolder:
         Set actual value for the every metric
         @return: void
         """
-        self.calculate_gc_metrcis()
-        self.calculate_sam_metrics()
-        self.calculate_classification_metrics()
-        self.calculate_losses()
+        self.__calculate_gc_metrcis()
+        self.__calculate_sam_metrics()
+        self.__calculate_classification_metrics()
+        self.__calculate_losses()
 
     def update_losses(self, loss_add, loss_main, loss_comb):
         self.__loss_add_sum += loss_add
         self.__loss_main_sum += loss_main
         self.__loss_comb_sum += loss_comb
 
-    def calculate_losses(self):
+    def __calculate_losses(self):
         batch_amount = math.ceil(self.objects_amount / args.batch_size)
         self.loss_add = self.__loss_add_sum / batch_amount
         self.loss_main = self.__loss_main_sum / batch_amount
@@ -189,7 +189,7 @@ class MetricsHolder:
             self.__sam_miss_sum[i] += sam_miss[i]
             self.__sam_direct_sum[i] += sam_direct[i]
 
-    def calculate_sam_metrics(self):
+    def __calculate_sam_metrics(self):
         for i in range(SAM_AMOUNT):
             self.iou[i] = self.__iou_sum[i] / self.objects_amount
             self.sam_miss_rel[i] = self.__sam_miss_rel_sum[i] / self.objects_amount
@@ -204,13 +204,13 @@ class MetricsHolder:
         self.__gc_miss_sum += gc_miss_sum
         self.__gc_direct_sum += gc_direct_sum
 
-    def calculate_gc_metrcis(self):
+    def __calculate_gc_metrcis(self):
         self.gc_miss_rel = self.__gc_miss_rel_sum / self.objects_amount
         self.gc_direct_rel = self.__gc_direct_rel_sum / self.objects_amount
         self.gc_miss = self.__gc_miss_sum / self.objects_amount
         self.gc_direct = self.__gc_direct_sum / self.objects_amount
 
-    def calculate_classification_metrics(self):
+    def __calculate_classification_metrics(self):
         # strange things here, but it doesn't work w/o them
         expected = [np.empty([1])] * CLASS_AMOUNT
         predicted = [np.empty([1])] * CLASS_AMOUNT
@@ -325,6 +325,7 @@ def main():
         sam_criterion_outer = nn.BCELoss(reduction='none')
         sam_criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
+    # optimizer = torch.optim.SGD(model.parameters(), args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
 
     # load checkpoint
     start_epoch = 0
@@ -355,7 +356,7 @@ def main():
         lmbd=args.lmbd
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.9", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.10", name=args.run_name, tags=args.tags)
     if is_server:
         model = model.cuda(args.cuda_device)
     if is_server:
@@ -826,7 +827,7 @@ def make_dict_for_log(suffix: str, mh: MetricsHolder):
 
     log_dict = {f'loss/comb_{suffix}': mh.loss_comb, f'loss/add_{suffix}': mh.loss_add,
                 f'loss/main_{suffix}': mh.loss_main,
-                f'gradcam/miss_rel_{suffix}': mh.gc_miss_rel, f'gradcam/direct_rel_{suffix}': mh.gc_direct_rel,
+                f'gradcam_rel/miss_{suffix}': mh.gc_miss_rel, f'gradcam_rel/direct_{suffix}': mh.gc_direct_rel,
                 f'gradcam/miss_{suffix}': mh.gc_miss, f'gradcam/direct_{suffix}': mh.gc_direct}
 
     assert len(mh.f1) == len(mh.recall) == len(mh.prec) == len(mh.mAP) == CLASS_AMOUNT + 1
