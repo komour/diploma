@@ -734,10 +734,10 @@ def get_processed_masks(segm: torch.Tensor):
     true_mask_inv3 = 1 - true_mask3
     true_mask_inv4 = 1 - true_mask4
 
-    true_masks = [true_mask4]
-    # true_masks = [true_mask1, true_mask2, true_mask3]
-    invert_masks = [true_mask_inv4]
-    # invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+    # true_masks = [true_mask4]
+    true_masks = [true_mask1, true_mask2, true_mask3]
+    # invert_masks = [true_mask_inv4]
+    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
 
     return true_masks, invert_masks
 
