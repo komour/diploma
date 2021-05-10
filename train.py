@@ -492,7 +492,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
 
         # calculate loss
-        loss_main = criterion(output, target.long())
+        loss_main = criterion(output, torch.max(target, 1)[1])
         loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
         loss_comb = loss_main + loss_add
         metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
@@ -547,7 +547,7 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
 
         # calculate loss and update its metrics
-        loss_main = criterion(output, target.long())
+        loss_main = criterion(output, torch.max(target, 1)[1])
         loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
         loss_comb = loss_main + loss_add
         metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
@@ -599,7 +599,7 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
 
         # calculate loss and update its metrics
-        loss_main = criterion(output, target.long())
+        loss_main = criterion(output, torch.max(target, 1)[1])
         loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
         loss_comb = loss_main + loss_add
         metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
