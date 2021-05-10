@@ -224,7 +224,7 @@ class MetricsHolder:
             self.mAP[i] = average_precision_score(expected[i], predicted[i])
             self.prec[i] = precision_score(expected[i], predicted[i], average="binary")
             self.recall[i] = recall_score(expected[i], predicted[i], average="binary")
-            self.accuracy[i] = accuracy_score(expected[i], predicted[i])
+            self.accuracy[i] = accuracy_score(self.__expected[i], self.__predicted[i])
 
         # reminder: average value is in the last element of the list
         self.f1[-1] = sum([x for i, x in enumerate(self.f1) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
