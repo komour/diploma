@@ -915,7 +915,7 @@ def calculate_iou(true_mask, sam_output):
 def save_checkpoint_to_folder(state, run_name):
     if not os.path.exists(f'./checkpoints/my_checkpoints/'):
         os.mkdir(f'./checkpoints/my_checkpoints/')
-    filename = f'./checkpoints/{run_name}.pth'
+    filename = f'./checkpoints/my_checkpoints/{run_name}.pth'
     torch.save(state, filename)
     print("successfully saved checkpoint")
 
