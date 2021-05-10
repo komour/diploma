@@ -20,6 +20,7 @@ from sklearn.metrics import (
     f1_score,
     precision_score,
     recall_score,
+    accuracy_score
 )
 
 from MODELS.model_resnet import *
@@ -110,6 +111,7 @@ class MetricsHolder:
         self.mAP = [0.] * (CLASS_AMOUNT + 1)
         self.prec = [0.] * (CLASS_AMOUNT + 1)
         self.recall = [0.] * (CLASS_AMOUNT + 1)
+        self.accuracy = [0.] * (CLASS_AMOUNT + 1)
 
         # SAM attention metrcis
         self.sam_miss_rel = [math.inf] * SAM_AMOUNT
@@ -222,12 +224,14 @@ class MetricsHolder:
             self.mAP[i] = average_precision_score(expected[i], predicted[i])
             self.prec[i] = precision_score(expected[i], predicted[i], average="binary")
             self.recall[i] = recall_score(expected[i], predicted[i], average="binary")
+            self.accuracy[i] = accuracy_score(expected[i], predicted[i])
 
         # reminder: average value is in the last element of the list
         self.f1[-1] = sum([x for i, x in enumerate(self.f1) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
         self.mAP[-1] = sum([x for i, x in enumerate(self.mAP) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
         self.prec[-1] = sum([x for i, x in enumerate(self.prec) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
         self.recall[-1] = sum([x for i, x in enumerate(self.recall) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
+        self.accuracy[-1] = sum([x for i, x in enumerate(self.accuracy) if i != CLASS_AMOUNT]) / CLASS_AMOUNT
 
 
 class BestMetricsHolder(MetricsHolder):
@@ -240,6 +244,7 @@ class BestMetricsHolder(MetricsHolder):
             self.mAP[i] = max(self.mAP[i], mh.mAP[i])
             self.prec[i] = max(self.prec[i], mh.prec[i])
             self.recall[i] = max(self.recall[i], mh.recall[i])
+            self.accuracy[i] = max(self.accuracy[i], mh.accuracy[i])
 
         for i in range(SAM_AMOUNT):
             self.sam_miss_rel[i] = min(self.sam_miss_rel[i], mh.sam_miss_rel[i])
@@ -860,10 +865,12 @@ def make_dict_for_log(suffix: str, mh: MetricsHolder):
         log_dict[f'mAP/c{i + 1}_{suffix}'] = mh.mAP[i]
         log_dict[f'prec/c{i + 1}_{suffix}'] = mh.prec[i]
         log_dict[f'recall/c{i + 1}_{suffix}'] = mh.recall[i]
+        log_dict[f'accuracy/c{i + 1}_{suffix}'] = mh.accuracy[i]
     log_dict[f'f1/avg_{suffix}'] = mh.f1[-1]
     log_dict[f'mAP/avg_{suffix}'] = mh.mAP[-1]
     log_dict[f'prec/avg_{suffix}'] = mh.prec[-1]
     log_dict[f'recall/avg_{suffix}'] = mh.recall[-1]
+    log_dict[f'accuracy/avg_{suffix}'] = mh.accuracy[-1]
 
     assert len(mh.iou) == len(mh.sam_miss_rel) == len(mh.sam_direct_rel) == SAM_AMOUNT == len(mh.sam_miss) == \
            len(mh.sam_direct)
