@@ -444,11 +444,12 @@ def main():
         batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True
     )
-
+    epoch_number = 0
     for epoch in range(start_epoch, start_epoch + args.epochs):
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
-        validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
-        test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
+        validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
+        test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
+        epoch_number += 1
 
     save_summary()
     if run is not None:
@@ -456,6 +457,13 @@ def main():
 
 
 def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
+    checkpoint_dict = {
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict()
+    }
+    save_checkpoint_to_folder(checkpoint_dict, args.run_name)
+
     global best_metrics_train
     metrics_holder = MetricsHolder(TRAIN_AMOUNT)
     # switch to train mode
@@ -501,7 +509,14 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
     wandb_log("trn", epoch, metrics_holder)
 
 
-def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch):
+def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
+    checkpoint_dict = {
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict()
+    }
+    save_checkpoint_to_folder(checkpoint_dict, args.run_name)
+
     global best_metrics_val
     metrics_holder = MetricsHolder(VAL_AMOUNT)
 
@@ -546,7 +561,14 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
     wandb_log("val", epoch, metrics_holder)
 
 
-def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch):
+def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
+    checkpoint_dict = {
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict()
+    }
+    save_checkpoint_to_folder(checkpoint_dict, args.run_name)
+
     global best_metrics_test
     metrics_holder = MetricsHolder(TEST_AMOUNT)
 
@@ -722,17 +744,17 @@ def get_processed_masks(segm: torch.Tensor):
     maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
     maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
     maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-    maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+    # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
     true_mask1 = maxpool_segm1(segm)
     true_mask2 = maxpool_segm2(segm)
     true_mask3 = maxpool_segm3(segm)
-    true_mask4 = maxpool_segm4(segm)
+    # true_mask4 = maxpool_segm4(segm)
 
     true_mask_inv1 = 1 - true_mask1
     true_mask_inv2 = 1 - true_mask2
     true_mask_inv3 = 1 - true_mask3
-    true_mask_inv4 = 1 - true_mask4
+    # true_mask_inv4 = 1 - true_mask4
 
     # true_masks = [true_mask4]
     true_masks = [true_mask1, true_mask2, true_mask3]
@@ -888,10 +910,10 @@ def calculate_iou(true_mask, sam_output):
     return rounded
 
 
-def save_checkpoint_to_folder(state, folder_name, checkpoint_number):
-    if not os.path.exists(f'./checkpoints/{folder_name}/'):
-        os.mkdir(f'./checkpoints/{folder_name}/')
-    filename = f'./checkpoints/{folder_name}/{int(checkpoint_number)}.pth'
+def save_checkpoint_to_folder(state, run_name):
+    if not os.path.exists(f'./checkpoints/my_checkpoints/'):
+        os.mkdir(f'./checkpoints/my_checkpoints/')
+    filename = f'./checkpoints/{run_name}.pth'
     torch.save(state, filename)
     print("successfully saved checkpoint")
 
