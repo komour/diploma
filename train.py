@@ -317,11 +317,13 @@ def main():
             [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
 
     if is_server:
-        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
+        # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
+        criterion = nn.CrossEntropyLoss().cuda(args.cuda_device)
         sam_criterion_outer = nn.BCELoss(reduction='none').cuda(args.cuda_device)
         sam_criterion = nn.BCELoss().cuda(args.cuda_device)
     else:
-        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
+        # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
+        criterion = nn.CrossEntropyLoss()
         sam_criterion_outer = nn.BCELoss(reduction='none')
         sam_criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
