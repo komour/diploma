@@ -453,6 +453,13 @@ def main():
     )
     epoch_number = 0
     for epoch in range(start_epoch, start_epoch + args.epochs):
+        checkpoint_dict = {
+            'epoch': epoch,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }
+        save_checkpoint_to_folder(checkpoint_dict, args.run_name)
+
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
         validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
         test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
@@ -464,13 +471,6 @@ def main():
 
 
 def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
-    checkpoint_dict = {
-        'epoch': epoch,
-        'state_dict': model.state_dict(),
-        'optimizer': optimizer.state_dict()
-    }
-    save_checkpoint_to_folder(checkpoint_dict, args.run_name)
-
     global best_metrics_train
     metrics_holder = MetricsHolder(TRAIN_AMOUNT)
     # switch to train mode
@@ -517,13 +517,6 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
 
 
 def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
-    checkpoint_dict = {
-        'epoch': epoch,
-        'state_dict': model.state_dict(),
-        'optimizer': optimizer.state_dict()
-    }
-    save_checkpoint_to_folder(checkpoint_dict, args.run_name)
-
     global best_metrics_val
     metrics_holder = MetricsHolder(VAL_AMOUNT)
 
@@ -569,13 +562,6 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
 
 
 def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
-    checkpoint_dict = {
-        'epoch': epoch,
-        'state_dict': model.state_dict(),
-        'optimizer': optimizer.state_dict()
-    }
-    save_checkpoint_to_folder(checkpoint_dict, args.run_name)
-
     global best_metrics_test
     metrics_holder = MetricsHolder(TEST_AMOUNT)
 
