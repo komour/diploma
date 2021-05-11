@@ -341,7 +341,7 @@ def main():
             # load ImageNet checkpoints:
             # load_foreign_checkpoint(model)
 
-            load_checkpoint(model, optimizer)
+            start_epoch = load_checkpoint(model, optimizer)
         else:
             print(f"=> no checkpoint found at '{args.resume}'")
             return -1
@@ -451,13 +451,14 @@ def main():
         num_workers=args.workers, pin_memory=True
     )
     epoch_number = 0
-    for epoch in range(start_epoch, start_epoch + args.epochs):
-        checkpoint_dict = {
-            'epoch': epoch,
-            'state_dict': model.state_dict(),
-            'optimizer': optimizer.state_dict()
-        }
-        save_checkpoint_to_folder(checkpoint_dict, args.run_name)
+    for epoch in range(start_epoch, args.epochs):
+        if epoch_number != 0:
+            checkpoint_dict = {
+                'epoch': epoch,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            }
+            save_checkpoint_to_folder(checkpoint_dict, args.run_name)
 
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
         validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
@@ -963,6 +964,7 @@ def load_checkpoint(model, optimizer):
     model.load_state_dict(state_dict)
     print(f"=> loaded checkpoint '{args.resume}'")
     print(f"epoch = {checkpoint['epoch']}")
+    return checkpoint['epoch']
 
 
 if __name__ == '__main__':
