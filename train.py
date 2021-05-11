@@ -331,6 +331,8 @@ def main():
         criterion = nn.CrossEntropyLoss()
         sam_criterion_outer = nn.BCELoss(reduction='none')
         sam_criterion = nn.BCELoss()
+    if is_server:
+        model = model.cuda(args.cuda_device)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
     # optimizer = torch.optim.SGD(model.parameters(), args.lr, weight_decay=args.weight_decay, momentum=args.momentum)
 
