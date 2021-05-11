@@ -445,13 +445,13 @@ def main():
     # )
     epoch_number = 0
     for epoch in range(start_epoch, args.epochs):
-        if epoch_number != 0:
-            checkpoint_dict = {
-                'epoch': epoch,
-                'state_dict': model.state_dict(),
-                'optimizer': optimizer.state_dict()
-            }
-            save_checkpoint_to_folder(checkpoint_dict, args.run_name)
+        # if epoch_number != 0:
+        #     checkpoint_dict = {
+        #         'epoch': epoch,
+        #         'state_dict': model.state_dict(),
+        #         'optimizer': optimizer.state_dict()
+        #     }
+        #     save_checkpoint_to_folder(checkpoint_dict, args.run_name)
 
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
         validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
