@@ -63,7 +63,7 @@ class RunType(enum.Enum):
 parser = argparse.ArgumentParser(description='PyTorch ResNet+BAM ISIC2018 Training')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet')
 parser.add_argument('--depth', default=50, type=int, metavar='D', help='model depth')
-parser.add_argument('--workers', default=4, type=int, metavar='N',
+parser.add_argument('--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
@@ -312,15 +312,6 @@ def main():
     else:
         model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM', image_size)
 
-    # define loss function (criterion) and optimizer
-    if args.data_type == DataType.HAM256:
-        pos_weight_train = torch.Tensor([[0.49313087490961677, 8.00436046511628, 8.110294117647058, 18.4811320754717,
-                                          29.668316831683168, 70.20689655172414,
-                                          86.25352112676056]])
-    else:
-        pos_weight_train = torch.Tensor(
-            [[3.27807486631016, 2.7735849056603774, 12.91304347826087, 0.6859852476290832, 25.229508196721312]])
-
     if is_server:
         # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
         criterion = nn.CrossEntropyLoss().cuda(args.cuda_device)
@@ -391,8 +382,8 @@ def main():
     train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
     valdir = os.path.join(root_dir, 'val')
     val_labels = os.path.join(root_dir, 'val', 'images_onehot_val.txt')
-    testdir = os.path.join(root_dir, 'test')
-    test_labels = os.path.join(root_dir, 'test', 'images_onehot_test.txt')
+    # testdir = os.path.join(root_dir, 'test')
+    # test_labels = os.path.join(root_dir, 'test', 'images_onehot_test.txt')
 
     train_dataset = DatasetISIC2018(
         label_file=train_labels,
@@ -422,19 +413,19 @@ def main():
         transform=transforms.CenterCrop(size0)
     )
 
-    test_dataset = DatasetISIC2018(
-        label_file=test_labels,
-        root_dir=testdir,
-        segm_dir=segm_dir,
-        size0=size0,
-        perform_flips=False,
-        perform_crop=False,
-        perform_rotate=False,
-        perform_jitter=False,
-        perform_gaussian_noise=False,
-        perform_iaa_augs=False,
-        transform=transforms.CenterCrop(size0)
-    )
+    # test_dataset = DatasetISIC2018(
+    #     label_file=test_labels,
+    #     root_dir=testdir,
+    #     segm_dir=segm_dir,
+    #     size0=size0,
+    #     perform_flips=False,
+    #     perform_crop=False,
+    #     perform_rotate=False,
+    #     perform_jitter=False,
+    #     perform_gaussian_noise=False,
+    #     perform_iaa_augs=False,
+    #     transform=transforms.CenterCrop(size0)
+    # )
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
@@ -447,11 +438,11 @@ def main():
         batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True
     )
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset,
-        batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True
-    )
+    # test_loader = torch.utils.data.DataLoader(
+    #     test_dataset,
+    #     batch_size=args.batch_size, shuffle=True,
+    #     num_workers=args.workers, pin_memory=True
+    # )
     epoch_number = 0
     for epoch in range(start_epoch, args.epochs):
         if epoch_number != 0:
@@ -463,8 +454,8 @@ def main():
             save_checkpoint_to_folder(checkpoint_dict, args.run_name)
 
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
-        validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
-        test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
+        validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
+        # test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
         epoch_number += 1
 
     save_summary()
@@ -489,18 +480,13 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
             target = target.cuda(args.cuda_device)
             segm = segm.cuda(args.cuda_device)
         # get gradcam mask + compute output
-        target_layer = model.layer4
-        gradcam = GradCAM(model, target_layer=target_layer)
+        gradcam = GradCAM(model, target_layer=model.layer4)
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img, retain_graph=True)
 
         # calculate loss
-        target_for_loss = torch.max(target, 1)[1]
-        if is_server:
-            target_for_loss = target_for_loss.cuda(args.cuda_device)
-        loss_main = criterion(output, target_for_loss)
-        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
-        loss_comb = loss_main + loss_add
-        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
+        loss_comb = calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_criterion,
+                                              sam_criterion_outer,
+                                              metrics_holder)
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
@@ -521,7 +507,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
     wandb_log("trn", epoch, metrics_holder)
 
 
-def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
+def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch):
     global best_metrics_val
     metrics_holder = MetricsHolder(VAL_AMOUNT)
 
@@ -540,15 +526,11 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
             segm = segm.cuda(args.cuda_device)
 
         # get gradcam mask + compute output
-        target_layer = model.layer4
-        gradcam = GradCAM(model, target_layer=target_layer)
+        gradcam = GradCAM(model, target_layer=model.layer4)
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
 
-        # calculate loss and update its metrics
-        loss_main = criterion(output, torch.max(target, 1)[1])
-        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
-        loss_comb = loss_main + loss_add
-        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
+        calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_criterion, sam_criterion_outer,
+                                  metrics_holder)
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
@@ -566,7 +548,7 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
     wandb_log("val", epoch, metrics_holder)
 
 
-def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer):
+def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch):
     global best_metrics_test
     metrics_holder = MetricsHolder(TEST_AMOUNT)
 
@@ -585,15 +567,12 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
             segm = segm.cuda(args.cuda_device)
 
         # get gradcam mask + compute output
-        target_layer = model.layer4
-        gradcam = GradCAM(model, target_layer=target_layer)
+        gradcam = GradCAM(model, target_layer=model.layer4)
         gc_mask, no_norm_gc_mask, output, sam_output = gradcam(input_img)
 
         # calculate loss and update its metrics
-        loss_main = criterion(output, torch.max(target, 1)[1])
-        loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
-        loss_comb = loss_main + loss_add
-        metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
+        calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_criterion, sam_criterion_outer,
+                                  metrics_holder)
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
@@ -609,6 +588,15 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
     metrics_holder.calculate_all_metrcis()
     best_metrics_test.update(metrics_holder)
     wandb_log("test", epoch, metrics_holder)
+
+
+def calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_criterion, sam_criterion_outer,
+                              metrics_holder):
+    loss_main = criterion(output, torch.max(target, 1)[1])
+    loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
+    loss_comb = loss_main + loss_add
+    metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
+    return loss_comb
 
 
 def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.Tensor):
