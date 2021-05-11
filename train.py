@@ -339,10 +339,9 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             # load ImageNet checkpoints:
-            load_foreign_checkpoint(model)
+            # load_foreign_checkpoint(model)
 
-            # load my own checkpoints:
-            # start_epoch = load_checkpoint(model)
+            load_checkpoint(model, optimizer)
         else:
             print(f"=> no checkpoint found at '{args.resume}'")
             return -1
@@ -951,18 +950,19 @@ def load_foreign_checkpoint(model):
     print(f"=> loaded checkpoint '{args.resume}'")
 
 
-def load_checkpoint(model):
+def load_checkpoint(model, optimizer):
     print(f"=> loading checkpoint '{args.resume}'")
     if is_server:
         checkpoint = torch.load(args.resume, map_location=f'cuda:{args.cuda_device}')
     else:
         checkpoint = torch.load(args.resume, map_location='cpu')
     state_dict = checkpoint['state_dict']
-
+    if "optimizer" in checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        print("optimizer state loaded")
     model.load_state_dict(state_dict)
     print(f"=> loaded checkpoint '{args.resume}'")
     print(f"epoch = {checkpoint['epoch']}")
-    return checkpoint['epoch']
 
 
 if __name__ == '__main__':
