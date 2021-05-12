@@ -494,7 +494,7 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
 
         # calculate and update SAM and gradcam metrics
         metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask.detach(), segm))
-        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output.detach(), segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
 
         optimizer.zero_grad()
         loss_comb.backward()
@@ -538,7 +538,7 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
 
         # calculate and update SAM and gradcam metrics
         metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask.detach(), segm))
-        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output.detach(), segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
 
         if i % args.print_freq == 0:
             print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
@@ -580,7 +580,7 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
 
         # calculate and update SAM and gradcam metrics
         metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask.detach(), segm))
-        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output.detach(), segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
 
         if i % args.print_freq == 0:
             print(f'Test: [{epoch}][{i}/{len(test_loader)}]')
