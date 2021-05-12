@@ -64,7 +64,7 @@ parser = argparse.ArgumentParser(description='PyTorch ResNet+BAM ISIC2018 Traini
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet')
 parser.add_argument('--depth', default=50, type=int, metavar='D', help='model depth')
 parser.add_argument('--workers', default=0, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
+                    help='number of data loading workers (default: 0)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -490,11 +490,11 @@ def train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, ep
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
-        metrics_holder.update_expected_predicted(target=target, output=activated_output)
+        metrics_holder.update_expected_predicted(target=target, output=activated_output.detach())
 
         # calculate and update SAM and gradcam metrics
-        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
-        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
+        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask.detach(), segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output.detach(), segm))
 
         optimizer.zero_grad()
         loss_comb.backward()
@@ -534,11 +534,11 @@ def validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, e
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
-        metrics_holder.update_expected_predicted(target=target, output=activated_output)
+        metrics_holder.update_expected_predicted(target=target, output=activated_output.detach())
 
         # calculate and update SAM and gradcam metrics
-        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
-        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
+        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask.detach(), segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output.detach(), segm))
 
         if i % args.print_freq == 0:
             print(f'Validate: [{epoch}][{i}/{len(val_loader)}]')
@@ -576,11 +576,11 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
 
         # update classification metrics
         activated_output = (sigmoid(output.data) > th).float()
-        metrics_holder.update_expected_predicted(target=target, output=activated_output)
+        metrics_holder.update_expected_predicted(target=target, output=activated_output.detach())
 
         # calculate and update SAM and gradcam metrics
-        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask, segm))
-        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output, segm))
+        metrics_holder.update_gradcam_metrics(*calculate_gradcam_metrics(no_norm_gc_mask.detach(), segm))
+        metrics_holder.update_sam_metrics(*calculate_sam_metrics(sam_output.detach(), segm))
 
         if i % args.print_freq == 0:
             print(f'Test: [{epoch}][{i}/{len(test_loader)}]')
@@ -595,7 +595,7 @@ def calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_c
     loss_main = criterion(output, torch.max(target, 1)[1])
     loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
     loss_comb = loss_main + loss_add
-    metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
+    metrics_holder.update_losses(loss_add=loss_add.detach(), loss_main=loss_main.detach(), loss_comb=loss_comb.detach())
     return loss_comb
 
 
