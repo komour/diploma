@@ -596,7 +596,7 @@ def calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_c
     loss_main = criterion(output, torch.max(target, 1)[1])
     loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
     loss_comb = loss_main + loss_add
-    metrics_holder.update_losses(loss_add=loss_add.detach(), loss_main=loss_main.detach(), loss_comb=loss_comb.detach())
+    metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
     return loss_comb
 
 
