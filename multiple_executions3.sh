@@ -1,1 +1,1 @@
-python3 train.py --workers 2 --lr 1e-5 --run-name "outer-1, lr=1e-5" --run-type outer-SAM-1 --arch ResNet18BAM --tags ResNet18BAM outer-SAM-3 concurrent --cuda-device 2
+python3 train.py --workers 2 --lr 1e-5 --run-name "outer-1, lr=1e-5" --run-type outer-SAM-1 --arch ResNet18BAM --tags ResNet18BAM outer-SAM-3 concurrent --cuda-device 1
