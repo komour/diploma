@@ -1,1 +1,1 @@
-python3 train.py --lr 1e-4 --run-name "baseline, lr=1e-4" --batch-size 8 --run-type baseline --arch ResNet18BAM --tags ResNet18BAM baseline concurrent --cuda-device 1
+train.py --workers 2 --lr 1e-6 --run-name "baseline, 1e-6" --run-type baseline --arch ResNet18BAM --tags ResNet18BAM baseline concurrent --cuda-device 1
