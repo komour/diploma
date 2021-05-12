@@ -5,6 +5,7 @@ import os
 import random
 from collections import OrderedDict
 from typing import List
+import gc
 
 import numpy as np
 import torch.backends.cudnn as cudnn
@@ -453,11 +454,11 @@ def main():
                 'optimizer': optimizer.state_dict()
             }
             save_checkpoint_to_folder(checkpoint_dict, args.run_name)
-
         train(train_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
         validate(val_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch)
         # test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoch, optimizer)
         epoch_number += 1
+        gc.collect()
 
     save_summary()
     if run is not None:
@@ -596,7 +597,8 @@ def calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_c
     loss_main = criterion(output, torch.max(target, 1)[1])
     loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
     loss_comb = loss_main + loss_add
-    metrics_holder.update_losses(loss_add=loss_add, loss_main=loss_main, loss_comb=loss_comb)
+    metrics_holder.update_losses(loss_add=loss_add.detach().item() if args.run_type != RunType.BASELINE else loss_add,
+                                 loss_main=loss_main.detach().item(), loss_comb=loss_comb.detach().item())
     return loss_comb
 
 

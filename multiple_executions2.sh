@@ -1,1 +1,1 @@
-python3 train.py --resume "checkpoints/my_checkpoints/outer-SAM-2, ResNet18BAM.pth" --run-type outer-SAM-2 --arch ResNet18BAM --tags ResNet18BAM outer-SAM-2 concurrent --run-name "outer-SAM-2, ResNet18BAM" --cuda-device 1
+python3 train.py --resume "checkpoints/my_checkpoints/outer-1, lr=1e-5.pth"  --workers 2 --lr 1e-5 --run-name "outer-1, lr=1e-5" --run-type outer-SAM-1 --arch ResNet18BAM --tags ResNet18BAM outer-SAM-1 concurrent --cuda-device 2
