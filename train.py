@@ -8,7 +8,6 @@ from typing import List
 
 import numpy as np
 import torch.backends.cudnn as cudnn
-import torch.nn.parallel
 import torch.optim
 import torch.utils.data
 import torchvision.models as models
@@ -276,6 +275,8 @@ run = None
 
 
 def main():
+    torch.set_num_threads(2)
+    print(torch.get_num_threads())
     if is_server:
         wandb.login()
     global args, run
