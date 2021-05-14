@@ -615,9 +615,9 @@ def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.T
     true_mask = maxpool(segm)
     true_mask_invert = 1 - true_mask
 
-    true_mask_invert = true_mask_invert.detach().clone().cpu()
-    true_mask = true_mask.detach().clone().cpu()
-    gradcam_mask = no_norm_gc_mask_numpy.detach().clone().cpu()
+    true_mask_invert = true_mask_invert.detach()
+    true_mask = true_mask.detach()
+    gradcam_mask = no_norm_gc_mask_numpy.detach()
 
     gc_miss_rel_sum = 0.
     gc_direct_rel_sum = 0.
@@ -656,9 +656,9 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
 
     # measure SAM attention metrics
     for i in range(SAM_AMOUNT):
-        cur_sam_batch = sam_output[i].detach().clone()
-        cur_mask_batch = true_masks[i].detach().clone()
-        cur_mask_inv_batch = invert_masks[i].detach().clone()
+        cur_sam_batch = sam_output[i].detach()
+        cur_mask_batch = true_masks[i].detach()
+        cur_mask_inv_batch = invert_masks[i].detach()
 
         # iterate over batch to calculate metrics on each image of the batch
         assert cur_sam_batch.size(0) == cur_mask_batch.size(0)
@@ -675,7 +675,7 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
                                              torch.sum(cur_mask_inv))
             sam_direct_sum[i] += safe_division(torch.sum(cur_sam * cur_mask),
                                                torch.sum(cur_mask))
-            iou_sum[i] += calculate_iou((cur_sam > 0.5).int(), cur_mask.int())
+            # iou_sum[i] += calculate_iou((cur_sam > 0.5).int(), cur_mask.int())
     return iou_sum, sam_miss_rel_sum, sam_direct_rel_sum, sam_miss_sum, sam_direct_sum
 
 
