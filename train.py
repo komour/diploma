@@ -664,8 +664,10 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
         assert cur_sam_batch.size(0) == cur_mask_batch.size(0)
         for j in range(cur_sam_batch.size(0)):
             cur_sam = cur_sam_batch[j]
-            cur_mask = cur_mask_batch[j].expand_as(cur_sam)
-            cur_mask_inv = cur_mask_inv_batch[j].expand_as(cur_sam)
+            # cur_mask = cur_mask_batch[j].expand_as(cur_sam)
+            cur_mask = cur_mask_batch[j]
+            # cur_mask_inv = cur_mask_inv_batch[j].expand_as(cur_sam)
+            cur_mask_inv = cur_mask_inv_batch[j]
 
             sam_miss_rel_sum[i] += safe_division(torch.sum(cur_sam * cur_mask_inv),
                                                  torch.sum(cur_sam))
@@ -698,8 +700,10 @@ def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_
         # iterate over batch
         for j in range(len(true_masks[i])):
             cur_sam_output = sam_output[i][j]
-            cur_mask = true_masks[i][j].expand_as(cur_sam_output)
-            cur_mask_inv = invert_masks[i][j].expand_as(cur_sam_output)
+            # cur_mask = true_masks[i][j].expand_as(cur_sam_output)
+            cur_mask = true_masks[i][j]
+            # cur_mask_inv = invert_masks[i][j].expand_as(cur_sam_output)
+            cur_mask_inv = invert_masks[i][j]
 
             loss_outer_sum[i] += safe_division(
                 torch.sum(sam_criterion_outer(cur_sam_output, cur_mask) * cur_mask_inv),
@@ -716,8 +720,10 @@ def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_
     loss_outer_inv = [None for _ in range(SAM_AMOUNT)]
 
     for i in range(SAM_AMOUNT):
-        loss[i] = args.lmbd * sam_criterion(sam_output[i], true_masks[i].expand_as(sam_output[i]))
-        loss_inv[i] = args.lmbd * sam_criterion(sam_output[i], invert_masks[i].expand_as(sam_output[i]))
+        # loss[i] = args.lmbd * sam_criterion(sam_output[i], true_masks[i].expand_as(sam_output[i]))
+        loss[i] = args.lmbd * sam_criterion(sam_output[i], true_masks[i])
+        # loss_inv[i] = args.lmbd * sam_criterion(sam_output[i], invert_masks[i].expand_as(sam_output[i]))
+        loss_inv[i] = args.lmbd * sam_criterion(sam_output[i], invert_masks[i])
 
         loss_outer[i] = args.lmbd * loss_outer_sum[i] / args.batch_size
         loss_outer_inv[i] = args.lmbd * loss_inv_sum[i] / args.batch_size
