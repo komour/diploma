@@ -317,7 +317,7 @@ def main():
         # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
         criterion = nn.CrossEntropyLoss().cuda(args.cuda_device)
         sam_criterion_outer = nn.MSELoss(reduction='none').cuda(args.cuda_device)
-        sam_criterion = nn.MSELoss.cuda(args.cuda_device)
+        sam_criterion = nn.MSELoss().cuda(args.cuda_device)
     else:
         # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
         criterion = nn.CrossEntropyLoss()
