@@ -316,13 +316,13 @@ def main():
     if is_server:
         # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
         criterion = nn.CrossEntropyLoss().cuda(args.cuda_device)
-        sam_criterion_outer = nn.BCELoss(reduction='none').cuda(args.cuda_device)
-        sam_criterion = nn.BCELoss().cuda(args.cuda_device)
+        sam_criterion_outer = nn.MSELoss(reduction='none').cuda(args.cuda_device)
+        sam_criterion = nn.MSELoss.cuda(args.cuda_device)
     else:
         # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
         criterion = nn.CrossEntropyLoss()
-        sam_criterion_outer = nn.BCELoss(reduction='none')
-        sam_criterion = nn.BCELoss()
+        sam_criterion_outer = nn.MSELoss(reduction='none')
+        sam_criterion = nn.MSELoss()
     if is_server:
         model = model.cuda(args.cuda_device)
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
@@ -656,16 +656,16 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
 
     # measure SAM attention metrics
     for i in range(SAM_AMOUNT):
-        cur_sam_batch = sam_output[i].detach().clone().cpu()
-        cur_mask_batch = true_masks[i].detach().clone().cpu()
-        cur_mask_inv_batch = invert_masks[i].detach().clone().cpu()
+        cur_sam_batch = sam_output[i].detach().clone()
+        cur_mask_batch = true_masks[i].detach().clone()
+        cur_mask_inv_batch = invert_masks[i].detach().clone()
 
         # iterate over batch to calculate metrics on each image of the batch
-        assert cur_sam_batch.size() == cur_mask_batch.size()
+        assert cur_sam_batch.size(0) == cur_mask_batch.size(0)
         for j in range(cur_sam_batch.size(0)):
             cur_sam = cur_sam_batch[j]
-            cur_mask = cur_mask_batch[j]
-            cur_mask_inv = cur_mask_inv_batch[j]
+            cur_mask = cur_mask_batch[j].expand_as(cur_sam)
+            cur_mask_inv = cur_mask_inv_batch[j].expand_as(cur_sam)
 
             sam_miss_rel_sum[i] += safe_division(torch.sum(cur_sam * cur_mask_inv),
                                                  torch.sum(cur_sam))
@@ -697,9 +697,9 @@ def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_
     for i in range(SAM_AMOUNT):
         # iterate over batch
         for j in range(len(true_masks[i])):
-            cur_mask = true_masks[i][j]
-            cur_mask_inv = invert_masks[i][j]
             cur_sam_output = sam_output[i][j]
+            cur_mask = true_masks[i][j].expand_as(cur_sam_output)
+            cur_mask_inv = invert_masks[i][j].expand_as(cur_sam_output)
 
             loss_outer_sum[i] += safe_division(
                 torch.sum(sam_criterion_outer(cur_sam_output, cur_mask) * cur_mask_inv),
@@ -716,8 +716,8 @@ def calculate_additional_loss(segm: torch.Tensor, sam_output: torch.Tensor, sam_
     loss_outer_inv = [None for _ in range(SAM_AMOUNT)]
 
     for i in range(SAM_AMOUNT):
-        loss[i] = args.lmbd * sam_criterion(sam_output[i], true_masks[i])
-        loss_inv[i] = args.lmbd * sam_criterion(sam_output[i], invert_masks[i])
+        loss[i] = args.lmbd * sam_criterion(sam_output[i], true_masks[i].expand_as(sam_output[i]))
+        loss_inv[i] = args.lmbd * sam_criterion(sam_output[i], invert_masks[i].expand_as(sam_output[i]))
 
         loss_outer[i] = args.lmbd * loss_outer_sum[i] / args.batch_size
         loss_outer_inv[i] = args.lmbd * loss_inv_sum[i] / args.batch_size
@@ -729,24 +729,24 @@ def get_processed_masks(segm: torch.Tensor):
     @param segm has shape B x 3 x H x W
     @return two lists with true_masks and invert masks for every SAM output
     """
-    # maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
+    maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
     # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
     # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
-    maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
+    # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
-    # true_mask1 = maxpool_segm1(segm)
+    true_mask1 = maxpool_segm1(segm)
     # true_mask2 = maxpool_segm2(segm)
     # true_mask3 = maxpool_segm3(segm)
-    true_mask4 = maxpool_segm4(segm)
+    # true_mask4 = maxpool_segm4(segm)
 
-    # true_mask_inv1 = 1 - true_mask1
+    true_mask_inv1 = 1 - true_mask1
     # true_mask_inv2 = 1 - true_mask2
     # true_mask_inv3 = 1 - true_mask3
-    true_mask_inv4 = 1 - true_mask4
+    # true_mask_inv4 = 1 - true_mask4
 
-    true_masks = [true_mask4]
+    true_masks = [true_mask1]
     # true_masks = [true_mask1, true_mask2, true_mask3]
-    invert_masks = [true_mask_inv4]
+    invert_masks = [true_mask_inv1]
     # invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
 
     return true_masks, invert_masks
