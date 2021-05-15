@@ -356,7 +356,7 @@ def main():
         lmbd=args.lmbd
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.10", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.11", name=args.run_name, tags=args.tags)
     if is_server:
         model = model.cuda(args.cuda_device)
     if is_server:
