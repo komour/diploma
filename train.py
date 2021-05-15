@@ -259,8 +259,8 @@ class BestMetricsHolder(MetricsHolder):
         self.gc_direct = max(self.gc_direct, mh.gc_direct)
 
 
-SAM_AMOUNT = 1
-CLASS_AMOUNT = 7 if args.data_type == DataType.HAM256 else 5
+SAM_AMOUNT = 3
+CLASS_AMOUNT = 1
 # TRAIN_AMOUNT = 1600
 TRAIN_AMOUNT = 6195
 # VAL_AMOUNT = 400
@@ -295,7 +295,7 @@ def main():
         model = models.resnet34(pretrained=True)
         model.fc = nn.Linear(512, CLASS_AMOUNT)
     elif args.arch == "ResNet18BAM":
-        model = ResNet18BAM(pretrained=True, sam_instead_bam=True)
+        model = ResNet18BAM(pretrained=True, sam_instead_bam=False)
     elif args.arch == "resnet50":
         model = models.resnet50(pretrained=True)
         model.fc = nn.Linear(2048, CLASS_AMOUNT)
@@ -368,7 +368,7 @@ def main():
     # Data loading code
     if args.data_type == DataType.ISIC256:
         root_dir = 'data/'
-        segm_dir = "images/256ISIC2018_Task1_Training_GroundTruth/"
+        segm_dir = "images/256MILIA_SEGM/"
         size0 = 224
     elif args.data_type == DataType.ISIC512:
         root_dir = 'data512/'
@@ -380,9 +380,9 @@ def main():
         size0 = 224
 
     traindir = os.path.join(root_dir, 'train')
-    train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
+    train_labels = os.path.join(root_dir, 'train', 'images_onehot_train_milia.txt')
     valdir = os.path.join(root_dir, 'val')
-    val_labels = os.path.join(root_dir, 'val', 'images_onehot_val.txt')
+    val_labels = os.path.join(root_dir, 'val', 'images_onehot_val_milia.txt')
     # testdir = os.path.join(root_dir, 'test')
     # test_labels = os.path.join(root_dir, 'test', 'images_onehot_test.txt')
 
@@ -736,24 +736,24 @@ def get_processed_masks(segm: torch.Tensor):
     @return two lists with true_masks and invert masks for every SAM output
     """
     maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-    # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-    # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+    maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+    maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
     # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
     true_mask1 = maxpool_segm1(segm)
-    # true_mask2 = maxpool_segm2(segm)
-    # true_mask3 = maxpool_segm3(segm)
+    true_mask2 = maxpool_segm2(segm)
+    true_mask3 = maxpool_segm3(segm)
     # true_mask4 = maxpool_segm4(segm)
 
     true_mask_inv1 = 1 - true_mask1
-    # true_mask_inv2 = 1 - true_mask2
-    # true_mask_inv3 = 1 - true_mask3
+    true_mask_inv2 = 1 - true_mask2
+    true_mask_inv3 = 1 - true_mask3
     # true_mask_inv4 = 1 - true_mask4
 
-    true_masks = [true_mask1]
-    # true_masks = [true_mask1, true_mask2, true_mask3]
-    invert_masks = [true_mask_inv1]
-    # invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+    # true_masks = [true_mask1]
+    true_masks = [true_mask1, true_mask2, true_mask3]
+    # invert_masks = [true_mask_inv1]
+    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
 
     return true_masks, invert_masks
 
