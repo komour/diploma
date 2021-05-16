@@ -1,2 +1,6 @@
 python3 train.py --data-type ISIC256 --workers 2 --lr 1e-5 --run-name "outer-3, lr=1e-5" --run-type outer-SAM-3 --arch ResNet18BAM --tags glob ResNet18BAM outer-SAM-3 concurrent --cuda-device 3 &&
-python3 train.py --data-type ISIC256 --workers 2 --lr 1e-5 --run-name "outer-2, lr=1e-5" --run-type outer-SAM-2 --arch ResNet18BAM --tags glob ResNet18BAM outer-SAM-2 concurrent --cuda-device 3
+python3 train.py --data-type ISIC256 --workers 2 --lr 1e-5 --run-name "outer-2, lr=1e-5" --run-type outer-SAM-2 --arch ResNet18BAM --tags glob ResNet18BAM outer-SAM-2 concurrent --cuda-device 3 &&
+python3 train.py --data-type ISIC256 --workers 2 --lr 1e-5 --run-name "SAM-3, lr=1e-5" --run-type SAM-3 --arch ResNet18BAM --tags glob ResNet18BAM outer-SAM-2 concurrent --cuda-device 3 &&
+python3 train.py --data-type ISIC256 --workers 2 --lr 1e-5 --run-name "SAM-1, lr=1e-5" --run-type SAM-1 --arch ResNet18BAM --tags glob ResNet18BAM outer-SAM-2 concurrent --cuda-device 3 &&
+python3 train.py --data-type ISIC256 --workers 2 --lr 1e-5 --run-name "SAM-all, lr=1e-5" --run-type SAM-all --arch ResNet18BAM --tags glob ResNet18BAM outer-SAM-2 concurrent --cuda-device 3 &&
+python3 train.py --data-type ISIC256 --workers 2 --lr 1e-5 --run-name "SAM-2, lr=1e-5" --run-type SAM-2 --arch ResNet18BAM --tags glob ResNet18BAM outer-SAM-2 concurrent --cuda-device 3
