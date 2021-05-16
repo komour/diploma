@@ -313,14 +313,13 @@ def main():
     else:
         model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM', image_size)
 
-    pos_weight_train = torch.Tensor([2.7735849056603774])
     if is_server:
-        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
+        criterion = nn.BCEWithLogitsLoss().cuda(args.cuda_device)
         # criterion = nn.BCELoss().cuda(args.cuda_device)
         sam_criterion_outer = nn.MSELoss(reduction='none').cuda(args.cuda_device)
         sam_criterion = nn.MSELoss().cuda(args.cuda_device)
     else:
-        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
+        criterion = nn.BCEWithLogitsLoss()
         # criterion = nn.BCELoss()
         sam_criterion_outer = nn.MSELoss(reduction='none')
         sam_criterion = nn.MSELoss()
@@ -369,7 +368,7 @@ def main():
     # Data loading code
     if args.data_type == DataType.ISIC256:
         root_dir = 'data/'
-        segm_dir = "images/256MILIA_SEGM/"
+        segm_dir = "images/256GLOB_SEGM/"
         size0 = 224
     elif args.data_type == DataType.ISIC512:
         root_dir = 'data512/'
@@ -381,9 +380,9 @@ def main():
         size0 = 224
 
     traindir = os.path.join(root_dir, 'train')
-    train_labels = os.path.join(root_dir, 'train', 'images_onehot_train_milia.txt')
+    train_labels = os.path.join(root_dir, 'train', 'images_onehot_train_glob.txt')
     valdir = os.path.join(root_dir, 'val')
-    val_labels = os.path.join(root_dir, 'val', 'images_onehot_val_milia.txt')
+    val_labels = os.path.join(root_dir, 'val', 'images_onehot_val_glob.txt')
     # testdir = os.path.join(root_dir, 'test')
     # test_labels = os.path.join(root_dir, 'test', 'images_onehot_test.txt')
 
