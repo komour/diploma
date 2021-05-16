@@ -2,8 +2,8 @@ import os
 
 
 def main():
-    root_dir = 'ham_data/'
-    train_labels = os.path.join(root_dir, 'train', 'images_onehot_train.txt')
+    root_dir = 'data/'
+    train_labels = os.path.join(root_dir, 'train', 'images_onehot_train_milia.txt')
     val_labels = os.path.join(root_dir, 'val', 'images_onehot_val.txt')
 
     f_train = open(train_labels, 'r')
@@ -20,7 +20,7 @@ def main():
                 positive[i] += 1
     pos_weight = [-1, -1, -1, -1, -1, -1, -1]
     for i in range(7):
-        pos_weight[i] = negative[i] / positive[i]
+        pos_weight[i] = (negative[i] / positive[i]) if positive[i] != 0 else 0
     print(positive, negative)
     print(pos_weight)
 

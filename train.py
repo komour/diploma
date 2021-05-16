@@ -313,14 +313,15 @@ def main():
     else:
         model = ResidualNet('ImageNet', args.depth, CLASS_AMOUNT, 'CBAM', image_size)
 
+    pos_weight_train = torch.Tensor([2.7735849056603774])
     if is_server:
-        # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
-        criterion = nn.CrossEntropyLoss().cuda(args.cuda_device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train).cuda(args.cuda_device)
+        # criterion = nn.BCELoss().cuda(args.cuda_device)
         sam_criterion_outer = nn.MSELoss(reduction='none').cuda(args.cuda_device)
         sam_criterion = nn.MSELoss().cuda(args.cuda_device)
     else:
-        # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_train)
+        # criterion = nn.BCELoss()
         sam_criterion_outer = nn.MSELoss(reduction='none')
         sam_criterion = nn.MSELoss()
     if is_server:
@@ -593,7 +594,7 @@ def test(test_loader, model, criterion, sam_criterion, sam_criterion_outer, epoc
 
 def calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_criterion, sam_criterion_outer,
                               metrics_holder):
-    loss_main = criterion(output, torch.max(target, 1)[1])
+    loss_main = criterion(output, target)
     loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
     loss_comb = loss_main + loss_add
     metrics_holder.update_losses(loss_add=loss_add.detach().item() if args.run_type != RunType.BASELINE else loss_add,
