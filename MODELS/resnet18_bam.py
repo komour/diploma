@@ -10,7 +10,7 @@ class ResNet18BAM(ResNet):
         super(ResNet18BAM, self).__init__(BasicBlock, [2, 2, 2, 2])
         self.load_state_dict(models.resnet18(pretrained=pretrained).state_dict())
 
-        CLASS_AMOUNT = 7
+        CLASS_AMOUNT = 5
         self.fc = nn.Linear(512, CLASS_AMOUNT)
         if self.sam_instead_bam:
             self.sam1 = SpatialGate(64 * BasicBlock.expansion)

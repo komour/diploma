@@ -91,7 +91,7 @@ parser.add_argument('--is-server', type=int, choices=[0, 1], default=1)
 parser.add_argument("--tags", nargs='+', default=['default-tag'])
 parser.add_argument('--run-type', type=RunType, default=RunType.BASELINE, help='type of the current run')
 parser.add_argument('--lmbd', type=int, default=1, help='coefficient for additional loss')
-parser.add_argument('--data-type', type=DataType, default=DataType.HAM256, help='choice of the dataset')
+parser.add_argument('--data-type', type=DataType, default=DataType.ISIC256, help='choice of the dataset')
 args = parser.parse_args()
 is_server = args.is_server == 1
 
@@ -259,14 +259,14 @@ class BestMetricsHolder(MetricsHolder):
         self.gc_direct = max(self.gc_direct, mh.gc_direct)
 
 
-SAM_AMOUNT = 1
+SAM_AMOUNT = 3
 CLASS_AMOUNT = 7 if args.data_type == DataType.HAM256 else 5
-# TRAIN_AMOUNT = 1600
-TRAIN_AMOUNT = 6195
-# VAL_AMOUNT = 400
-VAL_AMOUNT = 1550
-# TEST_AMOUNT = 594
-TEST_AMOUNT = 2270
+TRAIN_AMOUNT = 1600
+# TRAIN_AMOUNT = 6195
+VAL_AMOUNT = 400
+# VAL_AMOUNT = 1550
+TEST_AMOUNT = 594
+# TEST_AMOUNT = 2270
 
 best_metrics_val = BestMetricsHolder(VAL_AMOUNT)
 best_metrics_test = BestMetricsHolder(TEST_AMOUNT)
@@ -295,7 +295,7 @@ def main():
         model = models.resnet34(pretrained=True)
         model.fc = nn.Linear(512, CLASS_AMOUNT)
     elif args.arch == "ResNet18BAM":
-        model = ResNet18BAM(pretrained=True, sam_instead_bam=True)
+        model = ResNet18BAM(pretrained=True, sam_instead_bam=False)
     elif args.arch == "resnet50":
         model = models.resnet50(pretrained=True)
         model.fc = nn.Linear(2048, CLASS_AMOUNT)
@@ -356,7 +356,7 @@ def main():
         lmbd=args.lmbd
     )
     if is_server:
-        run = wandb.init(config=config, project="vol.10", name=args.run_name, tags=args.tags)
+        run = wandb.init(config=config, project="vol.12", name=args.run_name, tags=args.tags)
     if is_server:
         model = model.cuda(args.cuda_device)
     if is_server:
@@ -615,9 +615,9 @@ def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.T
     true_mask = maxpool(segm)
     true_mask_invert = 1 - true_mask
 
-    true_mask_invert = true_mask_invert.detach()
-    true_mask = true_mask.detach()
-    gradcam_mask = no_norm_gc_mask_numpy.detach()
+    true_mask_invert = true_mask_invert.detach().clone()
+    true_mask = true_mask.detach().clone()
+    gradcam_mask = no_norm_gc_mask_numpy.detach().clone()
 
     gc_miss_rel_sum = 0.
     gc_direct_rel_sum = 0.
@@ -656,9 +656,9 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
 
     # measure SAM attention metrics
     for i in range(SAM_AMOUNT):
-        cur_sam_batch = sam_output[i].detach()
-        cur_mask_batch = true_masks[i].detach()
-        cur_mask_inv_batch = invert_masks[i].detach()
+        cur_sam_batch = sam_output[i].detach().clone()
+        cur_mask_batch = true_masks[i].detach().clone()
+        cur_mask_inv_batch = invert_masks[i].detach().clone()
 
         # iterate over batch to calculate metrics on each image of the batch
         assert cur_sam_batch.size(0) == cur_mask_batch.size(0)
@@ -736,24 +736,24 @@ def get_processed_masks(segm: torch.Tensor):
     @return two lists with true_masks and invert masks for every SAM output
     """
     maxpool_segm1 = nn.MaxPool3d(kernel_size=(3, 4, 4))
-    # maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
-    # maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
+    maxpool_segm2 = nn.MaxPool3d(kernel_size=(3, 8, 8))
+    maxpool_segm3 = nn.MaxPool3d(kernel_size=(3, 16, 16))
     # maxpool_segm4 = nn.MaxPool3d(kernel_size=(3, 32, 32))
 
     true_mask1 = maxpool_segm1(segm)
-    # true_mask2 = maxpool_segm2(segm)
-    # true_mask3 = maxpool_segm3(segm)
+    true_mask2 = maxpool_segm2(segm)
+    true_mask3 = maxpool_segm3(segm)
     # true_mask4 = maxpool_segm4(segm)
 
     true_mask_inv1 = 1 - true_mask1
-    # true_mask_inv2 = 1 - true_mask2
-    # true_mask_inv3 = 1 - true_mask3
+    true_mask_inv2 = 1 - true_mask2
+    true_mask_inv3 = 1 - true_mask3
     # true_mask_inv4 = 1 - true_mask4
 
-    true_masks = [true_mask1]
-    # true_masks = [true_mask1, true_mask2, true_mask3]
-    invert_masks = [true_mask_inv1]
-    # invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+    # true_masks = [true_mask1]
+    true_masks = [true_mask1, true_mask2, true_mask3]
+    # invert_masks = [true_mask_inv1]
+    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
 
     return true_masks, invert_masks
 
