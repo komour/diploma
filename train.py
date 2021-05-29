@@ -75,8 +75,8 @@ parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
-parser.add_argument('--weight-decay', '--wd', default=0.01, type=float,
-                    metavar='W', help='weight decay (default: 0.9)')
+parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
+                    metavar='W', help='weight decay (default: 1e-4)')
 parser.add_argument('--print-freq', '-p', default=25, type=int,
                     metavar='N', help='print frequency (default: 25)')
 parser.add_argument('--resume', default=None, type=str, metavar='PATH',
@@ -334,9 +334,10 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             # load ImageNet checkpoints:
-            # load_foreign_checkpoint(model)
+            load_foreign_checkpoint(model)
 
-            start_epoch = load_checkpoint(model, optimizer)
+            # load my own checkpoints:
+            # start_epoch = load_checkpoint(model)
         else:
             print(f"=> no checkpoint found at '{args.resume}'")
             return -1
@@ -616,9 +617,9 @@ def calculate_gradcam_metrics(no_norm_gc_mask_numpy: torch.Tensor, segm: torch.T
     true_mask = maxpool(segm)
     true_mask_invert = 1 - true_mask
 
-    true_mask_invert = true_mask_invert.detach().clone()
-    true_mask = true_mask.detach().clone()
-    gradcam_mask = no_norm_gc_mask_numpy.detach().clone()
+    true_mask_invert = true_mask_invert.detach().clone().cpu()
+    true_mask = true_mask.detach().clone().cpu()
+    gradcam_mask = no_norm_gc_mask_numpy.detach().clone().cpu()
 
     gc_miss_rel_sum = 0.
     gc_direct_rel_sum = 0.
@@ -657,9 +658,9 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
 
     # measure SAM attention metrics
     for i in range(SAM_AMOUNT):
-        cur_sam_batch = sam_output[i].detach().clone()
-        cur_mask_batch = true_masks[i].detach().clone()
-        cur_mask_inv_batch = invert_masks[i].detach().clone()
+        cur_sam_batch = sam_output[i].detach().clone().cpu()
+        cur_mask_batch = true_masks[i].detach().clone().cpu()
+        cur_mask_inv_batch = invert_masks[i].detach().clone().cpu()
 
         # iterate over batch to calculate metrics on each image of the batch
         assert cur_sam_batch.size(0) == cur_mask_batch.size(0)
@@ -678,7 +679,7 @@ def calculate_sam_metrics(sam_output: List[torch.Tensor], segm: torch.Tensor):
                                              torch.sum(cur_mask_inv))
             sam_direct_sum[i] += safe_division(torch.sum(cur_sam * cur_mask),
                                                torch.sum(cur_mask))
-            # iou_sum[i] += calculate_iou((cur_sam > 0.5).int(), cur_mask.int())
+            iou_sum[i] += calculate_iou((cur_sam > 0.5).int(), cur_mask.int())
     return iou_sum, sam_miss_rel_sum, sam_direct_rel_sum, sam_miss_sum, sam_direct_sum
 
 

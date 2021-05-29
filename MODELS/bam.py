@@ -58,6 +58,5 @@ class BAM(nn.Module):
 
     def forward(self, in_tensor):
         sam_attention, sam_output = self.spatial_att(in_tensor)
-        att = torch.sigmoid(self.channel_att(in_tensor) * sam_attention)
-        # att = 1 + torch.sigmoid(self.channel_att(in_tensor) * sam_attention)
+        att = 1 + torch.sigmoid(self.channel_att(in_tensor) * sam_attention)
         return att * in_tensor, sam_output

@@ -47,7 +47,7 @@ class DatasetISIC2018(Dataset):
         self.image_names = []
         self.root_dir = root_dir
         self.to_tensor = transforms.ToTensor()
-        self.color_jitter = transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05)
+        self.color_jitter = transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)
         self.perform_iaa_augs = perform_iaa_augs
         self.perform_gaussian_noise = perform_gaussian_noise
 
@@ -163,10 +163,10 @@ class ImgAugGaussianNoise:
 class ImgAugTransform:
     def __init__(self):
         self.seq_img = iaa.Sequential([
-            iaa.Affine(scale={"x": (0.8, 1.2), "y": (0.8, 1.2)}, rotate=(-45, 45), order=1, cval=0, mode=["constant", "edge"], name="MyAffine")
+            iaa.Affine(scale={"x": (0.75, 1.25), "y": (0.75, 1.25)}, rotate=(-45, 45), order=1, cval=0, mode=["constant", "edge"], name="MyAffine")
         ])
         self.seq_mask = iaa.Sequential([
-            iaa.Affine(scale={"x": (0.8, 1.2), "y": (0.8, 1.2)}, rotate=(-45, 45), order=0, cval=0, mode=["constant", "edge"], name="MyAffine")
+            iaa.Affine(scale={"x": (0.75, 1.25), "y": (0.75, 1.25)}, rotate=(-45, 45), order=0, cval=0, mode=["constant", "edge"], name="MyAffine")
         ])
 
     def __call__(self, img, mask):
