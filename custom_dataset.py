@@ -39,7 +39,6 @@ class DatasetISIC2018(Dataset):
         """
         self.transform = transform
         self.size0 = size0
-        self.segm_dir = segm_dir
         self.perform_crop = perform_crop
         self.perform_flips = perform_flips
         self.perform_rotate = perform_rotate
@@ -65,8 +64,8 @@ class DatasetISIC2018(Dataset):
 
         self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                               std=[0.229, 0.224, 0.225])
-        # self.pil_images = []
-        # self.pil_images_segm = []
+        self.pil_images = []
+        self.pil_images_segm = []
 
         with open(label_file, 'r') as f:
             lines = f.readlines()
@@ -75,22 +74,16 @@ class DatasetISIC2018(Dataset):
             name, label = line.split(' ')
             self.image_names.append(name)
             self.image_to_onehot[name] = label
-            # img_path = os.path.join(self.root_dir, name + jpg)
-            # segm_path = segm_dir + name + segm_suffix + png
-            # img = Image.open(img_path).convert('RGB')
-            # segm = Image.open(segm_path).convert('RGB')
-            # self.pil_images.append(img)
-            # self.pil_images_segm.append(segm)
+            img_path = os.path.join(self.root_dir, name + jpg)
+            segm_path = segm_dir + name + segm_suffix + png
+            img = Image.open(img_path).convert('RGB')
+            segm = Image.open(segm_path).convert('RGB')
+            self.pil_images.append(img)
+            self.pil_images_segm.append(segm)
 
     def __getitem__(self, idx):
-        # img = self.pil_images[idx]
-        # segm = self.pil_images_segm[idx]
-        img_path = os.path.join(self.root_dir,
-                                self.image_names[idx] + jpg)
-        segm_path = self.segm_dir + self.image_names[idx] + segm_suffix + png
-        img = Image.open(img_path).convert('RGB')
-        segm = Image.open(segm_path).convert('RGB')
-
+        img = self.pil_images[idx]
+        segm = self.pil_images_segm[idx]
         # same random transformations for image and mask
         if self.perform_flips:
             if random.random() > 0.5:
@@ -133,7 +126,7 @@ class DatasetISIC2018(Dataset):
         # plt.show()
         img = self.to_tensor(img)
 
-        # img = self.normalize(img)
+        img = self.normalize(img)
         segm = self.to_tensor(segm)
         label = label_to_tensor(self.image_to_onehot[self.image_names[idx]])
         return {'image': img, 'label': label, 'segm': segm, 'name': self.image_names[idx],
@@ -170,10 +163,10 @@ class ImgAugGaussianNoise:
 class ImgAugTransform:
     def __init__(self):
         self.seq_img = iaa.Sequential([
-            iaa.Affine(scale={"x": (0.9, 1.1), "y": (0.9, 1.1)}, order=1, cval=0, mode=["constant", "edge"], name="MyAffine")
+            iaa.Affine(scale={"x": (0.8, 1.2), "y": (0.8, 1.2)}, rotate=(-45, 45), order=1, cval=0, mode=["constant", "edge"], name="MyAffine")
         ])
         self.seq_mask = iaa.Sequential([
-            iaa.Affine(scale={"x": (0.9, 1.1), "y": (0.9, 1.1)}, order=0, cval=0, mode=["constant", "edge"], name="MyAffine")
+            iaa.Affine(scale={"x": (0.8, 1.2), "y": (0.8, 1.2)}, rotate=(-45, 45), order=0, cval=0, mode=["constant", "edge"], name="MyAffine")
         ])
 
     def __call__(self, img, mask):
