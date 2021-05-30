@@ -14,8 +14,8 @@ class ResNet18BAM(ResNet):
         CLASS_AMOUNT = 5
         self.fc = nn.Linear(512, CLASS_AMOUNT)
         if self.sam_instead_bam:
-            self.sam0 = CBAM_SAM()
-            self.sam1 = None
+            self.sam0 = None
+            self.sam1 = CBAM_SAM()
             # self.sam1 = SpatialGate(64 * BasicBlock.expansion)
             self.sam2 = None
             # self.sam3 = SpatialGate(256 * BasicBlock.expansion)
@@ -40,8 +40,8 @@ class ResNet18BAM(ResNet):
         x = self.layer1(x)
         if self.sam_instead_bam:
             if self.sam1 is not None:
-                _, sam_o1 = self.sam1(x)
-                x = x * sam_o1
+                x, sam_o1 = self.sam1(x)
+                # x = x * sam_o1
                 sam_output.append(sam_o1)
         else:
             x, sam_o1 = self.bam1(x)
@@ -50,8 +50,8 @@ class ResNet18BAM(ResNet):
         x = self.layer2(x)
         if self.sam_instead_bam:
             if self.sam2 is not None:
-                _, sam_o2 = self.sam2(x)
-                x = x * (1 + sam_o2)
+                x, sam_o2 = self.sam2(x)
+                # x = x * (1 + sam_o2)
                 sam_output.append(sam_o2)
         else:
             x, sam_o2 = self.bam2(x)
