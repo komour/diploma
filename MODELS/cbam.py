@@ -96,7 +96,7 @@ class SpatialGate(nn.Module):
         # print('***')
         scale = torch.sigmoid(x_out)  # broadcasting
         # print(scale.size())
-        return x * scale  # , scale
+        return x * scale, scale
 
 
 class CBAM(nn.Module):

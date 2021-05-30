@@ -1,6 +1,7 @@
 import torchvision.models as models
 from torchvision.models.resnet import ResNet, BasicBlock
 from .bam import *
+from .cbam import SpatialGate as CBAM_SAM
 
 
 class ResNet18BAM(ResNet):
@@ -13,7 +14,9 @@ class ResNet18BAM(ResNet):
         CLASS_AMOUNT = 5
         self.fc = nn.Linear(512, CLASS_AMOUNT)
         if self.sam_instead_bam:
-            self.sam1 = SpatialGate(64 * BasicBlock.expansion)
+            self.sam0 = CBAM_SAM()
+            self.sam1 = None
+            # self.sam1 = SpatialGate(64 * BasicBlock.expansion)
             self.sam2 = None
             # self.sam3 = SpatialGate(256 * BasicBlock.expansion)
             self.sam3 = None
@@ -30,7 +33,10 @@ class ResNet18BAM(ResNet):
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-
+        if self.sam0 is not None:
+            x, sam_o0 = self.sam0(x)
+            # print(sam_o0.size())
+            sam_output.append(sam_o0)
         x = self.layer1(x)
         if self.sam_instead_bam:
             if self.sam1 is not None:

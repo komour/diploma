@@ -259,7 +259,8 @@ class BestMetricsHolder(MetricsHolder):
         self.gc_direct = max(self.gc_direct, mh.gc_direct)
 
 
-SAM_AMOUNT = 3
+# SAM_AMOUNT = 3
+SAM_AMOUNT = 1
 CLASS_AMOUNT = 7 if args.data_type == DataType.HAM256 else 5
 TRAIN_AMOUNT = 1600
 # TRAIN_AMOUNT = 6195
@@ -295,7 +296,7 @@ def main():
         model = models.resnet34(pretrained=True)
         model.fc = nn.Linear(512, CLASS_AMOUNT)
     elif args.arch == "ResNet18BAM":
-        model = ResNet18BAM(pretrained=True, sam_instead_bam=False)
+        model = ResNet18BAM(pretrained=True, sam_instead_bam=True)
     elif args.arch == "resnet50":
         model = models.resnet50(pretrained=True)
         model.fc = nn.Linear(2048, CLASS_AMOUNT)
@@ -752,10 +753,10 @@ def get_processed_masks(segm: torch.Tensor):
     true_mask_inv3 = 1 - true_mask3
     # true_mask_inv4 = 1 - true_mask4
 
-    # true_masks = [true_mask1]
-    true_masks = [true_mask1, true_mask2, true_mask3]
-    # invert_masks = [true_mask_inv1]
-    invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
+    true_masks = [true_mask1]
+    # true_masks = [true_mask1, true_mask2, true_mask3]
+    invert_masks = [true_mask_inv1]
+    # invert_masks = [true_mask_inv1, true_mask_inv2, true_mask_inv3]
 
     return true_masks, invert_masks
 
