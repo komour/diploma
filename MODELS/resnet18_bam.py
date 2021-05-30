@@ -14,8 +14,8 @@ class ResNet18BAM(ResNet):
         CLASS_AMOUNT = 5
         self.fc = nn.Linear(512, CLASS_AMOUNT)
         if self.sam_instead_bam:
-            self.sam0 = None
-            self.sam1 = CBAM_SAM()
+            self.sam0 = CBAM_SAM()
+            self.sam1 = None
             # self.sam1 = SpatialGate(64 * BasicBlock.expansion)
             self.sam2 = None
             # self.sam3 = SpatialGate(256 * BasicBlock.expansion)
