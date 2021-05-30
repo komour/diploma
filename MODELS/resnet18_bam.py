@@ -22,12 +22,9 @@ class ResNet18BAM(ResNet):
             self.sam3 = None
             self.sam4 = None
         else:
-            self.bam1 = None
-            # self.bam1 = BAM(64 * BasicBlock.expansion)
-            self.bam2 = None
-            # self.bam2 = BAM(128 * BasicBlock.expansion)
+            self.bam1 = BAM(64 * BasicBlock.expansion)
+            self.bam2 = BAM(128 * BasicBlock.expansion)
             self.bam3 = BAM(256 * BasicBlock.expansion)
-            # self.bam3 = None
             self.bam4 = None
 
     def forward(self, x):
@@ -48,9 +45,8 @@ class ResNet18BAM(ResNet):
                 # x = x * sam_o1
                 sam_output.append(sam_o1)
         else:
-            if self.bam1 is not None:
-                x, sam_o1 = self.bam1(x)
-                sam_output.append(sam_o1)
+            x, sam_o1 = self.bam1(x)
+            sam_output.append(sam_o1)
 
         x = self.layer2(x)
         if self.sam_instead_bam:
@@ -59,9 +55,8 @@ class ResNet18BAM(ResNet):
                 # x = x * (1 + sam_o2)
                 sam_output.append(sam_o2)
         else:
-            if self.bam2 is not None:
-                x, sam_o2 = self.bam2(x)
-                sam_output.append(sam_o2)
+            x, sam_o2 = self.bam2(x)
+            sam_output.append(sam_o2)
 
         x = self.layer3(x)
         if self.sam_instead_bam:
@@ -70,9 +65,8 @@ class ResNet18BAM(ResNet):
                 x = x * sam_o3
                 sam_output.append(sam_o3)
         else:
-            if self.bam3 is not None:
-                x, sam_o3 = self.bam3(x)
-                sam_output.append(sam_o3)
+            x, sam_o3 = self.bam3(x)
+            sam_output.append(sam_o3)
 
         x = self.layer4(x)
 
