@@ -24,7 +24,7 @@ from sklearn.metrics import (
 )
 
 from MODELS.model_resnet import *
-from MODELS.resnet18_bam import ResNet18BAM
+from MODELS.resnet18_experimental import ResNet18BAM
 from custom_dataset import DatasetISIC2018
 from gradcam import GradCAM
 
@@ -599,8 +599,10 @@ def calculate_and_update_loss(segm, target, output, sam_output, criterion, sam_c
     loss_main = criterion(output, target)
     loss_add = calculate_and_choose_additional_loss(segm, sam_output, sam_criterion, sam_criterion_outer)
     loss_comb = loss_main + loss_add
-    metrics_holder.update_losses(loss_add=loss_add.detach().item() if args.run_type != RunType.BASELINE else loss_add,
-                                 loss_main=loss_main.detach().item(), loss_comb=loss_comb.detach().item())
+    print(loss_add)
+    metrics_holder.update_losses(
+        loss_add=loss_add.detach().item() if args.run_type != RunType.BASELINE and loss_add != 0 else loss_add,
+        loss_main=loss_main.detach().item(), loss_comb=loss_comb.detach().item())
     return loss_comb
 
 
